@@ -1,0 +1,23 @@
+import { initializeApp } from 'firebase/app'
+import { getDatabase, connectDatabaseEmulator } from 'firebase/database'
+
+const firebaseConfig = {
+  apiKey: 'REMOVED', // From firebase-debug.log
+  authDomain: 'construction-tracker-fbdb.firebaseapp.com',
+  databaseURL: 'http://127.0.0.1:9000?ns=construction-tracker-fbdb',
+  projectId: 'construction-tracker-fbdb',
+  storageBucket: 'construction-tracker-fbdb.firebasestorage.app',
+  messagingSenderId: '531430813912',
+  appId: '1:531430813912:web:b758acf956b80b293ce7ad',
+}
+
+console.log('Initializing Firebase with config:', firebaseConfig)
+
+const app = initializeApp(firebaseConfig)
+const db = getDatabase(app)
+
+if (window.location.hostname === 'localhost') {
+  connectDatabaseEmulator(db, '127.0.0.1', 9000)
+  console.log('Connected to Database Emulator')
+}
+export { db }

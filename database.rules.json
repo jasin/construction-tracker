@@ -1,0 +1,20 @@
+{
+  "rules": {
+    "projects": {
+      ".read": true,
+      ".write": true
+    },
+    "rfis": {
+      ".read": true,
+      ".write": true
+    },
+    "submittals": {
+      ".read": true,
+      ".write": true
+    },
+    "$other": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}
