@@ -4,132 +4,154 @@
     <div v-else-if="error" class="error">{{ error }}</div>
     <div v-else-if="treeData.length === 0" class="no-data">No projects found.</div>
     <div v-else>
-      <Tree :value="treeData" class="w-full md:w-[30rem]"></Tree>
+      <Tree
+        :value="treeData"
+        class="w-full md:w-[30rem]"
+        @nodeSelect="onNodeSelect"
+        selectionMode="single"
+      ></Tree>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import { ref as dbRef, onValue } from 'firebase/database'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { Tree } from 'primevue'
-import { db } from '@/firebase'
+import firebaseService from '@/firebaseService'
 
 // Reactive state
 const treeData = ref([])
 const loading = ref(true)
 const error = ref(null)
-const treeComponent = ref(null)
-const isMounted = ref(false)
 const router = useRouter()
+let unsubscribe = null
 
-function transformToTreeNodes(firebaseData) {
-  // Helper function to recursively convert Firebase nodes to PrimeVue nodes
-  function transformNode(key, data) {
-    const node = {
-      key: key,
-      label: data.name || key, // Use 'name' if available, otherwise use key
-      children: [],
-    }
-
-    // If the node has children, recursively process them
-    if (data.children && typeof data.children === 'object') {
-      node.children = Object.entries(data.children).map(([childKey, childData]) =>
-        transformNode(`${key}-${childKey}`, childData),
-      )
-    }
-
-    return node
+function transformToTreeNodes(projects) {
+  if (!projects || projects.length === 0) {
+    return []
   }
 
-  // Define the base node and its fixed children
+  // Helper function to create project nodes
+  function createProjectNode(project) {
+    return {
+      key: `project-${project.id}`,
+      label: `${project.jobNumber} - ${project.name}`,
+      data: project,
+      type: 'project',
+      children: [],
+    }
+  }
+
+  // Define the base node structure
   const baseNode = {
-    key: 'phase',
-    label: 'Phase',
+    key: 'phases',
+    label: 'Projects by Phase',
     children: [
-      { key: 'phase-pre-construction', label: 'Pre-Construction', children: [] },
-      { key: 'phase-construction', label: 'Construction', children: [] },
-      { key: 'phase-close-outs', label: 'Close-Outs', children: [] },
-      { key: 'phase-closed', label: 'Closed', children: [] },
+      { key: 'phase-pre-construction', label: 'Pre-Construction', children: [], type: 'phase' },
+      { key: 'phase-construction', label: 'Construction', children: [], type: 'phase' },
+      { key: 'phase-close-out', label: 'Close-Out', children: [], type: 'phase' },
+      { key: 'phase-complete', label: 'Complete', children: [], type: 'phase' },
     ],
   }
 
-  // Distribute Firebase data into the appropriate phase based on a 'phase' property
-  Object.entries(firebaseData).forEach(([key, value]) => {
-    const phase = value.phase || 'pre-construction' // Default to pre-construction if no phase specified
-    const targetPhaseNode = baseNode.children.find(
-      (node) => node.key === `phase-${phase.toLowerCase()}`,
-    )
+  // Distribute projects into appropriate phases
+  projects.forEach((project) => {
+    const phase = project.phase || 'pre-construction'
+    const targetPhaseNode = baseNode.children.find((node) => node.key === `phase-${phase}`)
 
     if (targetPhaseNode) {
-      targetPhaseNode.children.push(transformNode(key, value))
+      targetPhaseNode.children.push(createProjectNode(project))
     } else {
-      // If phase doesn't match, default to pre-construction
+      // Default to pre-construction if phase doesn't match
       baseNode.children
         .find((node) => node.key === 'phase-pre-construction')
-        .children.push(transformNode(key, value))
+        .children.push(createProjectNode(project))
     }
   })
 
-  // Return a single tree with the base node
   return [baseNode]
 }
 
-// Fetch projects
-onMounted(() => {
-  if (isMounted.value) {
-    console.log('Already mounted, skipping duplicate mount')
-    return
+function onNodeSelect(node) {
+  // Only navigate if it's a project node
+  if (node.type === 'project' && node.data) {
+    router.push(`/project/${node.data.id}`)
   }
-  isMounted.value = true
+}
 
+// Fetch projects using the service
+onMounted(async () => {
   console.log('ProjectTree.vue mounted. Fetching data...')
-  console.log('DB instance:', db)
 
-  const projectsRef = dbRef(db, 'projects')
-  const unsubscribe = onValue(
-    projectsRef,
-    (snapshot) => {
-      try {
-        const projectsData = snapshot.val()
-        console.log('Raw Firebase JSON:', JSON.stringify(projectsData, null, 2))
-        // Replace treeData array reactively
-        treeData.value = transformToTreeNodes(projectsData)
-        console.log('Updated treeData:', treeData.value)
-        loading.value = false
+  try {
+    // Set up real-time listener for all projects
+    unsubscribe = firebaseService.subscribeToProjects((projects) => {
+      console.log('Projects updated:', projects)
+      treeData.value = transformToTreeNodes(projects)
+      loading.value = false
+    })
+  } catch (err) {
+    console.error('Error fetching projects:', err)
+    error.value = 'Failed to load projects.'
+    loading.value = false
+  }
+})
 
-        // Debug Tree rendering
-        nextTick(() => {
-          console.log('Tree component:', treeComponent.value)
-          if (treeComponent.value) {
-            const nodes = treeComponent.value.$el.querySelectorAll('.tree-node')
-            console.log(
-              'Tree nodes rendered:',
-              nodes.length,
-              Array.from(nodes).map((n) => n.textContent.trim()),
-            )
-          }
-        })
-      } catch (err) {
-        console.error('Error fetching projects:', err)
-        error.value = 'Failed to load projects.'
-        loading.value = false
-      }
-    },
-    {
-      onError: (err) => {
-        console.error('Firebase error:', err)
-        error.value = 'Failed to connect to Firebase.'
-        loading.value = false
-      },
-    },
-  )
-
-  // Clean up Firebase listener
-  onBeforeUnmount(() => {
+// Clean up Firebase listener
+onBeforeUnmount(() => {
+  if (unsubscribe) {
     console.log('Cleaning up ProjectTree listeners')
-    unsubscribe()
-  })
+    if (typeof unsubscribe === 'function') {
+      unsubscribe()
+    } else {
+      firebaseService.unsubscribe(unsubscribe)
+    }
+  }
 })
 </script>
+
+<style scoped>
+.project-tree {
+  padding: 10px;
+}
+
+.loading,
+.error,
+.no-data {
+  text-align: center;
+  padding: 20px;
+  color: #6c757d;
+}
+
+.error {
+  color: #dc3545;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+}
+
+/* Style the tree nodes */
+:deep(.p-tree-node-content) {
+  padding: 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+:deep(.p-tree-node-content:hover) {
+  background-color: var(--p-content-hover-background);
+}
+
+:deep(.p-tree-node-label) {
+  font-weight: 500;
+}
+
+/* Different styles for different node types */
+:deep([data-pc-section='content'][aria-label*='Pre-Construction']),
+:deep([data-pc-section='content'][aria-label*='Construction']),
+:deep([data-pc-section='content'][aria-label*='Close-Out']),
+:deep([data-pc-section='content'][aria-label*='Complete']) {
+  font-weight: 600;
+  color: var(--p-primary-color);
+}
+</style>

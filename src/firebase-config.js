@@ -4,7 +4,7 @@ import { getDatabase, connectDatabaseEmulator } from 'firebase/database'
 const firebaseConfig = {
   apiKey: 'AIzaSyAI_TiCoeNNQoR3IGOrnAGFZfXYadlrldg', // From firebase-debug.log
   authDomain: 'construction-tracker-fbdb.firebaseapp.com',
-  databaseURL: 'http://127.0.0.1:9000?ns=construction-tracker-fbdb',
+  databaseURL: 'http://127.0.0.1:9000?ns=construction-tracker-fbdb-default-rtdb',
   projectId: 'construction-tracker-fbdb',
   storageBucket: 'construction-tracker-fbdb.firebasestorage.app',
   messagingSenderId: '531430813912',
@@ -14,10 +14,10 @@ const firebaseConfig = {
 console.log('Initializing Firebase with config:', firebaseConfig)
 
 const app = initializeApp(firebaseConfig)
-const db = getDatabase(app)
+const database = getDatabase(app)
 
 if (window.location.hostname === 'localhost') {
-  connectDatabaseEmulator(db, '127.0.0.1', 9000)
+  connectDatabaseEmulator(database, '127.0.0.1', 9000)
   console.log('Connected to Database Emulator')
 }
-export { db }
+export { database }
