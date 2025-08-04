@@ -1,20 +1,24 @@
 {
   "rules": {
-    "projects": {
-      ".read": true,
-      ".write": true
+    ".read": true,
+    ".write": true,
+    "activityLog": {
+      ".indexOn": ["projectId"]
     },
     "rfis": {
-      ".read": true,
-      ".write": true
+      ".indexOn": ["projectId"]
     },
     "submittals": {
-      ".read": true,
-      ".write": true
+      ".indexOn": ["projectId"]
     },
-    "$other": {
-      ".read": false,
-      ".write": false
+    "changeOrders": {
+      ".indexOn": ["projectId"]
+    },
+    "documents": {
+      ".indexOn": ["projectId"]
+    },
+    "projects": {
+      ".indexOn": ["clientId", "phase"]
     }
   }
 }
