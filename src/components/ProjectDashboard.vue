@@ -1,49 +1,125 @@
 <template>
-  <div class="project-dashboard">
-    <div v-if="loading" class="loading">Loading project data...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else>
-      <div class="project-header">
-        <h2>{{ project.jobNumber }} - {{ project.name || 'Loading...' }}</h2>
-        <div class="project-meta">
-          <span class="phase-badge" :class="project.phase">{{ project.phase || 'N/A' }}</span>
-          <span class="cost">${{ formatCurrency(project.cost) }}</span>
-          <span class="contract-status" :class="{ signed: project.contractSigned }">
+  <div class="h-full flex flex-col bg-white">
+    <div v-if="loading" class="flex items-center justify-center h-full text-lg text-gray-500">
+      {{ error ? error : 'Loading project...' }}
+    </div>
+    <div v-else-if="error" class="flex items-center justify-center h-full">
+      <div
+        class="text-red-600 bg-red-50 border border-red-200 rounded-lg m-5 p-10 text-center text-lg"
+      >
+        {{ error }}
+      </div>
+    </div>
+    <div v-else class="h-full flex flex-col">
+      <!-- Project Header -->
+      <div class="bg-white border-b-2 border-gray-200 px-7 py-6 flex-shrink-0 shadow-sm">
+        <h2 class="m-0 mb-3 text-gray-700 text-3xl font-semibold">
+          {{ project.jobNumber }} - {{ project.name || 'Loading...' }}
+        </h2>
+        <div class="flex gap-5 items-center flex-wrap">
+          <span
+            class="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide"
+            :class="{
+              'bg-yellow-100 text-yellow-800 border border-yellow-200':
+                project.phase === 'pre-construction',
+              'bg-blue-100 text-blue-800 border border-blue-200': project.phase === 'construction',
+              'bg-green-100 text-green-800 border border-green-200': project.phase === 'close-out',
+              'bg-teal-100 text-teal-800 border border-teal-200': project.phase === 'complete',
+            }"
+          >
+            {{ project.phase || 'N/A' }}
+          </span>
+          <span
+            class="font-bold text-lg text-green-600 bg-green-50 px-3 py-1.5 rounded-md border border-green-200"
+          >
+            ${{ formatCurrency(project.cost) }}
+          </span>
+          <span
+            class="px-3 py-1.5 rounded-md text-xs font-semibold uppercase"
+            :class="{
+              'bg-green-100 text-green-800 border border-green-200': project.contractSigned,
+              'bg-red-100 text-red-800 border border-red-200': !project.contractSigned,
+            }"
+          >
             Contract: {{ project.contractSigned ? 'Signed' : 'Pending' }}
           </span>
         </div>
       </div>
 
-      <div class="dashboard-sections">
-        <div class="section">
-          <div class="section-header">
-            <h3>RFIs ({{ rfis.length }})</h3>
-            <button @click="createNewRFI" class="btn-primary">New RFI</button>
+      <!-- Dashboard Sections -->
+      <div class="flex-1 overflow-y-auto p-7 grid grid-cols-1 lg:grid-cols-2 gap-7 content-start">
+        <div
+          class="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col h-fit hover:shadow-md transition-shadow"
+        >
+          <div
+            class="flex justify-between items-center px-6 py-5 border-b border-gray-200 bg-gray-50 rounded-t-xl"
+          >
+            <h3 class="m-0 text-gray-700 text-lg font-semibold">RFIs ({{ rfis.length }})</h3>
+            <button
+              @click="createNewRFI"
+              class="bg-emerald-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-emerald-600 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:bg-emerald-700 transition-all whitespace-nowrap"
+            >
+              New RFI
+            </button>
           </div>
-          <RFIList :rfis="rfiObject" :projectId="projectId" />
+          <div class="px-6 py-5 flex-1 overflow-y-auto max-h-96">
+            <RFIList :rfis="rfiObject" :projectId="projectId" />
+          </div>
         </div>
 
-        <div class="section">
-          <div class="section-header">
-            <h3>Submittals ({{ submittals.length }})</h3>
-            <button @click="createNewSubmittal" class="btn-primary">New Submittal</button>
+        <div
+          class="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col h-fit hover:shadow-md transition-shadow"
+        >
+          <div
+            class="flex justify-between items-center px-6 py-5 border-b border-gray-200 bg-gray-50 rounded-t-xl"
+          >
+            <h3 class="m-0 text-gray-700 text-lg font-semibold">
+              Submittals ({{ submittals.length }})
+            </h3>
+            <button
+              @click="createNewSubmittal"
+              class="bg-emerald-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-emerald-600 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:bg-emerald-700 transition-all whitespace-nowrap"
+            >
+              New Submittal
+            </button>
           </div>
-          <SubmittalList :submittals="submittalObject" :projectId="projectId" />
+          <div class="px-6 py-5 flex-1 overflow-y-auto max-h-96">
+            <SubmittalList :submittals="submittalObject" :projectId="projectId" />
+          </div>
         </div>
 
-        <div class="section">
-          <div class="section-header">
-            <h3>Change Orders ({{ changeOrders.length }})</h3>
-            <button @click="createNewChangeOrder" class="btn-primary">New Change Order</button>
+        <div
+          class="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col h-fit hover:shadow-md transition-shadow"
+        >
+          <div
+            class="flex justify-between items-center px-6 py-5 border-b border-gray-200 bg-gray-50 rounded-t-xl"
+          >
+            <h3 class="m-0 text-gray-700 text-lg font-semibold">
+              Change Orders ({{ changeOrders.length }})
+            </h3>
+            <button
+              @click="createNewChangeOrder"
+              class="bg-emerald-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-emerald-600 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:bg-emerald-700 transition-all whitespace-nowrap"
+            >
+              New Change Order
+            </button>
           </div>
-          <ChangeOrderList :changeOrders="changeOrderObject" :projectId="projectId" />
+          <div class="px-6 py-5 flex-1 overflow-y-auto max-h-96">
+            <ChangeOrderList :changeOrders="changeOrderObject" :projectId="projectId" />
+          </div>
         </div>
 
-        <div class="section">
-          <div class="section-header">
-            <h3>Recent Activity</h3>
+        <div
+          class="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col h-fit hover:shadow-md transition-shadow"
+        >
+          <div
+            class="flex justify-between items-center px-6 py-5 border-b border-gray-200 bg-gray-50 rounded-t-xl"
+          >
+            <h3 class="m-0 text-gray-700 text-lg font-semibold">Recent Activity</h3>
           </div>
-          <ActivityLog :activities="activities" />
+          <div class="px-6 py-5 flex-1 overflow-y-auto max-h-96">
+            <ActivityLog :activities="activities" />
+          </div>
         </div>
       </div>
     </div>
@@ -100,15 +176,11 @@ const changeOrderObject = computed(() => {
 
 // Methods
 const loadProjectData = async () => {
-  console.log('Loading project with ID:', props.projectId) //debug
-
   // Load initial project data
   const [projectData, activitiesData] = await Promise.all([
     firebaseService.getProject(props.projectId),
     firebaseService.getActivityByProject(props.projectId),
   ])
-
-  console.log('Project data received:', projectData) //debug
 
   if (!projectData) {
     throw new Error('Project not found')
@@ -241,11 +313,8 @@ watch(
   },
 )
 
+// Lifecycle hooks
 onMounted(async () => {
-  // Load initial project data
-  loading.value = true
-  error.value = null
-
   try {
     await loadProjectData()
     setupRealtimeListeners()
@@ -269,146 +338,21 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.project-dashboard {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
+/* Only custom scrollbar styling that Tailwind can't handle */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
 }
 
-.loading,
-.error {
-  text-align: center;
-  padding: 40px;
-  font-size: 18px;
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: var(--p-surface-100);
 }
 
-.error {
-  color: #dc3545;
-  background-color: #f8d7da;
-  border: 1px solid #f5c6cb;
-  border-radius: 8px;
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: var(--p-surface-300);
+  border-radius: 3px;
 }
 
-.loading {
-  color: #6c757d;
-}
-
-.project-header {
-  margin-bottom: 30px;
-  padding-bottom: 20px;
-  border-bottom: 2px solid #e9ecef;
-}
-
-.project-header h2 {
-  margin: 0 0 10px 0;
-  color: #343a40;
-}
-
-.project-meta {
-  display: flex;
-  gap: 15px;
-  align-items: center;
-}
-
-.phase-badge {
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: bold;
-  text-transform: uppercase;
-}
-
-.phase-badge.pre-construction {
-  background-color: #fff3cd;
-  color: #856404;
-}
-
-.phase-badge.construction {
-  background-color: #cce5ff;
-  color: #004085;
-}
-
-.phase-badge.close-out {
-  background-color: #d4edda;
-  color: #155724;
-}
-
-.phase-badge.complete {
-  background-color: #d1ecf1;
-  color: #0c5460;
-}
-
-.cost {
-  font-weight: bold;
-  color: #28a745;
-}
-
-.contract-status {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.contract-status.signed {
-  background-color: #d4edda;
-  color: #155724;
-}
-
-.contract-status:not(.signed) {
-  background-color: #f8d7da;
-  color: #721c24;
-}
-
-.dashboard-sections {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 30px;
-}
-
-.section {
-  background: white;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  padding: 20px;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.section-header h3 {
-  margin: 0;
-  color: #495057;
-}
-
-.btn-primary {
-  background-color: #007bff;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.btn-primary:hover {
-  background-color: #0056b3;
-}
-
-@media (max-width: 768px) {
-  .dashboard-sections {
-    grid-template-columns: 1fr;
-  }
-
-  .project-meta {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: var(--p-surface-400);
 }
 </style>

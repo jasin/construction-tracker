@@ -528,17 +528,6 @@ class FirebaseService {
     return projectRef
   }
 
-  subscribeToProjects(callback) {
-    const projectsRef = ref(database, 'projects')
-    onValue(projectsRef, (snapshot) => {
-      const projects = snapshot.exists()
-        ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
-        : []
-      callback(projects)
-    })
-    return projectsRef
-  }
-
   subscribeToProjectRFIs(projectId, callback) {
     const rfisRef = ref(database, 'rfis')
     const projectRFIsQuery = query(rfisRef, orderByChild('projectId'), equalTo(projectId))
