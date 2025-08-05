@@ -1,12 +1,19 @@
 <template>
   <div class="project-tree">
-    <div v-if="loading" class="loading">Loading projects...</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
-    <div v-else-if="treeData.length === 0" class="no-data">No projects found.</div>
+    <div v-if="loading" class="text-center py-5 text-gray-500">Loading projects...</div>
+    <div
+      v-else-if="error"
+      class="text-center py-5 text-red-600 bg-red-50 border border-red-200 rounded p-4 mb-4"
+    >
+      {{ error }}
+    </div>
+    <div v-else-if="treeData.length === 0" class="text-center py-5 text-gray-500">
+      No projects found.
+    </div>
     <div v-else>
       <Tree
         :value="treeData"
-        class="w-full md:w-[30rem]"
+        class="w-full"
         @nodeSelect="onNodeSelect"
         selectionMode="single"
       ></Tree>
@@ -112,46 +119,5 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.project-tree {
-  padding: 10px;
-}
-
-.loading,
-.error,
-.no-data {
-  text-align: center;
-  padding: 20px;
-  color: #6c757d;
-}
-
-.error {
-  color: #dc3545;
-  background-color: #f8d7da;
-  border: 1px solid #f5c6cb;
-  border-radius: 4px;
-}
-
-/* Style the tree nodes */
-:deep(.p-tree-node-content) {
-  padding: 8px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-}
-
-:deep(.p-tree-node-content:hover) {
-  background-color: var(--p-content-hover-background);
-}
-
-:deep(.p-tree-node-label) {
-  font-weight: 500;
-}
-
-/* Different styles for different node types */
-:deep([data-pc-section='content'][aria-label*='Pre-Construction']),
-:deep([data-pc-section='content'][aria-label*='Construction']),
-:deep([data-pc-section='content'][aria-label*='Close-Out']),
-:deep([data-pc-section='content'][aria-label*='Complete']) {
-  font-weight: 600;
-  color: var(--p-primary-color);
-}
+/* Pure PrimeVue styling - no custom overrides */
 </style>
