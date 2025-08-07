@@ -160,6 +160,17 @@ class FirebaseService {
     return snapshot.exists() ? { id: userId, ...snapshot.val() } : null
   }
 
+  async getUserByEmail(email) {
+    const usersRef = ref(database, 'users')
+    const userQuery = query(usersRef, orderByChild('email'), equalTo(email))
+    const snapshot = await get(userQuery)
+
+    if (!snapshot.exists()) return null
+
+    const userData = Object.entries(snapshot.val())[0] // Get first match
+    return { id: userData[0], ...userData[1] }
+  }
+
   async getAllUsers() {
     const usersRef = ref(database, 'users')
     const snapshot = await get(usersRef)
