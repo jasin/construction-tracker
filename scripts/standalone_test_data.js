@@ -55,24 +55,24 @@ async function populateTestData() {
     // Create test users
     console.log('Creating users...')
     const user1 = await createRecord('users', {
-      name: 'Mike Johnson',
-      email: 'mike@yourcompany.com',
-      role: 'project-manager',
-      phone: '555-0789',
+      name: 'Jasin Colegrove',
+      email: 'colegrovej@aftmech.com',
+      role: 'admin',
+      phone: '570-418-1310',
       active: true,
     })
 
     const user2 = await createRecord('users', {
-      name: 'Sarah Wilson',
-      email: 'sarah@yourcompany.com',
-      role: 'foreman',
+      name: 'Rebecca Frantz',
+      email: 'frantzr@aftmech.com',
+      role: 'project-manager',
       phone: '555-0321',
       active: true,
     })
 
     const user3 = await createRecord('users', {
-      name: 'Tom Anderson',
-      email: 'tom@yourcompany.com',
+      name: 'Austin Trengo',
+      email: 'trengoa@aftmech.com',
       role: 'superintendent',
       phone: '555-0654',
       active: true,

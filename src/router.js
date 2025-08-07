@@ -6,6 +6,7 @@ import { requireAuth, requireRole, redirectIfAuthenticated } from './authGuard'
 import ProjectDashboard from '@/components/ProjectDashboard.vue'
 import UserManagement from '@/components/UserManagement.vue'
 import LoginPage from '@/components/LoginPage.vue'
+import UserDashboard from './components/UserDashboard.vue'
 
 // Placeholder component for routes that don't have components yet
 const PlaceholderPage = {
@@ -41,13 +42,9 @@ const routes = [
   // Protected routes
   {
     path: '/',
-    name: 'Home',
-    component: PlaceholderPage,
+    name: 'User Dashboard',
+    component: UserDashboard,
     beforeEnter: requireAuth,
-    props: {
-      title: 'Dashboard',
-      description: 'Welcome to Construction Tracker',
-    },
   },
 
   // Project routes

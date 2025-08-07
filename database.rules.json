@@ -19,6 +19,9 @@
     },
     "projects": {
       ".indexOn": ["clientId", "phase"]
+    },
+    "users": {
+      ".indexOn": ["email"]
     }
   }
 }
