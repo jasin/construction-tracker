@@ -2,14 +2,9 @@
   <div
     class="w-80 min-w-80 bg-gray-50 border-r border-gray-200 flex flex-col h-screen overflow-hidden"
   >
-    <!-- Sidebar Header -->
-    <div class="p-5 border-b border-gray-200 bg-white flex-shrink-0">
-      <h2 class="m-0 text-gray-700 text-2xl font-semibold">Construction Tracker</h2>
-    </div>
-
     <!-- Sidebar Menu -->
     <div class="flex-1 overflow-y-auto">
-      <nav class="p-2">
+      <nav class="">
         <!-- Projects Section -->
         <div class="mb-2">
           <button
@@ -45,7 +40,7 @@
 
           <!-- Projects Submenu -->
           <div v-show="expandedSections.projects" class="ml-8 mt-2">
-            <ProjectTree />
+            <ProjectMenu />
           </div>
         </div>
 
@@ -263,7 +258,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import ProjectTree from './ProjectTree.vue'
+import ProjectMenu from './ProjectMenu.vue'
 
 // Reactive state for expanded sections
 const expandedSections = ref({
