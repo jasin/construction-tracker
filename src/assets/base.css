@@ -1,3 +1,7 @@
+:root {
+  --header-height: 5rem;
+}
+
 /* Primary and Surface Palettes */
 :root {
   --p-primary-50: #ecfdf5;

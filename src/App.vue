@@ -1,7 +1,10 @@
 <template>
   <div id="app" class="min-h-screen font-sans">
     <!-- Loading screen while auth initializes -->
-    <div v-if="authLoading" class="flex flex-col items-center justify-center min-h-screen bg-primary text-primary-contrast gap-4">
+    <div
+      v-if="authLoading"
+      class="flex flex-col items-center justify-center min-h-screen bg-primary text-primary-contrast gap-4"
+    >
       <ProgressSpinner strokeWidth="3" class="w-16 h-16" />
       <span class="text-lg font-medium">Loading...</span>
     </div>
@@ -9,7 +12,10 @@
     <!-- Authenticated app layout -->
     <div v-else-if="isAuthenticated" class="min-h-screen bg-surface-ground">
       <!-- Header -->
-      <Toolbar class="border-b border-surface shadow-sm sticky top-0 z-50">
+      <Toolbar
+        class="border-b border-surface shadow-sm sticky top-0 z-50"
+        style="height: var(--header-height)"
+      >
         <template #start>
           <div class="flex items-center gap-3">
             <i class="pi pi-building text-2xl text-primary"></i>
@@ -31,14 +37,11 @@
       </Toolbar>
 
       <!-- Main layout with sidebar -->
-      <div class="flex min-h-[calc(100vh-4rem)]">
+      <div class="flex h-[calc(100vh-var(--header-height))]">
         <!-- Sidebar -->
-        <aside class="w-80 bg-surface-card border-r border-surface shadow-sm">
-          <div class="p-4 h-full overflow-y-auto">
-            <NavigationSidebar />
-          </div>
-        </aside>
-
+        <div class="h-full overflow-y-auto">
+          <NavigationSidebar class="flex-shrink-0" />
+        </div>
         <!-- Main content -->
         <main class="flex-1 bg-surface-ground overflow-y-auto">
           <router-view />
@@ -56,10 +59,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
-import Button from 'primevue/button'
-import Toolbar from 'primevue/toolbar'
-import ProgressSpinner from 'primevue/progressspinner'
-import Chip from 'primevue/chip'
+import { Button, Toolbar, ProgressSpinner, Chip } from 'primevue'
 import authService from '@/authService'
 import NavigationSidebar from '@/components/NavigationSidebar.vue'
 
