@@ -13,7 +13,7 @@
             {{ activity.description }}
           </div>
           <div class="activity-meta">
-            <span class="activity-user">{{ activity.userId }}</span>
+            <span class="activity-user">{{ activity.userName || activity.userId }}</span>
             <span class="activity-time">{{ formatTimeAgo(activity.timestamp) }}</span>
           </div>
         </div>
