@@ -499,6 +499,194 @@ class FirebaseService {
     await remove(coRef)
   }
 
+  // ==================== TASK ============================
+
+  async createTask(taskData) {
+    const tasksRef = ref(database, 'tasks')
+    const newTaskRef = push(tasksRef)
+    const taskWithTimestamp = {
+      ...taskData,
+      createdAt: new Date().toISOString(),
+      createdBy: this.getCurrentUserId(),
+      updatedAt: new Date().toISOString(),
+      actualHours: 0,
+      progress: 0
+    }
+    await set(newTaskRef, taskWithTimestamp)
+
+    // Log activity
+    await this.logActivity(
+      taskData.projectId,
+      'created_task',
+      'task',
+      newTaskRef.key,
+      `Created task: ${taskData.title}`,
+    )
+
+    return { id: newTaskRef.key, ...taskWithTimestamp }
+  }
+
+  async getTask(taskId) {
+    const taskRef = ref(database, `tasks/${taskId}`)
+    const snapshot = await get(taskRef)
+    return snapshot.exists() ? { id: taskId, ...snapshot.val() } : null
+  }
+
+  async getTasksByProject(projectId) {
+    const tasksRef = ref(database, 'tasks')
+    const projectTasksQuery = query(tasksRef, orderByChild('projectId'), equalTo(projectId))
+    const snapshot = await get(projectTasksQuery)
+
+    if (!snapshot.exists()) return []
+    return Object.entries(snapshot.val()).map(([id, data]) => ({
+      id,
+      ...data,
+    }))
+  }
+
+  async getTasksByAssignee(userId) {
+    const tasksRef = ref(database, 'tasks')
+    const assigneeTasksQuery = query(tasksRef, orderByChild('assignedTo'), equalTo(userId))
+    const snapshot = await get(assigneeTasksQuery)
+
+    if (!snapshot.exists()) return []
+    return Object.entries(snapshot.val()).map(([id, data]) => ({
+      id,
+      ...data,
+    }))
+  }
+
+  async getTasksByStatus(projectId, status) {
+    const tasks = await this.getTasksByProject(projectId)
+    return tasks.filter((task) => task.status === status)
+  }
+
+  async getOverdueTasks(projectId = null) {
+    const now = new Date().toISOString()
+    let tasks = []
+
+    if (projectId) {
+      tasks = await this.getTasksByProject(projectId)
+    } else {
+      tasks = await this.getAllTasks()
+    }
+
+    return tasks.filter((task) => {
+      return task.dueDate &&
+             task.dueDate < now &&
+             task.status !== 'complete'
+    })
+  }
+
+  async updateTask(taskId, updates) {
+    const taskRef = ref(database, `tasks/${taskId}`)
+    const updateData = {
+      ...updates,
+      updatedAt: new Date().toISOString(),
+      updatedBy: this.getCurrentUserId()
+    }
+
+    await update(taskRef, updateData)
+
+    // Log significant updates
+    if (updates.status) {
+      const task = await this.getTask(taskId)
+      await this.logActivity(
+        task.projectId,
+        'updated_task_status',
+        'task',
+        taskId,
+        `Updated task "${task.title}" status to: ${updates.status}`,
+      )
+    }
+
+    return { id: taskId, ...updateData }
+  }
+
+  async completeTask(taskId, actualHours = null) {
+    const updates = {
+      status: 'complete',
+      completedAt: new Date().toISOString(),
+      completedBy: this.getCurrentUserId(),
+      progress: 100
+    }
+
+    if (actualHours !== null) {
+      updates.actualHours = actualHours
+    }
+
+    return await this.updateTask(taskId, updates)
+  }
+
+  async assignTask(taskId, userId) {
+    const updates = {
+      assignedTo: userId,
+      assignedAt: new Date().toISOString(),
+      assignedBy: this.getCurrentUserId()
+    }
+
+    const task = await this.getTask(taskId)
+    await this.logActivity(
+      task.projectId,
+      'assigned_task',
+      'task',
+      taskId,
+      `Assigned task "${task.title}" to user: ${userId}`,
+    )
+
+    return await this.updateTask(taskId, updates)
+  }
+
+  async updateTaskProgress(taskId, progress) {
+    const updates = {
+      progress: Math.max(0, Math.min(100, progress)) // Clamp between 0-100
+    }
+
+    // Auto-complete if progress reaches 100%
+    if (progress >= 100) {
+      updates.status = 'complete'
+      updates.completedAt = new Date().toISOString()
+      updates.completedBy = this.getCurrentUserId()
+    }
+
+    return await this.updateTask(taskId, updates)
+  }
+
+  async addTaskComment(taskId, comment) {
+    const commentsRef = ref(database, `taskComments/${taskId}`)
+    const newCommentRef = push(commentsRef)
+    const commentData = {
+      text: comment,
+      createdAt: new Date().toISOString(),
+      createdBy: this.getCurrentUserId(),
+      createdByName: this.getCurrentUserName()
+    }
+
+    await set(newCommentRef, commentData)
+    return { id: newCommentRef.key, ...commentData }
+  }
+
+  async getTaskComments(taskId) {
+    const commentsRef = ref(database, `taskComments/${taskId}`)
+    const snapshot = await get(commentsRef)
+
+    if (!snapshot.exists()) return []
+    return Object.entries(snapshot.val())
+      .map(([id, data]) => ({ id, ...data }))
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) // Newest first
+  }
+
+  async deleteTask(taskId) {
+    const taskRef = ref(database, `tasks/${taskId}`)
+    const commentsRef = ref(database, `taskComments/${taskId}`)
+
+    // Delete task and all its comments
+    await Promise.all([
+      remove(taskRef),
+      remove(commentsRef)
+    ])
+  }
+
   // ==================== ACTIVITY LOG ====================
 
   async logActivity(projectId, action, entityType, entityId, description) {
@@ -531,6 +719,65 @@ class FirebaseService {
   }
 
   // ==================== REAL-TIME LISTENERS ====================
+
+  subscribeToProjectTasks(projectId, callback) {
+    const tasksRef = ref(database, 'tasks')
+    const projectTasksQuery = query(tasksRef, orderByChild('projectId'), equalTo(projectId))
+
+    onValue(projectTasksQuery, (snapshot) => {
+      const tasks = snapshot.exists()
+        ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
+        : []
+
+      // Sort by due date and priority
+      tasks.sort((a, b) => {
+        // First sort by due date (nulls last)
+        if (a.dueDate && !b.dueDate) return -1
+        if (!a.dueDate && b.dueDate) return 1
+        if (a.dueDate && b.dueDate) {
+          const dateComparison = new Date(a.dueDate) - new Date(b.dueDate)
+          if (dateComparison !== 0) return dateComparison
+        }
+
+        // Then by priority
+        const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 }
+        return (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2)
+      })
+
+      callback(tasks)
+    })
+
+    return projectTasksQuery
+  }
+
+  subscribeToUserTasks(userId, callback) {
+    const tasksRef = ref(database, 'tasks')
+    const userTasksQuery = query(tasksRef, orderByChild('assignedTo'), equalTo(userId))
+
+    onValue(userTasksQuery, (snapshot) => {
+      const tasks = snapshot.exists()
+        ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
+        : []
+      callback(tasks)
+    })
+
+    return userTasksQuery
+  }
+
+  subscribeToTaskComments(taskId, callback) {
+    const commentsRef = ref(database, `taskComments/${taskId}`)
+
+    onValue(commentsRef, (snapshot) => {
+      const comments = snapshot.exists()
+        ? Object.entries(snapshot.val())
+            .map(([id, data]) => ({ id, ...data }))
+            .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)) // Oldest first for comments
+        : []
+      callback(comments)
+    })
+
+    return commentsRef
+  }
 
   subscribeToProject(projectId, callback) {
     const projectRef = ref(database, `projects/${projectId}`)
@@ -597,6 +844,77 @@ class FirebaseService {
   }
 
   // ==================== UTILITY METHODS ====================
+
+  async getAllTasks() {
+    const tasksRef = ref(database, 'tasks')
+    const snapshot = await get(tasksRef)
+    if (!snapshot.exists()) return []
+
+    return Object.entries(snapshot.val()).map(([id, data]) => ({
+      id,
+      ...data,
+    }))
+  }
+
+  async getTaskStatistics(projectId) {
+    const tasks = await this.getTasksByProject(projectId)
+
+    const stats = {
+      total: tasks.length,
+      completed: tasks.filter(t => t.status === 'complete').length,
+      inProgress: tasks.filter(t => t.status === 'in-progress').length,
+      overdue: tasks.filter(t => {
+        return t.dueDate &&
+               new Date(t.dueDate) < new Date() &&
+               t.status !== 'complete'
+      }).length,
+      byPriority: {
+        critical: tasks.filter(t => t.priority === 'critical').length,
+        high: tasks.filter(t => t.priority === 'high').length,
+        medium: tasks.filter(t => t.priority === 'medium').length,
+        low: tasks.filter(t => t.priority === 'low').length
+      },
+      totalEstimatedHours: tasks.reduce((sum, task) => sum + (task.estimatedHours || 0), 0),
+      totalActualHours: tasks.reduce((sum, task) => sum + (task.actualHours || 0), 0),
+      averageProgress: tasks.length > 0
+        ? tasks.reduce((sum, task) => sum + (task.progress || 0), 0) / tasks.length
+        : 0
+    }
+
+    stats.completionRate = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0
+
+    return stats
+  }
+
+  // Bulk operations
+  async bulkUpdateTasks(taskIds, updates) {
+    const promises = taskIds.map(taskId => this.updateTask(taskId, updates))
+    return await Promise.all(promises)
+  }
+
+  async bulkAssignTasks(taskIds, userId) {
+    const promises = taskIds.map(taskId => this.assignTask(taskId, userId))
+    return await Promise.all(promises)
+  }
+
+  // Task dependencies
+  async checkTaskDependencies(taskId) {
+    const task = await this.getTask(taskId)
+    if (!task || !task.dependencies || task.dependencies.length === 0) {
+      return { canStart: true, blockedBy: [] }
+    }
+
+    const dependencies = await Promise.all(
+      task.dependencies.map(depId => this.getTask(depId))
+    )
+
+    const blockedBy = dependencies.filter(dep => dep && dep.status !== 'complete')
+
+    return {
+      canStart: blockedBy.length === 0,
+      blockedBy: blockedBy.map(dep => ({ id: dep.id, title: dep.title }))
+    }
+  }
 
   // Get current user ID
   getCurrentUserId() {
