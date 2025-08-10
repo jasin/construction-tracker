@@ -277,7 +277,7 @@
 import { ref, watch } from 'vue'
 import { ContextMenu } from 'primevue'
 import ProjectMenu from './ProjectMenu.vue'
-import ProjectModal from './modals/ProjectModal.vue'
+import ProjectModal from './ProjectSlideOver.vue'
 
 // Reactive state for expanded sections
 const expandedSections = ref({

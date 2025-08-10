@@ -23,8 +23,8 @@
               icon="pi pi-pencil"
               size="small"
               severity="secondary"
-              aria-label="Quick Edit"
-              @click="showQuickEdit = true"
+              aria-label="Edit Project"
+              @click="showProjectSlideOver = true"
             />
             <Button
               icon="pi pi-cog"
@@ -99,104 +99,143 @@
       <!-- Dashboard Content -->
       <div class="flex-1 overflow-y-auto p-6">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <!-- Main Content Area: 2/3 width -->
-          <div class="lg:col-span-2 space-y-6">
-            <!-- Recent Activity Card -->
-            <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div class="px-4 py-3 border-b border-gray-200">
-                <h3 class="text-sm font-medium text-gray-900">Recent Activity</h3>
-              </div>
-              <div class="p-4 max-h-80 overflow-y-auto">
-                <ActivityLog :activities="activities" />
-              </div>
-            </div>
-
+          <!-- Main Content Area: Full width -->
+          <div class="lg:col-span-3 space-y-6">
             <!-- Upcoming Tasks Card -->
             <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
               <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="text-sm font-medium text-gray-900">Upcoming Tasks</h3>
-                <Button icon="pi pi-plus" size="small" severity="secondary" label="Add Task" />
+                <h3 class="text-sm font-medium text-gray-900">Upcoming Tasks ({{ tasks.length }})</h3>
+                <Button
+                  icon="pi pi-plus"
+                  size="small"
+                  severity="secondary"
+                  label="Add Task"
+                  @click="showTaskSlideOver = true"
+                />
               </div>
               <div class="p-4">
-                <div class="text-center py-8 text-gray-500 text-sm">
-                  No upcoming tasks
+                <div v-if="tasks.length === 0" class="text-center py-8 text-gray-500 text-sm">
+                  No tasks yet. <button @click="showTaskSlideOver = true" class="text-emerald-600 hover:text-emerald-700 font-medium">Create your first task</button>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Sidebar: 1/3 width -->
-          <div class="space-y-6">
-            <!-- Quick Stats Card -->
-            <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div class="px-4 py-3 border-b border-gray-200">
-                <h3 class="text-sm font-medium text-gray-900">Quick Stats</h3>
-              </div>
-              <div class="p-4 space-y-3">
-                <div class="flex justify-between items-center">
-                  <span class="text-xs text-gray-600">RFIs</span>
-                  <div class="flex items-center gap-2">
-                    <span class="text-sm font-medium">{{ rfis.length }}</span>
-                    <Button
-                      icon="pi pi-plus"
-                      size="small"
-                      severity="secondary"
-                      @click="createNewRFI"
-                      class="w-5 h-5"
-                    />
+                <div v-else class="space-y-3">
+                  <div
+                    v-for="task in tasks.slice(0, 5)"
+                    :key="task.id"
+                    @click="editTask(task)"
+                    class="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
+                    <div class="flex items-center gap-3 flex-1 min-w-0">
+                      <div
+                        class="w-3 h-3 rounded-full flex-shrink-0"
+                        :class="{
+                          'bg-red-500': task.priority === 'critical',
+                          'bg-orange-500': task.priority === 'high',
+                          'bg-yellow-500': task.priority === 'medium',
+                          'bg-green-500': task.priority === 'low'
+                        }"
+                      ></div>
+                      <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-gray-900 truncate">{{ task.title }}</p>
+                        <p class="text-xs text-gray-500">
+                          {{ task.assignedTo }} • Due {{ formatDate(task.dueDate) }}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      class="px-2 py-1 rounded-full text-xs font-medium flex-shrink-0"
+                      :class="{
+                        'bg-gray-100 text-gray-800': task.status === 'todo',
+                        'bg-blue-100 text-blue-800': task.status === 'in-progress',
+                        'bg-yellow-100 text-yellow-800': task.status === 'review',
+                        'bg-green-100 text-green-800': task.status === 'complete',
+                        'bg-red-100 text-red-800': task.status === 'on-hold'
+                      }"
+                    >
+                      {{ formatTaskStatus(task.status) }}
+                    </span>
                   </div>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-xs text-gray-600">Submittals</span>
-                  <div class="flex items-center gap-2">
-                    <span class="text-sm font-medium">{{ submittals.length }}</span>
-                    <Button
-                      icon="pi pi-plus"
-                      size="small"
-                      severity="secondary"
-                      @click="createNewSubmittal"
-                      class="w-5 h-5"
-                    />
-                  </div>
-                </div>
-                <div class="flex justify-between items-center">
-                  <span class="text-xs text-gray-600">Change Orders</span>
-                  <div class="flex items-center gap-2">
-                    <span class="text-sm font-medium">{{ changeOrders.length }}</span>
-                    <Button
-                      icon="pi pi-plus"
-                      size="small"
-                      severity="secondary"
-                      @click="createNewChangeOrder"
-                      class="w-5 h-5"
-                    />
+                  <div v-if="tasks.length > 5" class="text-center pt-2">
+                    <button class="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
+                      View all {{ tasks.length }} tasks
+                    </button>
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- Project Team Card -->
-            <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="text-sm font-medium text-gray-900">Project Team</h3>
-                <Button icon="pi pi-users" size="small" severity="secondary" />
-              </div>
-              <div class="p-4">
-                <div class="text-center py-4 text-gray-500 text-sm">
-                  Team members coming soon
+            <!-- Project Overview Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <!-- Quick Stats Card -->
+              <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
+                <div class="px-4 py-3 border-b border-gray-200">
+                  <h3 class="text-sm font-medium text-gray-900">Quick Stats</h3>
+                </div>
+                <div class="p-4 space-y-3">
+                  <div class="flex justify-between items-center">
+                    <span class="text-xs text-gray-600">RFIs</span>
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm font-medium">{{ rfis.length }}</span>
+                      <Button
+                        icon="pi pi-plus"
+                        size="small"
+                        severity="secondary"
+                        @click="createNewRFI"
+                        class="w-5 h-5"
+                      />
+                    </div>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-xs text-gray-600">Submittals</span>
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm font-medium">{{ submittals.length }}</span>
+                      <Button
+                        icon="pi pi-plus"
+                        size="small"
+                        severity="secondary"
+                        @click="createNewSubmittal"
+                        class="w-5 h-5"
+                      />
+                    </div>
+                  </div>
+                  <div class="flex justify-between items-center">
+                    <span class="text-xs text-gray-600">Change Orders</span>
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm font-medium">{{ changeOrders.length }}</span>
+                      <Button
+                        icon="pi pi-plus"
+                        size="small"
+                        severity="secondary"
+                        @click="createNewChangeOrder"
+                        class="w-5 h-5"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <!-- Recent Documents Card -->
-            <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="text-sm font-medium text-gray-900">Recent Documents</h3>
-                <Button icon="pi pi-file" size="small" severity="secondary" />
+              <!-- Project Team Card -->
+              <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
+                <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                  <h3 class="text-sm font-medium text-gray-900">Project Team</h3>
+                  <Button icon="pi pi-users" size="small" severity="secondary" />
+                </div>
+                <div class="p-4">
+                  <div class="text-center py-4 text-gray-500 text-sm">
+                    Team members coming soon
+                  </div>
+                </div>
               </div>
-              <div class="p-4">
-                <div class="text-center py-4 text-gray-500 text-sm">
-                  No recent documents
+
+              <!-- Recent Documents Card -->
+              <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
+                <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                  <h3 class="text-sm font-medium text-gray-900">Recent Documents</h3>
+                  <Button icon="pi pi-file" size="small" severity="secondary" />
+                </div>
+                <div class="p-4">
+                  <div class="text-center py-4 text-gray-500 text-sm">
+                    No recent documents
+                  </div>
                 </div>
               </div>
             </div>
@@ -205,12 +244,30 @@
       </div>
     </div>
 
-    <!-- Quick Edit Modal -->
-    <ProjectModal
-      v-model:visible="showQuickEdit"
+    <!-- Activity Flyout -->
+    <ActivityFlyout
+      :activities="activities"
+      @view-all="handleViewAllActivity"
+    />
+
+    <!-- Project Slide-Over -->
+    <ProjectSlideOver
+      v-model:visible="showProjectSlideOver"
       :project="project"
       @project-updated="handleProjectUpdated"
     />
+
+    <!-- Task Slide-Over -->
+    <TaskSlideOver
+      v-model:visible="showTaskSlideOver"
+      :project-id="projectId"
+      :task="editingTask"
+      :available-tasks="tasks"
+      @task-created="handleTaskCreated"
+      @task-updated="handleTaskUpdated"
+    />
+
+
   </div>
 </template>
 
@@ -219,8 +276,9 @@ import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import firebaseService from '@/firebaseService'
-import ActivityLog from './ActivityLog.vue'
-import ProjectModal from './modals/ProjectModal.vue'
+import ActivityFlyout from './ActivityFlyout.vue'
+import ProjectSlideOver from './ProjectSlideOver.vue'
+import TaskSlideOver from './TaskSlideOver.vue'
 
 // Props and existing setup (keep your existing code)
 const props = defineProps({
@@ -238,12 +296,14 @@ const rfis = ref([])
 const submittals = ref([])
 const changeOrders = ref([])
 const activities = ref([])
+const tasks = ref([])
 const loading = ref(true)
 const error = ref(null)
 const subscriptions = ref([])
-
-// New state for quick edit
-const showQuickEdit = ref(false)
+// New state for slide-overs
+const showProjectSlideOver = ref(false)
+const showTaskSlideOver = ref(false)
+const editingTask = ref(null)
 
 // Helper methods
 const formatCurrency = (amount) => {
@@ -259,6 +319,35 @@ const formatPhase = (phase) => {
     'complete': 'Complete'
   }
   return phaseMap[phase] || phase
+}
+
+const formatTaskStatus = (status) => {
+  const statusMap = {
+    'todo': 'To Do',
+    'in-progress': 'In Progress',
+    'review': 'Review',
+    'complete': 'Complete',
+    'on-hold': 'On Hold'
+  }
+  return statusMap[status] || status
+}
+
+const editTask = (task) => {
+  editingTask.value = task
+  showTaskSlideOver.value = true
+}
+
+const handleTaskCreated = (newTask) => {
+  tasks.value.unshift(newTask)
+  editingTask.value = null
+}
+
+const handleTaskUpdated = (updatedTask) => {
+  const index = tasks.value.findIndex(t => t.id === updatedTask.id)
+  if (index !== -1) {
+    tasks.value[index] = updatedTask
+  }
+  editingTask.value = null
 }
 
 const goToProjectSettings = () => {
@@ -280,7 +369,20 @@ const handleProjectUpdated = (updatedProject) => {
   project.value = { ...project.value, ...updatedProject }
 }
 
-// Methods
+const handleViewAllActivity = () => {
+  // Navigate to full activity page or show modal
+  console.log('View all activity clicked')
+  // Could navigate to: router.push(`/project/${props.projectId}/activity`)
+}
+
+// Keep all your existing methods:
+// - loadProjectData()
+// - setupRealtimeListeners()
+// - createNewRFI()
+// - createNewSubmittal()
+// - createNewChangeOrder()
+// - lifecycle hooks
+
 const loadProjectData = async () => {
   // Load initial project data
   const [projectData, activitiesData] = await Promise.all([
@@ -295,36 +397,6 @@ const loadProjectData = async () => {
   project.value = projectData
   activities.value = activitiesData.slice(0, 10) // Show last 10 activities
   loading.value = false
-}
-
-const setupRealtimeListeners = () => {
-  // Subscribe to real-time updates
-  const projectSub = firebaseService.subscribeToProject(props.projectId, (projectData) => {
-    if (projectData) {
-      project.value = projectData
-    }
-  })
-
-  const rfiSub = firebaseService.subscribeToProjectRFIs(props.projectId, (rfiData) => {
-    rfis.value = rfiData
-  })
-
-  const submittalSub = firebaseService.subscribeToProjectSubmittals(
-    props.projectId,
-    (submittalData) => {
-      submittals.value = submittalData
-    },
-  )
-
-  const changeOrderSub = firebaseService.subscribeToProjectChangeOrders(
-    props.projectId,
-    (changeOrderData) => {
-      changeOrders.value = changeOrderData
-    },
-  )
-
-  // Store subscriptions for cleanup
-  subscriptions.value = [projectSub, rfiSub, submittalSub, changeOrderSub]
 }
 
 const createNewRFI = async () => {
@@ -364,25 +436,6 @@ const createNewSubmittal = async () => {
   }
 }
 
-const createNewChangeOrder = async () => {
-  try {
-    const changeOrderData = {
-      projectId: props.projectId,
-      title: 'New Change Order',
-      description: '',
-      requestedBy: firebaseService.getCurrentUserId(),
-      costImpact: 0,
-      timeImpact: 0,
-      reason: 'client-request',
-    }
-
-    await firebaseService.createChangeOrder(changeOrderData)
-  } catch (error) {
-    console.error('Error creating change order:', error)
-    alert('Failed to create change order')
-  }
-}
-
 // Lifecycle hooks
 watch(
   () => props.projectId,
@@ -414,6 +467,43 @@ watch(
   },
 )
 
+const setupRealtimeListeners = () => {
+  // Subscribe to real-time updates
+  const projectSub = firebaseService.subscribeToProject(props.projectId, (projectData) => {
+    if (projectData) {
+      project.value = projectData
+    }
+  })
+
+  const rfiSub = firebaseService.subscribeToProjectRFIs(props.projectId, (rfiData) => {
+    rfis.value = rfiData
+  })
+
+  const submittalSub = firebaseService.subscribeToProjectSubmittals(
+    props.projectId,
+    (submittalData) => {
+      submittals.value = submittalData
+    },
+  )
+
+  const changeOrderSub = firebaseService.subscribeToProjectChangeOrders(
+    props.projectId,
+    (changeOrderData) => {
+      changeOrders.value = changeOrderData
+    },
+  )
+
+  const taskSub = firebaseService.subscribeToProjectTasks(
+    props.projectId,
+    (taskData) => {
+      tasks.value = taskData
+    },
+  )
+
+  // Store subscriptions for cleanup
+  subscriptions.value = [projectSub, rfiSub, submittalSub, changeOrderSub, taskSub]
+}
+
 // Lifecycle hooks
 onMounted(async () => {
   try {
@@ -439,21 +529,17 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* Only custom scrollbar styling that Tailwind can't handle */
+/* Custom scrollbar styling if needed */
 .overflow-y-auto::-webkit-scrollbar {
   width: 6px;
 }
 
 .overflow-y-auto::-webkit-scrollbar-track {
-  background: var(--p-surface-100);
+  background: #f1f1f1;
 }
 
 .overflow-y-auto::-webkit-scrollbar-thumb {
-  background: var(--p-surface-300);
+  background: #c1c1c1;
   border-radius: 3px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: var(--p-surface-400);
 }
 </style>
