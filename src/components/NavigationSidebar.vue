@@ -265,7 +265,7 @@
     />
 
     <!-- New Project Modal -->
-    <NewProjectModal
+    <ProjectModal
       :visible="showNewProjectModal"
       @update:visible="(val) => { showNewProjectModal = val }"
       @project-created="handleProjectCreated"
@@ -277,7 +277,7 @@
 import { ref, watch } from 'vue'
 import { ContextMenu } from 'primevue'
 import ProjectMenu from './ProjectMenu.vue'
-import NewProjectModal from './Modals/NewProjectModal.vue'
+import ProjectModal from './modals/ProjectModal.vue'
 
 // Reactive state for expanded sections
 const expandedSections = ref({

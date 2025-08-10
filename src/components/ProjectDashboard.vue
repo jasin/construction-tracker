@@ -1,142 +1,228 @@
 <template>
-  <div class="h-full flex flex-col bg-white">
+  <div class="h-full flex flex-col bg-gray-50">
     <div v-if="loading" class="flex items-center justify-center h-full text-lg text-gray-500">
       {{ error ? error : 'Loading project...' }}
     </div>
     <div v-else-if="error" class="flex items-center justify-center h-full">
-      <div
-        class="text-red-600 bg-red-50 border border-red-200 rounded-lg m-5 p-10 text-center text-lg"
-      >
+      <div class="text-red-600 bg-red-50 border border-red-200 rounded-lg m-5 p-10 text-center text-lg">
         {{ error }}
       </div>
     </div>
     <div v-else class="h-full flex flex-col">
-      <!-- Project Header -->
-      <div class="bg-white border-b-2 border-gray-200 px-7 py-6 flex-shrink-0 shadow-sm">
-        <h2 class="m-0 mb-3 text-gray-700 text-3xl font-semibold">
-          {{ project.jobNumber }} - {{ project.name || 'Loading...' }}
-        </h2>
-        <div class="flex gap-5 items-center flex-wrap">
+      <!-- Refined Project Header -->
+      <div class="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
+        <!-- Main Title Row -->
+        <div class="flex justify-between items-start mb-3">
+          <div>
+            <h1 class="text-xl font-semibold text-gray-900">
+              {{ project.jobNumber }} - {{ project.name || 'Loading...' }}
+            </h1>
+          </div>
+          <div class="flex gap-2">
+            <Button
+              icon="pi pi-pencil"
+              size="small"
+              severity="secondary"
+              aria-label="Quick Edit"
+              @click="showQuickEdit = true"
+            />
+            <Button
+              icon="pi pi-cog"
+              size="small"
+              severity="secondary"
+              aria-label="Project Settings"
+              @click="goToProjectSettings"
+            />
+          </div>
+        </div>
+
+        <!-- Project Details Row -->
+        <div class="mb-3 flex gap-6 text-sm text-gray-600 flex-wrap">
+          <div v-if="project.client" class="flex items-center gap-1">
+            <i class="pi pi-building text-xs"></i>
+            <span class="font-medium">Client:</span>
+            <span>{{ project.client }}</span>
+          </div>
+          <div v-if="project.architect" class="flex items-center gap-1">
+            <i class="pi pi-pencil text-xs"></i>
+            <span class="font-medium">Architect:</span>
+            <span>{{ project.architect }}</span>
+          </div>
+          <div v-if="project.projectManager" class="flex items-center gap-1">
+            <i class="pi pi-user text-xs"></i>
+            <span class="font-medium">PM:</span>
+            <span>{{ project.projectManager }}</span>
+          </div>
+          <div v-if="project.superintendent" class="flex items-center gap-1">
+            <i class="pi pi-hard-hat text-xs"></i>
+            <span class="font-medium">Super:</span>
+            <span>{{ project.superintendent }}</span>
+          </div>
+        </div>
+
+        <!-- Status & Metrics Row -->
+        <div class="flex gap-4 items-center flex-wrap">
           <span
-            class="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide"
+            class="px-2.5 py-1 rounded-full text-xs font-medium"
             :class="{
-              'bg-yellow-100 text-yellow-800 border border-yellow-200':
-                project.phase === 'pre-construction',
-              'bg-blue-100 text-blue-800 border border-blue-200': project.phase === 'construction',
-              'bg-green-100 text-green-800 border border-green-200': project.phase === 'close-out',
-              'bg-teal-100 text-teal-800 border border-teal-200': project.phase === 'complete',
+              'bg-yellow-100 text-yellow-800': project.phase === 'pre-construction',
+              'bg-blue-100 text-blue-800': project.phase === 'construction',
+              'bg-green-100 text-green-800': project.phase === 'close-out',
+              'bg-teal-100 text-teal-800': project.phase === 'complete',
             }"
           >
-            {{ project.phase || 'N/A' }}
+            {{ formatPhase(project.phase) }}
           </span>
-          <span
-            class="font-bold text-lg text-green-600 bg-green-50 px-3 py-1.5 rounded-md border border-green-200"
-          >
+          <span class="text-sm font-medium text-green-600">
             ${{ formatCurrency(project.cost) }}
           </span>
           <span
-            class="px-3 py-1.5 rounded-md text-xs font-semibold uppercase"
+            class="px-2.5 py-1 rounded text-xs font-medium"
             :class="{
-              'bg-green-100 text-green-800 border border-green-200': project.contractSigned,
-              'bg-red-100 text-red-800 border border-red-200': !project.contractSigned,
+              'bg-green-100 text-green-800': project.contractSigned,
+              'bg-red-100 text-red-800': !project.contractSigned,
             }"
           >
-            Contract: {{ project.contractSigned ? 'Signed' : 'Pending' }}
+            {{ project.contractSigned ? 'Contract Signed' : 'Contract Pending' }}
           </span>
-          <Button icon="pi pi-file-edit" variant="text" rounded />
+          <div v-if="project.startDate" class="text-sm text-gray-600">
+            <span class="font-medium">Start:</span>
+            <span>{{ formatDate(project.startDate) }}</span>
+          </div>
+          <div v-if="project.endDate" class="text-sm text-gray-600">
+            <span class="font-medium">End:</span>
+            <span>{{ formatDate(project.endDate) }}</span>
+          </div>
         </div>
       </div>
 
-      <!-- Dashboard Sections -->
-      <div class="flex-1 overflow-y-auto p-7 grid grid-cols-1 lg:grid-cols-2 gap-7 content-start">
-        <div
-          class="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col h-fit hover:shadow-md transition-shadow"
-        >
-          <div
-            class="flex justify-between items-center px-6 py-5 border-b border-gray-200 bg-gray-50 rounded-t-xl"
-          >
-            <h3 class="m-0 text-gray-700 text-lg font-semibold">RFIs ({{ rfis.length }})</h3>
-            <button
-              @click="createNewRFI"
-              class="bg-emerald-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-emerald-600 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:bg-emerald-700 transition-all whitespace-nowrap"
-            >
-              New RFI
-            </button>
-          </div>
-          <div class="px-6 py-5 flex-1 overflow-y-auto max-h-96">
-            <RFIList :rfis="rfiObject" :projectId="projectId" />
-          </div>
-        </div>
+      <!-- Dashboard Content -->
+      <div class="flex-1 overflow-y-auto p-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Main Content Area: 2/3 width -->
+          <div class="lg:col-span-2 space-y-6">
+            <!-- Recent Activity Card -->
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div class="px-4 py-3 border-b border-gray-200">
+                <h3 class="text-sm font-medium text-gray-900">Recent Activity</h3>
+              </div>
+              <div class="p-4 max-h-80 overflow-y-auto">
+                <ActivityLog :activities="activities" />
+              </div>
+            </div>
 
-        <div
-          class="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col h-fit hover:shadow-md transition-shadow"
-        >
-          <div
-            class="flex justify-between items-center px-6 py-5 border-b border-gray-200 bg-gray-50 rounded-t-xl"
-          >
-            <h3 class="m-0 text-gray-700 text-lg font-semibold">
-              Submittals ({{ submittals.length }})
-            </h3>
-            <button
-              @click="createNewSubmittal"
-              class="bg-emerald-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-emerald-600 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:bg-emerald-700 transition-all whitespace-nowrap"
-            >
-              New Submittal
-            </button>
+            <!-- Upcoming Tasks Card -->
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-sm font-medium text-gray-900">Upcoming Tasks</h3>
+                <Button icon="pi pi-plus" size="small" severity="secondary" label="Add Task" />
+              </div>
+              <div class="p-4">
+                <div class="text-center py-8 text-gray-500 text-sm">
+                  No upcoming tasks
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="px-6 py-5 flex-1 overflow-y-auto max-h-96">
-            <SubmittalList :submittals="submittalObject" :projectId="projectId" />
-          </div>
-        </div>
 
-        <div
-          class="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col h-fit hover:shadow-md transition-shadow"
-        >
-          <div
-            class="flex justify-between items-center px-6 py-5 border-b border-gray-200 bg-gray-50 rounded-t-xl"
-          >
-            <h3 class="m-0 text-gray-700 text-lg font-semibold">
-              Change Orders ({{ changeOrders.length }})
-            </h3>
-            <button
-              @click="createNewChangeOrder"
-              class="bg-emerald-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-emerald-600 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:bg-emerald-700 transition-all whitespace-nowrap"
-            >
-              New Change Order
-            </button>
-          </div>
-          <div class="px-6 py-5 flex-1 overflow-y-auto max-h-96">
-            <ChangeOrderList :changeOrders="changeOrderObject" :projectId="projectId" />
-          </div>
-        </div>
+          <!-- Sidebar: 1/3 width -->
+          <div class="space-y-6">
+            <!-- Quick Stats Card -->
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div class="px-4 py-3 border-b border-gray-200">
+                <h3 class="text-sm font-medium text-gray-900">Quick Stats</h3>
+              </div>
+              <div class="p-4 space-y-3">
+                <div class="flex justify-between items-center">
+                  <span class="text-xs text-gray-600">RFIs</span>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium">{{ rfis.length }}</span>
+                    <Button
+                      icon="pi pi-plus"
+                      size="small"
+                      severity="secondary"
+                      @click="createNewRFI"
+                      class="w-5 h-5"
+                    />
+                  </div>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="text-xs text-gray-600">Submittals</span>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium">{{ submittals.length }}</span>
+                    <Button
+                      icon="pi pi-plus"
+                      size="small"
+                      severity="secondary"
+                      @click="createNewSubmittal"
+                      class="w-5 h-5"
+                    />
+                  </div>
+                </div>
+                <div class="flex justify-between items-center">
+                  <span class="text-xs text-gray-600">Change Orders</span>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium">{{ changeOrders.length }}</span>
+                    <Button
+                      icon="pi pi-plus"
+                      size="small"
+                      severity="secondary"
+                      @click="createNewChangeOrder"
+                      class="w-5 h-5"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
 
-        <div
-          class="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col h-fit hover:shadow-md transition-shadow"
-        >
-          <div
-            class="flex justify-between items-center px-6 py-5 border-b border-gray-200 bg-gray-50 rounded-t-xl"
-          >
-            <h3 class="m-0 text-gray-700 text-lg font-semibold">Recent Activity</h3>
-          </div>
-          <div class="px-6 py-5 flex-1 overflow-y-auto max-h-96">
-            <ActivityLog :activities="activities" />
+            <!-- Project Team Card -->
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-sm font-medium text-gray-900">Project Team</h3>
+                <Button icon="pi pi-users" size="small" severity="secondary" />
+              </div>
+              <div class="p-4">
+                <div class="text-center py-4 text-gray-500 text-sm">
+                  Team members coming soon
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent Documents Card -->
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-sm font-medium text-gray-900">Recent Documents</h3>
+                <Button icon="pi pi-file" size="small" severity="secondary" />
+              </div>
+              <div class="p-4">
+                <div class="text-center py-4 text-gray-500 text-sm">
+                  No recent documents
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Quick Edit Modal -->
+    <ProjectModal
+      v-model:visible="showQuickEdit"
+      :project="project"
+      @project-updated="handleProjectUpdated"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import Button from 'primevue/button'
 import firebaseService from '@/firebaseService'
-import RFIList from './RFIList.vue'
-import SubmittalList from './SubmittalList.vue'
-import ChangeOrderList from './ChangeOrderList.vue'
 import ActivityLog from './ActivityLog.vue'
-import { Button } from 'primevue'
+import ProjectModal from './modals/ProjectModal.vue'
 
-// Props
+// Props and existing setup (keep your existing code)
 const props = defineProps({
   projectId: {
     type: String,
@@ -144,7 +230,9 @@ const props = defineProps({
   },
 })
 
-// Reactive state
+const router = useRouter()
+
+// Reactive state (keep your existing state)
 const project = ref({})
 const rfis = ref([])
 const submittals = ref([])
@@ -152,29 +240,45 @@ const changeOrders = ref([])
 const activities = ref([])
 const loading = ref(true)
 const error = ref(null)
-const subscriptions = ref([]) // Keep track of subscriptions for cleanup
+const subscriptions = ref([])
 
-// Computed properties
-const rfiObject = computed(() => {
-  return rfis.value.reduce((obj, rfi) => {
-    obj[rfi.id] = rfi
-    return obj
-  }, {})
-})
+// New state for quick edit
+const showQuickEdit = ref(false)
 
-const submittalObject = computed(() => {
-  return submittals.value.reduce((obj, submittal) => {
-    obj[submittal.id] = submittal
-    return obj
-  }, {})
-})
+// Helper methods
+const formatCurrency = (amount) => {
+  if (!amount) return '0'
+  return new Intl.NumberFormat('en-US').format(amount)
+}
 
-const changeOrderObject = computed(() => {
-  return changeOrders.value.reduce((obj, co) => {
-    obj[co.id] = co
-    return obj
-  }, {})
-})
+const formatPhase = (phase) => {
+  const phaseMap = {
+    'pre-construction': 'Pre-Construction',
+    'construction': 'Construction',
+    'close-out': 'Close-Out',
+    'complete': 'Complete'
+  }
+  return phaseMap[phase] || phase
+}
+
+const goToProjectSettings = () => {
+  // Navigate to project settings page (to be implemented)
+  router.push(`/project/${props.projectId}/settings`)
+}
+
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A'
+  return new Date(dateString).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  })
+}
+
+const handleProjectUpdated = (updatedProject) => {
+  // Update local project data
+  project.value = { ...project.value, ...updatedProject }
+}
 
 // Methods
 const loadProjectData = async () => {
@@ -277,11 +381,6 @@ const createNewChangeOrder = async () => {
     console.error('Error creating change order:', error)
     alert('Failed to create change order')
   }
-}
-
-const formatCurrency = (amount) => {
-  if (!amount) return '0'
-  return new Intl.NumberFormat('en-US').format(amount)
 }
 
 // Lifecycle hooks
