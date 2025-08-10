@@ -13,6 +13,7 @@ import {
   off,
 } from 'firebase/database'
 import { database } from './firebase-config' // Your Firebase config file
+import authService from './authService'
 
 class FirebaseService {
   // ==================== CLIENTS ====================
@@ -506,6 +507,7 @@ class FirebaseService {
     const activity = {
       projectId,
       userId: this.getCurrentUserId(),
+      userName: this.getCurrentUserName(),
       action,
       entityType,
       entityId,
@@ -596,10 +598,14 @@ class FirebaseService {
 
   // ==================== UTILITY METHODS ====================
 
+  // Get current user ID
   getCurrentUserId() {
-    // Replace this with your actual authentication logic
-    // This could come from Firebase Auth, Vuex store, etc.
-    return 'current_user_id' // Placeholder
+    return authService.getCurrentUserId()
+  }
+
+  // Get current user name
+  getCurrentUserName() {
+    return authService.getCurrentUserName()
   }
 
   // Batch operations for better performance

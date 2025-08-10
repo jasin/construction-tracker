@@ -178,12 +178,17 @@ class AuthService {
 
   // Get current user ID
   getCurrentUserId() {
-    return this.userProfile?.id || null
+    return this.userProfile?.id || this.currentUser?.uid || null
   }
 
   // Get current user email
   getCurrentUserEmail() {
     return this.currentUser?.email || null
+  }
+
+  // Get current user name
+  getCurrentUserName() {
+    return this.userProfile?.name || this.currentUser?.displayName || this.currentUser?.email || 'Unknown User'
   }
 
   // Check if user is authenticated

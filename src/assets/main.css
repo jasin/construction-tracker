@@ -1,5 +1,6 @@
 @import './base.css';
 @import './styles.css';
+@import 'primeicons/primeicons.css';
 @import 'tailwindcss';
 @import 'tailwindcss-primeui';
 

@@ -43,6 +43,7 @@
           >
             Contract: {{ project.contractSigned ? 'Signed' : 'Pending' }}
           </span>
+          <Button icon="pi pi-file-edit" variant="text" rounded />
         </div>
       </div>
 
@@ -133,6 +134,7 @@ import RFIList from './RFIList.vue'
 import SubmittalList from './SubmittalList.vue'
 import ChangeOrderList from './ChangeOrderList.vue'
 import ActivityLog from './ActivityLog.vue'
+import { Button } from 'primevue'
 
 // Props
 const props = defineProps({
