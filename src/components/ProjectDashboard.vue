@@ -146,7 +146,7 @@
                       <div class="flex-1 min-w-0">
                         <p class="text-sm font-medium text-gray-900 truncate">{{ task.title }}</p>
                         <p class="text-xs text-gray-500">
-                          {{ task.assignedTo }} • Due {{ formatDate(task.dueDate) }}
+                          {{ getUserName(task.assignedTo) }} • Due {{ formatDate(task.dueDate) }}
                         </p>
                       </div>
                     </div>
@@ -308,6 +308,7 @@ const submittals = ref([])
 const changeOrders = ref([])
 const activities = ref([])
 const tasks = ref([]) // Ensure this is always an array
+const users = ref([]) // Add users state for lookups
 const loading = ref(true)
 const error = ref(null)
 const subscriptions = ref([])
@@ -324,6 +325,13 @@ const currentUser = computed(() => authService.currentUser)
 const validTasks = computed(() => {
   return Array.isArray(tasks.value) ? tasks.value : []
 })
+
+// Helper function to get user name by ID
+const getUserName = (userId) => {
+  if (!userId) return 'Unassigned'
+  const user = users.value.find(u => u.id === userId)
+  return user ? (user.name || user.email) : userId
+}
 
 // Helper methods
 const formatCurrency = (amount) => {
@@ -401,6 +409,17 @@ const handleViewAllActivity = () => {
   // Could navigate to: router.push(`/project/${props.projectId}/activity`)
 }
 
+// Load users for name lookups
+const loadUsers = async () => {
+  try {
+    const allUsers = await firebaseService.getAllUsers()
+    users.value = allUsers
+    console.log('Loaded users for name lookups:', allUsers)
+  } catch (err) {
+    console.error('Error loading users:', err)
+    users.value = []
+  }
+}
 // Keep all your existing methods:
 // - loadProjectData()
 // - setupRealtimeListeners()
@@ -541,6 +560,7 @@ const setupRealtimeListeners = () => {
 onMounted(async () => {
   try {
     await loadProjectData()
+    await loadUsers() // Load users for name lookups
     setupRealtimeListeners()
   } catch (err) {
     console.error('Error loading project:', err)
