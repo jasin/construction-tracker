@@ -82,7 +82,8 @@
                 option-value="value"
                 placeholder="Select assignee"
                 class="w-full text-sm"
-                filter
+                :filter="true"
+                show-clear
               />
             </div>
 
@@ -128,13 +129,17 @@
               <label class="block text-sm font-medium text-gray-700 mb-1">Dependencies</label>
               <MultiSelect
                 v-model="form.dependencies"
-                :options="availableTasks"
+                :options="filteredAvailableTasks"
                 option-label="title"
                 option-value="id"
                 placeholder="Select dependent tasks"
                 class="w-full text-sm"
                 display="chip"
+                :disabled="filteredAvailableTasks.length === 0"
               />
+              <small v-if="filteredAvailableTasks.length === 0" class="text-gray-500">
+                No other tasks available for dependencies
+              </small>
             </div>
 
             <!-- Error Message -->
@@ -181,7 +186,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import Select from 'primevue/select'
@@ -219,10 +224,34 @@ const loading = ref(false)
 const error = ref('')
 const success = ref('')
 const errors = ref({})
+const users = ref([]) // Add users state)
 
 // Computed
 const isOpen = computed(() => props.visible)
 const isEditing = computed(() => !!(props.task && props.task.id))
+
+// Ensure availableTasks is always a valid array and filter out current task when editing
+const filteredAvailableTasks = computed(() => {
+  // Ensure we have an array - handle various edge cases
+  let tasks = []
+
+  if (Array.isArray(props.availableTasks)) {
+    tasks = props.availableTasks
+  } else if (props.availableTasks && typeof props.availableTasks === 'object') {
+    // Handle case where it might be an object
+    tasks = Object.values(props.availableTasks).filter(task => task && typeof task === 'object')
+  }
+
+  // Ensure each task has required properties
+  tasks = tasks.filter(task => task && task.id && task.title)
+
+  // When editing, filter out the current task to prevent self-dependency
+  if (isEditing.value && props.task?.id) {
+    tasks = tasks.filter(task => task.id !== props.task.id)
+  }
+
+  return tasks
+})
 
 // Form data
 const form = ref({
@@ -262,16 +291,31 @@ const categoryOptions = [
   { label: 'Administrative', value: 'administrative' }
 ]
 
-// TODO: Load from user management system
-const userOptions = [
-  { label: 'John Smith', value: 'user1' },
-  { label: 'Jane Doe', value: 'user2' },
-  { label: 'Mike Johnson', value: 'user3' }
-]
+// User options - Load from Firebase users table
+const userOptions = computed(() => {
+  return users.value
+    .filter(user => user.active) // Only show active users
+    .map(user => ({
+      label: user.name || user.email,
+      value: user.id
+    }))
+})
 
+// Load users from Firebase
+const loadUsers = async () => {
+  try {
+    const allUsers = await firebaseService.getAllUsers()
+    users.value = allUsers
+    console.log('Loaded users for assignment:', allUsers)
+  } catch (err) {
+    console.error('Error loading users:', err)
+    // Fallback to empty array if loading fails
+    users.value = []
+  }
+}
 // Load task data into form (for editing)
 const loadTaskData = () => {
-  if (isEditing.value) {
+  if (isEditing.value && props.task) {
     form.value = {
       title: props.task.title || '',
       description: props.task.description || '',
@@ -281,7 +325,7 @@ const loadTaskData = () => {
       dueDate: props.task.dueDate ? new Date(props.task.dueDate) : null,
       estimatedHours: props.task.estimatedHours || null,
       category: props.task.category || '',
-      dependencies: props.task.dependencies || []
+      dependencies: Array.isArray(props.task.dependencies) ? props.task.dependencies : []
     }
   } else {
     resetForm()
@@ -319,7 +363,7 @@ const handleSubmit = async () => {
       dueDate: form.value.dueDate ? form.value.dueDate.toISOString() : null,
       estimatedHours: form.value.estimatedHours || 0,
       category: form.value.category || '',
-      dependencies: form.value.dependencies || [],
+      dependencies: Array.isArray(form.value.dependencies) ? form.value.dependencies : [],
       projectId: props.projectId
     }
 
@@ -381,6 +425,7 @@ const resetForm = () => {
 // Watch for visibility changes
 watch(() => props.visible, (newVal) => {
   if (newVal) {
+    loadUsers() // Load users when slide-over opens
     loadTaskData()
   }
 })
@@ -390,6 +435,11 @@ watch(() => props.task, () => {
     loadTaskData()
   }
 }, { deep: true })
+
+// Load users when component mounts
+onMounted(() => {
+  loadUsers()
+})
 </script>
 
 <style scoped>

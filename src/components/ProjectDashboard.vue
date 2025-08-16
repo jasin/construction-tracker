@@ -33,6 +33,15 @@
               aria-label="Project Settings"
               @click="goToProjectSettings"
             />
+            <Button
+              icon="pi pi-clock"
+              size="small"
+              severity="secondary"
+              aria-label="Recent Activity"
+              @click="showActivityFlyout = true"
+              :badge="activities.length > 0 ? activities.length.toString() : null"
+              badge-severity="info"
+            />
           </div>
         </div>
 
@@ -110,12 +119,12 @@
                   size="small"
                   severity="secondary"
                   label="Add Task"
-                  @click="showTaskSlideOver = true"
+                  @click="() => { editingTask = null; showTaskSlideOver = true; }"
                 />
               </div>
               <div class="p-4">
                 <div v-if="tasks.length === 0" class="text-center py-8 text-gray-500 text-sm">
-                  No tasks yet. <button @click="showTaskSlideOver = true" class="text-emerald-600 hover:text-emerald-700 font-medium">Create your first task</button>
+                  No tasks yet. <button @click="() => { editingTask = null; showTaskSlideOver = true; }" class="text-emerald-600 hover:text-emerald-700 font-medium">Create your first task</button>
                 </div>
                 <div v-else class="space-y-3">
                   <div
@@ -246,7 +255,9 @@
 
     <!-- Activity Flyout -->
     <ActivityFlyout
+      :visible="showActivityFlyout"
       :activities="activities"
+      @update:visible="showActivityFlyout = $event"
       @view-all="handleViewAllActivity"
     />
 
@@ -262,20 +273,20 @@
       v-model:visible="showTaskSlideOver"
       :project-id="projectId"
       :task="editingTask"
-      :available-tasks="tasks"
+      :available-tasks="validTasks"
       @task-created="handleTaskCreated"
       @task-updated="handleTaskUpdated"
     />
-
 
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import firebaseService from '@/firebaseService'
+import authService from '@/authService'
 import ActivityFlyout from './ActivityFlyout.vue'
 import ProjectSlideOver from './ProjectSlideOver.vue'
 import TaskSlideOver from './TaskSlideOver.vue'
@@ -296,14 +307,23 @@ const rfis = ref([])
 const submittals = ref([])
 const changeOrders = ref([])
 const activities = ref([])
-const tasks = ref([])
+const tasks = ref([]) // Ensure this is always an array
 const loading = ref(true)
 const error = ref(null)
 const subscriptions = ref([])
 // New state for slide-overs
 const showProjectSlideOver = ref(false)
 const showTaskSlideOver = ref(false)
+const showActivityFlyout = ref(false) // Added this for the activity flyout
 const editingTask = ref(null)
+
+// Computed properties
+const currentUser = computed(() => authService.currentUser)
+
+// Ensure tasks is always a valid array for the TaskSlideOver component
+const validTasks = computed(() => {
+  return Array.isArray(tasks.value) ? tasks.value : []
+})
 
 // Helper methods
 const formatCurrency = (amount) => {
@@ -333,21 +353,26 @@ const formatTaskStatus = (status) => {
 }
 
 const editTask = (task) => {
+  console.log('Editing task:', task) // Debug log
   editingTask.value = task
   showTaskSlideOver.value = true
 }
 
 const handleTaskCreated = (newTask) => {
+  console.log('Task created:', newTask) // Debug log
   tasks.value.unshift(newTask)
   editingTask.value = null
+  showTaskSlideOver.value = false
 }
 
 const handleTaskUpdated = (updatedTask) => {
+  console.log('Task updated:', updatedTask) // Debug log
   const index = tasks.value.findIndex(t => t.id === updatedTask.id)
   if (index !== -1) {
     tasks.value[index] = updatedTask
   }
   editingTask.value = null
+  showTaskSlideOver.value = false
 }
 
 const goToProjectSettings = () => {
@@ -372,6 +397,7 @@ const handleProjectUpdated = (updatedProject) => {
 const handleViewAllActivity = () => {
   // Navigate to full activity page or show modal
   console.log('View all activity clicked')
+  showActivityFlyout.value = false
   // Could navigate to: router.push(`/project/${props.projectId}/activity`)
 }
 
@@ -436,6 +462,11 @@ const createNewSubmittal = async () => {
   }
 }
 
+const createNewChangeOrder = () => {
+  // Placeholder for change order creation
+  console.log('Create new change order')
+}
+
 // Lifecycle hooks
 watch(
   () => props.projectId,
@@ -496,7 +527,9 @@ const setupRealtimeListeners = () => {
   const taskSub = firebaseService.subscribeToProjectTasks(
     props.projectId,
     (taskData) => {
-      tasks.value = taskData
+      console.log('Task data received:', taskData, 'Type:', typeof taskData, 'IsArray:', Array.isArray(taskData))
+      // Ensure we always set an array
+      tasks.value = Array.isArray(taskData) ? taskData : []
     },
   )
 

@@ -274,7 +274,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 import { ContextMenu } from 'primevue'
 import ProjectMenu from './ProjectMenu.vue'
 import ProjectSlideOver from './ProjectSlideOver.vue'
