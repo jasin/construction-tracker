@@ -10,8 +10,8 @@
     >
       <div class="h-full bg-white border-l border-gray-200 shadow-xl flex flex-col">
         <!-- Header -->
-        <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
-          <h3 class="text-lg font-semibold text-gray-900">Edit Project</h3>
+        <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50 pt-5rem">
+          <h3 class="text-lg font-semibold text-gray-900">{{props.project?.id ? 'Edit Project' : 'New Project'}}</h3>
           <Button
             @click="closeSlideOver"
             icon="pi pi-times"
@@ -183,7 +183,7 @@
               :disabled="loading"
             />
             <Button
-              label="Update Project"
+              label="Save"
               size="small"
               @click="handleSubmit"
               :loading="loading"
@@ -222,7 +222,7 @@ const props = defineProps({
   },
   project: {
     type: Object,
-    required: true
+    default: null
   }
 })
 
@@ -310,7 +310,7 @@ const handleSubmit = async () => {
   success.value = ''
 
   try {
-    const updates = {
+    const projectData = {
       name: form.value.name.trim(),
       jobNumber: form.value.jobNumber.trim(),
       client: form.value.client?.trim() || '',
@@ -327,10 +327,17 @@ const handleSubmit = async () => {
       updatedAt: new Date().toISOString()
     }
 
-    await firebaseService.updateProject(props.project.id, updates)
+    let newProject
 
-    success.value = 'Project updated successfully!'
-    emit('project-updated', { ...props.project, ...updates })
+    if (props.project?.id) {
+      await firebaseService.updateProject(props.project.id, projectData)
+      success.value = 'Project updated successfully'
+    } else {
+      newProject = await firebaseService.createProject(projectData)
+      success.value = 'Project created successfully'
+    }
+
+    emit('project-updated', props.project?.id ? { ...props.project, ...projectData} : newProject)
 
     // Close slide-over after a brief delay
     setTimeout(() => {
