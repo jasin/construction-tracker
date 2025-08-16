@@ -21,17 +21,40 @@ class AuthService {
   init() {
     return new Promise((resolve) => {
       onAuthStateChanged(auth, async (user) => {
+        console.log('Auth state changed:', user ? user.email : 'No user')
+
         if (user) {
           this.currentUser = user
-          // Load user profile from database
+
           try {
+            // Always try to load user profile from database
             this.userProfile = await firebaseService.getUserByEmail(user.email)
+            console.log('Loaded user profile:', this.userProfile)
+
             if (!this.userProfile) {
+              console.log('User profile not found, creating new profile...')
               // Create user profile if it doesn't exist
               this.userProfile = await this.createUserProfile(user)
+              console.log('Created new user profile:', this.userProfile)
+            } else {
+              // Update last login time for existing users
+              await firebaseService.updateUser(this.userProfile.id, {
+                lastLoginAt: new Date().toISOString()
+              })
             }
           } catch (error) {
-            console.error('Error loading user profile:', error)
+            console.error('Error loading/creating user profile:', error)
+            // Create a basic profile as fallback
+            try {
+              this.userProfile = await this.createUserProfile(user, {
+                role: 'user', // Default role
+                active: true
+              })
+              console.log('Created fallback user profile:', this.userProfile)
+            } catch (fallbackError) {
+              console.error('Failed to create fallback profile:', fallbackError)
+              this.userProfile = null
+            }
           }
         } else {
           this.currentUser = null
@@ -64,8 +87,15 @@ class AuthService {
   async signIn(email, password) {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
-      return { success: true, user: userCredential.user }
+      console.log('Successfully signed in:', userCredential.user.email)
+
+      // The user profile will be loaded automatically by the onAuthStateChanged listener
+      // Wait a moment for the profile to be loaded
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      return { success: true, user: userCredential.user, profile: this.userProfile }
     } catch (error) {
+      console.error('Sign in error:', error)
       return {
         success: false,
         error: this.getErrorMessage(error.code),
@@ -80,22 +110,23 @@ class AuthService {
 
       // Create Firebase auth user
       const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      console.log('Created Firebase auth user:', userCredential.user.email)
 
       // Update display name
       await updateProfile(userCredential.user, { displayName: name })
 
-      // Create user profile in database
+      // Create user profile in database - this will be handled by onAuthStateChanged
+      // But we can also create it immediately to ensure it exists
       const userProfile = await this.createUserProfile(userCredential.user, {
         name,
         role: role || 'user',
         phone: phone || '',
         active: true,
-        createdAt: new Date().toISOString(),
-        createdBy: this.getCurrentUserId() || 'system',
       })
 
       return { success: true, user: userCredential.user, profile: userProfile }
     } catch (error) {
+      console.error('Registration error:', error)
       return {
         success: false,
         error: this.getErrorMessage(error.code),
@@ -105,20 +136,28 @@ class AuthService {
 
   // Create user profile in database
   async createUserProfile(firebaseUser, additionalData = {}) {
-    const userProfile = {
-      email: firebaseUser.email,
-      name: firebaseUser.displayName || additionalData.name || '',
-      role: additionalData.role || 'user',
-      phone: additionalData.phone || '',
-      active: additionalData.active !== undefined ? additionalData.active : true,
-      createdAt: additionalData.createdAt || new Date().toISOString(),
-      createdBy: additionalData.createdBy || 'system',
-      lastLoginAt: new Date().toISOString(),
-    }
+    try {
+      const userProfile = {
+        email: firebaseUser.email,
+        name: firebaseUser.displayName || additionalData.name || '',
+        role: additionalData.role || 'user',
+        phone: additionalData.phone || '',
+        active: additionalData.active !== undefined ? additionalData.active : true,
+        createdAt: additionalData.createdAt || new Date().toISOString(),
+        createdBy: additionalData.createdBy || 'system',
+        lastLoginAt: new Date().toISOString(),
+      }
 
-    const createdProfile = await firebaseService.createUser(userProfile)
-    this.userProfile = createdProfile
-    return createdProfile
+      console.log('Creating user profile:', userProfile)
+      const createdProfile = await firebaseService.createUser(userProfile)
+      console.log('Successfully created user profile:', createdProfile)
+
+      this.userProfile = createdProfile
+      return createdProfile
+    } catch (error) {
+      console.error('Error creating user profile:', error)
+      throw error
+    }
   }
 
   // Sign out
@@ -193,7 +232,7 @@ class AuthService {
 
   // Check if user is authenticated
   isAuthenticated() {
-    return !!this.currentUser
+    return !!this.currentUser && !!this.userProfile
   }
 
   // Check if user has specific role
@@ -286,6 +325,37 @@ class AuthService {
     }
 
     return errorMessages[errorCode] || 'An unexpected error occurred. Please try again.'
+  }
+
+  // Method to manually sync current auth user to database (for fixing existing users)
+  async syncCurrentUserToDatabase() {
+    if (!this.currentUser) {
+      throw new Error('No authenticated user')
+    }
+
+    console.log('Manually syncing current user to database...')
+
+    try {
+      // Check if user already exists
+      let userProfile = await firebaseService.getUserByEmail(this.currentUser.email)
+
+      if (!userProfile) {
+        // Create the user profile
+        userProfile = await this.createUserProfile(this.currentUser, {
+          role: 'admin', // You can set a default role here
+          active: true
+        })
+        console.log('Created user profile:', userProfile)
+      } else {
+        console.log('User profile already exists:', userProfile)
+      }
+
+      this.userProfile = userProfile
+      return userProfile
+    } catch (error) {
+      console.error('Error syncing user to database:', error)
+      throw error
+    }
   }
 }
 

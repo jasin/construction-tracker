@@ -1,33 +1,12 @@
 <template>
   <div>
-    <!-- Flyout Toggle Button -->
-    <div class="fixed right-0 top-1/2 transform -translate-y-1/2 z-40">
-      <Button
-        @click="toggleFlyout"
-        severity="secondary"
-        :pt="{
-          root: {
-            class: 'rounded-l-lg rounded-r-none shadow-lg bg-white border-gray-200 hover:bg-gray-50 !h-20 !w-8 !min-w-0 flex flex-col items-center justify-center !p-0',
-            style: 'height: 5rem; width: 2rem; min-width: 2rem; padding: 0;'
-          }
-        }"
-      >
-        <template #default>
-          <div class="flex flex-col items-center justify-center gap-1">
-            <!-- <i :class="isOpen ? 'pi pi-chevron-right' : 'pi pi-chevron-left'" class="text-xs text-gray-600"></i> -->
-            <span class="text-xs font-medium text-gray-700 transform -rotate-90 whitespace-nowrap">Activity</span>
-          </div>
-        </template>
-      </Button>
-    </div>
-
     <!-- Flyout Panel -->
     <div
-      class="fixed right-0 top-0 h-full w-80 bg-white border-l border-gray-200 shadow-xl transform transition-transform duration-300 ease-in-out z-30"
-      :class="isOpen ? 'translate-x-0' : 'translate-x-full'"
+      class="fixed right-4 top-20 w-80 bg-white border border-gray-200 shadow-xl rounded-lg transform transition-all duration-300 ease-in-out z-40"
+      :class="isOpen ? 'translate-x-0 opacity-100 scale-100' : 'translate-x-full opacity-0 scale-95'"
     >
       <!-- Header -->
-      <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+      <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50 rounded-t-lg">
         <h3 class="text-sm font-semibold text-gray-900">Recent Activity</h3>
         <Button
           @click="closeFlyout"
@@ -39,7 +18,7 @@
       </div>
 
       <!-- Activity Content -->
-      <div class="flex-1 overflow-y-auto p-4">
+      <div class="max-h-96 overflow-y-auto p-4">
         <div v-if="!activities || activities.length === 0" class="text-center py-8">
           <i class="pi pi-clock text-3xl text-gray-400 mb-3"></i>
           <p class="text-sm text-gray-500">No recent activity</p>
@@ -69,7 +48,7 @@
       </div>
 
       <!-- Footer -->
-      <div class="border-t border-gray-200 p-4">
+      <div class="border-t border-gray-200 p-4 bg-gray-50 rounded-b-lg">
         <Button
           label="View All Activity"
           severity="secondary"
@@ -83,7 +62,7 @@
     <!-- Light Overlay -->
     <div
       v-if="isOpen"
-      class="fixed inset-0 z-20 transition-opacity duration-300"
+      class="fixed inset-0 z-30 transition-opacity duration-300"
       style="background-color: rgba(107, 114, 128, 0.1);"
       @click="closeFlyout"
     ></div>
@@ -91,11 +70,15 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed } from 'vue'
 import Button from 'primevue/button'
 
 // Props
 const props = defineProps({
+  visible: {
+    type: Boolean,
+    default: false
+  },
   activities: {
     type: Array,
     default: () => []
@@ -103,18 +86,14 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['view-all'])
+const emit = defineEmits(['update:visible', 'view-all'])
 
-// State
-const isOpen = ref(false)
+// Computed
+const isOpen = computed(() => props.visible)
 
 // Methods
-const toggleFlyout = () => {
-  isOpen.value = !isOpen.value
-}
-
 const closeFlyout = () => {
-  isOpen.value = false
+  emit('update:visible', false)
 }
 
 const viewAllActivity = () => {
@@ -175,15 +154,6 @@ const getActivityIcon = (action) => {
 </script>
 
 <style scoped>
-/* Ensure the flyout is above other content */
-.z-30 {
-  z-index: 30;
-}
-
-.z-40 {
-  z-index: 40;
-}
-
 /* Custom scrollbar */
 .overflow-y-auto::-webkit-scrollbar {
   width: 4px;
