@@ -282,10 +282,10 @@ import TaskSlideOver from './TaskSlideOver.vue'
 
 // Props and existing setup (keep your existing code)
 const props = defineProps({
-  projectId: {
+  projectId:{
     type: String,
-    required: true,
-  },
+    required: true
+  }
 })
 
 const router = useRouter()

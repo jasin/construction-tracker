@@ -264,10 +264,10 @@
       }"
     />
 
-    <!-- New Project Modal -->
-    <ProjectModal
-      :visible="showNewProjectModal"
-      @update:visible="(val) => { showNewProjectModal = val }"
+    <!-- New Project Slide Over -->
+    <ProjectSlideOver
+      :visible="showNewProjectSlideOver"
+      @update:visible="(val) => { showNewProjectSlideOver = val }"
       @project-created="handleProjectCreated"
     />
   </div>
@@ -277,7 +277,7 @@
 import { ref, watch } from 'vue'
 import { ContextMenu } from 'primevue'
 import ProjectMenu from './ProjectMenu.vue'
-import ProjectModal from './ProjectSlideOver.vue'
+import ProjectSlideOver from './ProjectSlideOver.vue'
 
 // Reactive state for expanded sections
 const expandedSections = ref({
@@ -294,21 +294,19 @@ const toggleSection = (section) => {
 
 // Context Menu
 const contextMenu = ref()
-const showNewProjectModal = ref(false)
+const showNewProjectSlideOver = ref(false)
 
-// Watch the modal visibility
-watch(showNewProjectModal, (newVal, oldVal) => {
-  console.log('Modal visibility changed from', oldVal, 'to', newVal)
-})
+// Watch the Slide Over visibility
+//watch(showNewProjectSlideOver, (newVal, oldVal) => {
+//  console.log('Modal visibility changed from', oldVal, 'to', newVal)
+//})
 
 const contextMenuItems = ref([
   {
     label: 'New Project',
     icon: 'pi pi-file',
     command: () => {
-      console.log("New Project Clicked!")
-      showNewProjectModal.value = true
-      console.log("Modal visibility set to", showNewProjectModal.value)
+      showNewProjectSlideOver.value = true
     }
   }
 ])
