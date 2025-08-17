@@ -183,6 +183,72 @@ class FirebaseService {
     }))
   }
 
+  // Get minimal user data (just ID, name, email) for lookups
+  async getUsersMinimal() {
+    const usersRef = ref(database, 'users')
+    const snapshot = await get(usersRef)
+
+    if (!snapshot.exists()) return []
+
+    return Object.entries(snapshot.val()).map(([id, data]) => ({
+      id,
+      name: data.name,
+      email: data.email,
+      active: data.active
+    }))
+  }
+
+  // Get users by project (if you have project-user relationships)
+  async getUsersByProject(projectId) {
+    const usersRef = ref(database, 'users')
+    const projectUsersQuery = query(
+      usersRef,
+      orderByChild(`projects/${projectId}`),
+      equalTo(true)
+    )
+    const snapshot = await get(projectUsersQuery)
+
+    if (!snapshot.exists()) return []
+    return Object.entries(snapshot.val()).map(([id, data]) => ({
+      id,
+      ...data,
+    }))
+  }
+
+  // Get multiple users by IDs (batch operation)
+  async getUsersByIds(userIds) {
+    if (!userIds || userIds.length === 0) return []
+
+    // Firebase doesn't have native "IN" queries, so we do multiple gets
+    // For better performance, you might want to use a cloud function
+    const promises = userIds.map(id => this.getUser(id))
+    const results = await Promise.all(promises)
+    return results.filter(Boolean) // Remove null results
+  }
+
+  // Get users assigned to any task in a project
+  async getUsersAssignedToProject(projectId) {
+    try {
+      // Get all tasks for the project
+      const tasks = await this.getTasksByProject(projectId)
+
+      // Extract unique user IDs
+      const userIds = [...new Set(
+        tasks
+          .map(task => task.assignedTo)
+          .filter(Boolean) // Remove null/undefined
+      )]
+
+      if (userIds.length === 0) return []
+
+      // Batch fetch users
+      return await this.getUsersByIds(userIds)
+    } catch (error) {
+      console.error('Error getting users assigned to project:', error)
+      return []
+    }
+  }
+
   async updateUser(userId, updates) {
     const userRef = ref(database, `users/${userId}`)
     await update(userRef, updates)
@@ -301,6 +367,17 @@ class FirebaseService {
     }))
   }
 
+  async getAllRFIs() {
+    const rfisRef = ref(database, 'rfis')
+    const snapshot = await get(rfisRef)
+    if (!snapshot.exists()) return []
+
+    return Object.entries(snapshot.val()).map(([id, data]) => ({
+      id,
+      ...data,
+    }))
+  }
+
   async submitRFI(rfiId) {
     const updates = {
       status: 'submitted',
@@ -376,6 +453,17 @@ class FirebaseService {
     const snapshot = await get(projectSubmittalsQuery)
 
     if (!snapshot.exists()) return []
+    return Object.entries(snapshot.val()).map(([id, data]) => ({
+      id,
+      ...data,
+    }))
+  }
+
+  async getAllSubmittals() {
+    const submittalsRef = ref(database, 'submittals')
+    const snapshot = await get(submittalsRef)
+    if (!snapshot.exists()) return []
+
     return Object.entries(snapshot.val()).map(([id, data]) => ({
       id,
       ...data,
@@ -461,6 +549,17 @@ class FirebaseService {
     }))
   }
 
+  async getAllChangeOrders() {
+    const changeOrdersRef = ref(database, 'changeOrders')
+    const snapshot = await get(changeOrdersRef)
+    if (!snapshot.exists()) return []
+
+    return Object.entries(snapshot.val()).map(([id, data]) => ({
+      id,
+      ...data,
+    }))
+  }
+
   async approveChangeOrder(changeOrderId) {
     const updates = {
       status: 'approved',
@@ -499,7 +598,7 @@ class FirebaseService {
     await remove(coRef)
   }
 
-  // ==================== TASK ============================
+  // ==================== TASKS ============================
 
   async createTask(taskData) {
     const tasksRef = ref(database, 'tasks')
@@ -576,6 +675,17 @@ class FirebaseService {
              task.dueDate < now &&
              task.status !== 'complete'
     })
+  }
+
+  async getAllTasks() {
+    const tasksRef = ref(database, 'tasks')
+    const snapshot = await get(tasksRef)
+    if (!snapshot.exists()) return []
+
+    return Object.entries(snapshot.val()).map(([id, data]) => ({
+      id,
+      ...data,
+    }))
   }
 
   async updateTask(taskId, updates) {
@@ -685,6 +795,66 @@ class FirebaseService {
       remove(taskRef),
       remove(commentsRef)
     ])
+  }
+
+  async getTaskStatistics(projectId) {
+    const tasks = await this.getTasksByProject(projectId)
+
+    const stats = {
+      total: tasks.length,
+      completed: tasks.filter(t => t.status === 'complete').length,
+      inProgress: tasks.filter(t => t.status === 'in-progress').length,
+      overdue: tasks.filter(t => {
+        return t.dueDate &&
+               new Date(t.dueDate) < new Date() &&
+               t.status !== 'complete'
+      }).length,
+      byPriority: {
+        critical: tasks.filter(t => t.priority === 'critical').length,
+        high: tasks.filter(t => t.priority === 'high').length,
+        medium: tasks.filter(t => t.priority === 'medium').length,
+        low: tasks.filter(t => t.priority === 'low').length
+      },
+      totalEstimatedHours: tasks.reduce((sum, task) => sum + (task.estimatedHours || 0), 0),
+      totalActualHours: tasks.reduce((sum, task) => sum + (task.actualHours || 0), 0),
+      averageProgress: tasks.length > 0
+        ? tasks.reduce((sum, task) => sum + (task.progress || 0), 0) / tasks.length
+        : 0
+    }
+
+    stats.completionRate = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0
+
+    return stats
+  }
+
+  // Bulk operations
+  async bulkUpdateTasks(taskIds, updates) {
+    const promises = taskIds.map(taskId => this.updateTask(taskId, updates))
+    return await Promise.all(promises)
+  }
+
+  async bulkAssignTasks(taskIds, userId) {
+    const promises = taskIds.map(taskId => this.assignTask(taskId, userId))
+    return await Promise.all(promises)
+  }
+
+  // Task dependencies
+  async checkTaskDependencies(taskId) {
+    const task = await this.getTask(taskId)
+    if (!task || !task.dependencies || task.dependencies.length === 0) {
+      return { canStart: true, blockedBy: [] }
+    }
+
+    const dependencies = await Promise.all(
+      task.dependencies.map(depId => this.getTask(depId))
+    )
+
+    const blockedBy = dependencies.filter(dep => dep && dep.status !== 'complete')
+
+    return {
+      canStart: blockedBy.length === 0,
+      blockedBy: blockedBy.map(dep => ({ id: dep.id, title: dep.title }))
+    }
   }
 
   // ==================== ACTIVITY LOG ====================
@@ -839,80 +1009,56 @@ class FirebaseService {
     return projectCOsQuery
   }
 
+  // Subscribe to minimal user data for a project
+  subscribeToProjectUsers(projectId, callback) {
+    // This would need to be implemented based on your data structure
+    // Could subscribe to project users or derive from tasks
+    const tasksRef = ref(database, 'tasks')
+    const projectTasksQuery = query(tasksRef, orderByChild('projectId'), equalTo(projectId))
+
+    onValue(projectTasksQuery, async (snapshot) => {
+      if (snapshot.exists()) {
+        const tasks = Object.values(snapshot.val())
+        const userIds = [...new Set(tasks.map(t => t.assignedTo).filter(Boolean))]
+
+        if (userIds.length > 0) {
+          const users = await this.getUsersByIds(userIds)
+          callback(users)
+        } else {
+          callback([])
+        }
+      } else {
+        callback([])
+      }
+    })
+
+    return projectTasksQuery
+  }
+
   unsubscribe(queryRef) {
     off(queryRef)
   }
 
   // ==================== UTILITY METHODS ====================
 
-  async getAllTasks() {
-    const tasksRef = ref(database, 'tasks')
-    const snapshot = await get(tasksRef)
-    if (!snapshot.exists()) return []
+  // Get dashboard data in one call
+  async getDashboardData(userId) {
+    const [projects, rfis, submittals, changeOrders] = await Promise.all([
+      this.getAllProjects(),
+      this.getAllRFIs(),
+      this.getAllSubmittals(),
+      this.getAllChangeOrders(),
+    ])
 
-    return Object.entries(snapshot.val()).map(([id, data]) => ({
-      id,
-      ...data,
-    }))
-  }
-
-  async getTaskStatistics(projectId) {
-    const tasks = await this.getTasksByProject(projectId)
-
-    const stats = {
-      total: tasks.length,
-      completed: tasks.filter(t => t.status === 'complete').length,
-      inProgress: tasks.filter(t => t.status === 'in-progress').length,
-      overdue: tasks.filter(t => {
-        return t.dueDate &&
-               new Date(t.dueDate) < new Date() &&
-               t.status !== 'complete'
-      }).length,
-      byPriority: {
-        critical: tasks.filter(t => t.priority === 'critical').length,
-        high: tasks.filter(t => t.priority === 'high').length,
-        medium: tasks.filter(t => t.priority === 'medium').length,
-        low: tasks.filter(t => t.priority === 'low').length
-      },
-      totalEstimatedHours: tasks.reduce((sum, task) => sum + (task.estimatedHours || 0), 0),
-      totalActualHours: tasks.reduce((sum, task) => sum + (task.actualHours || 0), 0),
-      averageProgress: tasks.length > 0
-        ? tasks.reduce((sum, task) => sum + (task.progress || 0), 0) / tasks.length
-        : 0
-    }
-
-    stats.completionRate = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0
-
-    return stats
-  }
-
-  // Bulk operations
-  async bulkUpdateTasks(taskIds, updates) {
-    const promises = taskIds.map(taskId => this.updateTask(taskId, updates))
-    return await Promise.all(promises)
-  }
-
-  async bulkAssignTasks(taskIds, userId) {
-    const promises = taskIds.map(taskId => this.assignTask(taskId, userId))
-    return await Promise.all(promises)
-  }
-
-  // Task dependencies
-  async checkTaskDependencies(taskId) {
-    const task = await this.getTask(taskId)
-    if (!task || !task.dependencies || task.dependencies.length === 0) {
-      return { canStart: true, blockedBy: [] }
-    }
-
-    const dependencies = await Promise.all(
-      task.dependencies.map(depId => this.getTask(depId))
-    )
-
-    const blockedBy = dependencies.filter(dep => dep && dep.status !== 'complete')
+    // Filter by user's projects
+    const user = await this.getUser(userId)
+    const userProjectIds = user?.projects ? Object.keys(user.projects) : []
 
     return {
-      canStart: blockedBy.length === 0,
-      blockedBy: blockedBy.map(dep => ({ id: dep.id, title: dep.title }))
+      projects: projects.filter((p) => userProjectIds.includes(p.id)),
+      rfis: rfis.filter((r) => userProjectIds.includes(r.projectId)),
+      submittals: submittals.filter((s) => userProjectIds.includes(s.projectId)),
+      changeOrders: changeOrders.filter((co) => userProjectIds.includes(co.projectId)),
     }
   }
 
@@ -936,59 +1082,246 @@ class FirebaseService {
     await Promise.all(promises)
   }
 
-  // Get dashboard data in one call
-  async getDashboardData(userId) {
-    const [projects, rfis, submittals, changeOrders] = await Promise.all([
-      this.getAllProjects(),
-      this.getAllRFIs(),
-      this.getAllSubmittals(),
-      this.getAllChangeOrders(),
+  // ==================== SEARCH & FILTERING ====================
+
+  // Search across multiple entity types
+  async searchProjects(searchTerm) {
+    const projects = await this.getAllProjects()
+    const term = searchTerm.toLowerCase()
+
+    return projects.filter(project =>
+      project.name?.toLowerCase().includes(term) ||
+      project.jobNumber?.toLowerCase().includes(term) ||
+      project.client?.toLowerCase().includes(term) ||
+      project.description?.toLowerCase().includes(term)
+    )
+  }
+
+  async searchTasks(searchTerm, projectId = null) {
+    let tasks = projectId ?
+      await this.getTasksByProject(projectId) :
+      await this.getAllTasks()
+
+    const term = searchTerm.toLowerCase()
+
+    return tasks.filter(task =>
+      task.title?.toLowerCase().includes(term) ||
+      task.description?.toLowerCase().includes(term)
+    )
+  }
+
+  // ==================== ANALYTICS & REPORTING ====================
+
+  async getProjectAnalytics(projectId) {
+    const [tasks, rfis, submittals, changeOrders, activities] = await Promise.all([
+      this.getTasksByProject(projectId),
+      this.getRFIsByProject(projectId),
+      this.getSubmittalsByProject(projectId),
+      this.getChangeOrdersByProject(projectId),
+      this.getActivityByProject(projectId)
     ])
 
-    // Filter by user's projects
-    const user = await this.getUser(userId)
-    const userProjectIds = user?.projects ? Object.keys(user.projects) : []
+    // Task analytics
+    const taskStats = {
+      total: tasks.length,
+      completed: tasks.filter(t => t.status === 'complete').length,
+      inProgress: tasks.filter(t => t.status === 'in-progress').length,
+      overdue: tasks.filter(t => {
+        return t.dueDate &&
+               new Date(t.dueDate) < new Date() &&
+               t.status !== 'complete'
+      }).length
+    }
+
+    // RFI analytics
+    const rfiStats = {
+      total: rfis.length,
+      open: rfis.filter(r => r.status === 'open').length,
+      answered: rfis.filter(r => r.status === 'answered').length,
+      closed: rfis.filter(r => r.status === 'closed').length
+    }
+
+    // Submittal analytics
+    const submittalStats = {
+      total: submittals.length,
+      pending: submittals.filter(s => s.status === 'pending').length,
+      approved: submittals.filter(s => s.status === 'approved').length,
+      rejected: submittals.filter(s => s.status === 'rejected').length
+    }
+
+    // Change order analytics
+    const changeOrderStats = {
+      total: changeOrders.length,
+      proposed: changeOrders.filter(co => co.status === 'proposed').length,
+      approved: changeOrders.filter(co => co.status === 'approved').length,
+      totalCostImpact: changeOrders
+        .filter(co => co.status === 'approved')
+        .reduce((sum, co) => sum + (co.costImpact || 0), 0)
+    }
 
     return {
-      projects: projects.filter((p) => userProjectIds.includes(p.id)),
-      rfis: rfis.filter((r) => userProjectIds.includes(r.projectId)),
-      submittals: submittals.filter((s) => userProjectIds.includes(s.projectId)),
-      changeOrders: changeOrders.filter((co) => userProjectIds.includes(co.projectId)),
+      tasks: taskStats,
+      rfis: rfiStats,
+      submittals: submittalStats,
+      changeOrders: changeOrderStats,
+      activityCount: activities.length,
+      lastActivity: activities.length > 0 ?
+        activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0] :
+        null
     }
   }
 
-  // Helper methods for getting all entities (for dashboard/reports)
-  async getAllRFIs() {
-    const rfisRef = ref(database, 'rfis')
-    const snapshot = await get(rfisRef)
-    if (!snapshot.exists()) return []
+  async getUserWorkload(userId) {
+    const tasks = await this.getTasksByAssignee(userId)
 
-    return Object.entries(snapshot.val()).map(([id, data]) => ({
-      id,
-      ...data,
-    }))
+    return {
+      totalTasks: tasks.length,
+      activeTasks: tasks.filter(t => ['todo', 'in-progress'].includes(t.status)).length,
+      overdueTasks: tasks.filter(t => {
+        return t.dueDate &&
+               new Date(t.dueDate) < new Date() &&
+               t.status !== 'complete'
+      }).length,
+      estimatedHours: tasks
+        .filter(t => t.status !== 'complete')
+        .reduce((sum, task) => sum + (task.estimatedHours || 0), 0),
+      completionRate: tasks.length > 0 ?
+        (tasks.filter(t => t.status === 'complete').length / tasks.length) * 100 :
+        0
+    }
   }
 
-  async getAllSubmittals() {
-    const submittalsRef = ref(database, 'submittals')
-    const snapshot = await get(submittalsRef)
-    if (!snapshot.exists()) return []
+  // ==================== BACKUP & EXPORT ====================
 
-    return Object.entries(snapshot.val()).map(([id, data]) => ({
-      id,
-      ...data,
-    }))
+  async exportProjectData(projectId) {
+    const [project, tasks, rfis, submittals, changeOrders, documents, activities] = await Promise.all([
+      this.getProject(projectId),
+      this.getTasksByProject(projectId),
+      this.getRFIsByProject(projectId),
+      this.getSubmittalsByProject(projectId),
+      this.getChangeOrdersByProject(projectId),
+      this.getDocumentsByProject(projectId),
+      this.getActivityByProject(projectId)
+    ])
+
+    return {
+      project,
+      tasks,
+      rfis,
+      submittals,
+      changeOrders,
+      documents,
+      activities,
+      exportedAt: new Date().toISOString(),
+      exportedBy: this.getCurrentUserId()
+    }
   }
 
-  async getAllChangeOrders() {
-    const changeOrdersRef = ref(database, 'changeOrders')
-    const snapshot = await get(changeOrdersRef)
-    if (!snapshot.exists()) return []
+  // ==================== ERROR HANDLING & VALIDATION ====================
 
-    return Object.entries(snapshot.val()).map(([id, data]) => ({
-      id,
-      ...data,
-    }))
+  validateProjectData(projectData) {
+    const errors = []
+
+    if (!projectData.name?.trim()) {
+      errors.push('Project name is required')
+    }
+
+    if (!projectData.jobNumber?.trim()) {
+      errors.push('Job number is required')
+    }
+
+    if (projectData.cost && projectData.cost < 0) {
+      errors.push('Project cost cannot be negative')
+    }
+
+    if (projectData.startDate && projectData.endDate) {
+      if (new Date(projectData.startDate) > new Date(projectData.endDate)) {
+        errors.push('Start date cannot be after end date')
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    }
+  }
+
+  validateTaskData(taskData) {
+    const errors = []
+
+    if (!taskData.title?.trim()) {
+      errors.push('Task title is required')
+    }
+
+    if (!taskData.projectId) {
+      errors.push('Project ID is required')
+    }
+
+    if (taskData.estimatedHours && taskData.estimatedHours < 0) {
+      errors.push('Estimated hours cannot be negative')
+    }
+
+    if (taskData.progress && (taskData.progress < 0 || taskData.progress > 100)) {
+      errors.push('Progress must be between 0 and 100')
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    }
+  }
+
+  // ==================== MAINTENANCE ====================
+
+  async cleanupOldActivities(daysToKeep = 90) {
+    const cutoffDate = new Date()
+    cutoffDate.setDate(cutoffDate.getDate() - daysToKeep)
+    const cutoffTimestamp = cutoffDate.toISOString()
+
+    const activityRef = ref(database, 'activityLog')
+    const snapshot = await get(activityRef)
+
+    if (snapshot.exists()) {
+      const activities = snapshot.val()
+      const deletePromises = []
+
+      Object.entries(activities).forEach(([id, activity]) => {
+        if (activity.timestamp < cutoffTimestamp) {
+          deletePromises.push(remove(ref(database, `activityLog/${id}`)))
+        }
+      })
+
+      await Promise.all(deletePromises)
+      return deletePromises.length
+    }
+
+    return 0
+  }
+
+  async getSystemHealth() {
+    try {
+      const [projectCount, userCount, taskCount] = await Promise.all([
+        this.getAllProjects().then(p => p.length),
+        this.getAllUsers().then(u => u.length),
+        this.getAllTasks().then(t => t.length)
+      ])
+
+      return {
+        status: 'healthy',
+        counts: {
+          projects: projectCount,
+          users: userCount,
+          tasks: taskCount
+        },
+        lastChecked: new Date().toISOString()
+      }
+    } catch (error) {
+      return {
+        status: 'error',
+        error: error.message,
+        lastChecked: new Date().toISOString()
+      }
+    }
   }
 }
 
