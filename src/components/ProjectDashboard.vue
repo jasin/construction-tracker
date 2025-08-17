@@ -286,7 +286,6 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import firebaseService from '@/firebaseService'
-import authService from '@/authService'
 import ActivityFlyout from './ActivityFlyout.vue'
 import ProjectSlideOver from './ProjectSlideOver.vue'
 import TaskSlideOver from './TaskSlideOver.vue'
@@ -319,7 +318,7 @@ const showActivityFlyout = ref(false) // Added this for the activity flyout
 const editingTask = ref(null)
 
 // Computed properties
-const currentUser = computed(() => authService.currentUser)
+
 
 // Ensure tasks is always a valid array for the TaskSlideOver component
 const validTasks = computed(() => {
