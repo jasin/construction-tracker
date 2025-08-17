@@ -13,14 +13,7 @@
             class="w-full flex items-center justify-between px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md font-medium"
           >
             <div class="flex items-center">
-              <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 11H5m14-7l2 2-2 2m0-4H5m14 12l2 2-2 2m0-4H5"
-                ></path>
-              </svg>
+              <i class="pi pi-folder w-5 h-5 mr3" />
               Projects
             </div>
             <svg
@@ -45,60 +38,26 @@
           </div>
         </div>
 
-        <!-- Tasks Section -->
+        <!-- Tasks Section - Direct Link -->
         <div class="mb-2">
-          <button
-            @click="toggleSection('tasks')"
-            class="w-full flex items-center justify-between px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md font-medium"
+          <router-link
+            to="/tasks"
+            class="w-full flex items-center px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md font-medium"
           >
-            <div class="flex items-center">
-              <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-                ></path>
-              </svg>
-              Tasks
-            </div>
-            <svg
-              class="w-4 h-4 transition-transform duration-200"
-              :class="{ 'rotate-90': expandedSections.tasks }"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 5l7 7-7 7"
-              ></path>
-            </svg>
-          </button>
+            <i class="pi pi-list w-5 h-5 mr-3" />
+            Tasks
+          </router-link>
+        </div>
 
-          <!-- Tasks Submenu -->
-          <div v-show="expandedSections.tasks" class="ml-8 mt-2 space-y-1">
-            <router-link
-              to="/tasks/all"
-              class="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
-            >
-              All Tasks
-            </router-link>
-            <router-link
-              to="/tasks/assigned"
-              class="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
-            >
-              Assigned to Me
-            </router-link>
-            <router-link
-              to="/tasks/overdue"
-              class="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
-            >
-              Overdue
-            </router-link>
-          </div>
+        <!-- Clients Section -->
+        <div class="mb-2">
+          <router-Link
+          to="/clients"
+          class="w-full flex items-center px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md font-medium"
+          >
+            <i class="pi pi-users w-5 h-5 mr-3" />
+            Clients
+          </router-Link>
         </div>
 
         <!-- Documents Section -->
@@ -108,14 +67,7 @@
             class="w-full flex items-center justify-between px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md font-medium"
           >
             <div class="flex items-center">
-              <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                ></path>
-              </svg>
+              <i class="pi pi-file-pdf w-5 h-5 mr-3"/>
               Documents
             </div>
             <svg
@@ -170,14 +122,7 @@
             class="w-full flex items-center justify-between px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md font-medium"
           >
             <div class="flex items-center">
-              <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                ></path>
-              </svg>
+              <i class="pi pi-chart-bar w-5 h-5 mr-3" />
               Reports
             </div>
             <svg
@@ -247,8 +192,9 @@
         <div class="mb-2">
           <router-link
             to="/users"
-            class="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
+            class="w-full flex items-center px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md font-medium"
           >
+            <i class="pi pi-user-edit w-5 h-5 mr-3" />
             User Management
           </router-link>
         </div>
@@ -282,7 +228,6 @@ import ProjectSlideOver from './ProjectSlideOver.vue'
 // Reactive state for expanded sections
 const expandedSections = ref({
   projects: true, // Start with projects expanded
-  tasks: false,
   documents: false,
   reports: false,
 })
@@ -295,11 +240,6 @@ const toggleSection = (section) => {
 // Context Menu
 const contextMenu = ref()
 const showNewProjectSlideOver = ref(false)
-
-// Watch the Slide Over visibility
-//watch(showNewProjectSlideOver, (newVal, oldVal) => {
-//  console.log('Modal visibility changed from', oldVal, 'to', newVal)
-//})
 
 const contextMenuItems = ref([
   {

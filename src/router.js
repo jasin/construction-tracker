@@ -7,6 +7,8 @@ import ProjectDashboard from '@/components/ProjectDashboard.vue'
 import UserManagement from '@/components/UserManagement.vue'
 import LoginPage from '@/components/LoginPage.vue'
 import UserDashboard from './components/UserDashboard.vue'
+import TasksPage from '@/components/TasksPage.vue'
+import ClientsPage from './components/ClientsPage.vue'
 
 // Placeholder component for routes that don't have components yet
 const PlaceholderPage = {
@@ -64,36 +66,20 @@ const routes = [
     beforeEnter: requireRole(['admin']),
   },
 
-  // Tasks routes
+  // Tasks - Single unified page
   {
-    path: '/tasks/all',
-    name: 'AllTasks',
-    component: PlaceholderPage,
+    path: '/tasks',
+    name: 'Tasks',
+    component: TasksPage,
     beforeEnter: requireAuth,
-    props: {
-      title: 'All Tasks',
-      description: 'View and manage all tasks across projects',
-    },
   },
+
+  // Clients - Single unified page
   {
-    path: '/tasks/assigned',
-    name: 'AssignedTasks',
-    component: PlaceholderPage,
-    beforeEnter: requireAuth,
-    props: {
-      title: 'Assigned Tasks',
-      description: 'Tasks assigned to you',
-    },
-  },
-  {
-    path: '/tasks/overdue',
-    name: 'OverdueTasks',
-    component: PlaceholderPage,
-    beforeEnter: requireAuth,
-    props: {
-      title: 'Overdue Tasks',
-      description: 'Tasks that are past their due date',
-    },
+    path: '/clients',
+    name: 'Clients',
+    component: ClientsPage,
+    beforeEnter: requireAuth
   },
 
   // Documents routes
