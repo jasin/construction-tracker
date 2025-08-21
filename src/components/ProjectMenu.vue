@@ -58,7 +58,7 @@
                 <i
                   class="pi pi-folder mr-2 text-gray-400 group-hover:text-emerald-600 transition-colors"
                 ></i>
-                <span class="truncate">{{ project.jobNumber }} - {{ project.name }}</span>
+                <span class="truncate">{{ project.jobNumber }} - {{ project.name }}{{ getClientName(project.clientId, clientsMap) }}</span>
               </button>
             </div>
           </AccordionContent>
@@ -73,14 +73,16 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { Accordion, AccordionPanel, AccordionHeader, AccordionContent } from 'primevue'
 import firebaseService from '@/firebaseService'
+import { loadClients, getClientName, createLookupMap } from '@/utils'
 
 // Reactive state
 const projects = ref([])
+const clients = ref([])
 const loading = ref(true)
 const error = ref(null)
 const router = useRouter()
 // Default to have pre-construction expanded
-const accordionValue = ['pre-construction']
+const accordionValue = ref(['pre-construction'])
 let unsubscribe = null
 
 // Phase configuration
@@ -106,6 +108,9 @@ const phaseConfig = {
     color: '#059669',
   },
 }
+
+// Create clients map for better performance using utility
+const clientsMap = computed(() => createLookupMap(clients.value))
 
 // Transform projects data for accordion
 const accordionItems = computed(() => {
@@ -152,7 +157,10 @@ onMounted(async () => {
   console.log('ProjectMenu.vue mounted. Fetching data...')
 
   try {
-    // Set up real-time listener for all projects
+    // Load clients using utility function
+    clients.value = await loadClients()
+
+    // Set up real-time listener for projects
     unsubscribe = firebaseService.subscribeToProjects((projectsData) => {
       console.log('Projects updated:', projectsData)
       projects.value = projectsData
@@ -176,9 +184,6 @@ onBeforeUnmount(() => {
     }
   }
 })
-
-// Context Menu
-
 </script>
 
 <style scoped>

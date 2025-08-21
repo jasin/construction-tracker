@@ -47,12 +47,29 @@
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Client</label>
-              <InputText
-                v-model="form.client"
+              <label class="block text-sm font-medium text-gray-700 mb-1">Client *</label>
+              <Select
+                v-model="form.clientId"
+                :options="clientOptions"
+                option-label="label"
+                option-value="value"
+                placeholder="Select a client"
                 class="w-full text-sm"
-                placeholder="Enter client name"
+                :class="{ 'border-red-500': errors.clientId }"
+                filter
+                show-clear
               />
+              <span v-if="errors.clientId" class="text-red-500 text-xs mt-1">{{ errors.clientId }}</span>
+              <small class="text-gray-500 text-xs">
+                Don't see your client?
+                <Button
+                  @click="openCreateClient"
+                  label="Add new client"
+                  size="small"
+                  text
+                  class="!p-0 !h-auto text-xs underline text-blue-600 hover:text-blue-700"
+                />
+              </small>
             </div>
 
             <div>
@@ -200,6 +217,13 @@
       style="background-color: rgba(107, 114, 128, 0.1);"
       @click="closeSlideOver"
     ></div>
+
+    <!-- Nested client slide over (Higher z-index) -->
+    <ClientSlideOver
+      :visible="showCreateClient"
+      @update:visible="handleClientModalVisibility"
+      @client-created="handleClientCreated"
+    />
   </div>
 </template>
 
@@ -213,6 +237,7 @@ import Checkbox from 'primevue/checkbox'
 import DatePicker from 'primevue/datepicker'
 import Button from 'primevue/button'
 import firebaseService from '@/firebaseService'
+import ClientSlideOver from './ClientSlideOver.vue'
 
 // Props
 const props = defineProps({
@@ -234,15 +259,26 @@ const loading = ref(false)
 const error = ref('')
 const success = ref('')
 const errors = ref({})
+const clients = ref([])
+const showCreateClient = ref(false)
 
 // Computed
 const isOpen = computed(() => props.visible)
+
+const clientOptions = computed(() => {
+  return clients.value
+    .filter(client => client.name)
+    .map(client => ({
+      label: `${client.name}${client.company ? ` (${client.company})` : ''}`,
+      value: client.id
+    }))
+})
 
 // Form data
 const form = ref({
   name: '',
   jobNumber: '',
-  client: '',
+  clientId: '',
   architect: '',
   projectManager: '',
   superintendent: '',
@@ -269,7 +305,7 @@ const loadProjectData = () => {
     form.value = {
       name: props.project.name || '',
       jobNumber: props.project.jobNumber || '',
-      client: props.project.client || '',
+      client: props.project.clientId || '',
       architect: props.project.architect || '',
       projectManager: props.project.projectManager || '',
       superintendent: props.project.superintendent || '',
@@ -284,6 +320,17 @@ const loadProjectData = () => {
   }
 }
 
+// Load Client data
+const loadClients = async () => {
+  try {
+    const clientData = await firebaseService.getAllClients()
+    clients.value = clientData
+    console.log('Loaded clients for project form:', clientData)
+  } catch(err) {
+    console.error('Error loading clients:', err.message)
+  }
+}
+
 // Validation
 const validateForm = () => {
   errors.value = {}
@@ -294,6 +341,10 @@ const validateForm = () => {
 
   if (!form.value.jobNumber?.trim()) {
     errors.value.jobNumber = 'Job number is required'
+  }
+
+  if(!form.value.clientId) {
+    errors.value.clientId = 'Client is required'
   }
 
   return Object.keys(errors.value).length === 0
@@ -313,7 +364,7 @@ const handleSubmit = async () => {
     const projectData = {
       name: form.value.name.trim(),
       jobNumber: form.value.jobNumber.trim(),
-      client: form.value.client?.trim() || '',
+      client: form.value.clientId?.trim() || '',
       architect: form.value.architect?.trim() || '',
       projectManager: form.value.projectManager?.trim() || '',
       superintendent: form.value.superintendent?.trim() || '',
@@ -352,6 +403,25 @@ const handleSubmit = async () => {
   }
 }
 
+const openCreateClient = () => {
+  showCreateClient.value = true
+}
+
+const handleClientModalVisibility = (visible) => {
+  showCreateClient.value = visible
+}
+
+const handleClientCreated = (newClient) => {
+  // Add to client list
+  clients.value.unshift(newClient)
+
+  // Select new client in form
+  form.value.clientId = newClient.id
+
+  // Close the client modal
+  showCreateClient.value = false
+}
+
 // Close slide-over
 const closeSlideOver = () => {
   emit('update:visible', false)
@@ -362,6 +432,7 @@ const closeSlideOver = () => {
 // Watch for visibility changes
 watch(() => props.visible, (newVal) => {
   if (newVal) {
+    loadClients()
     loadProjectData()
   }
 })
@@ -374,5 +445,8 @@ watch(() => props.project, () => {
 </script>
 
 <style scoped>
-/* Responsive width classes are handled in template */
+/* Make sure client slide over is on top */
+:deep(.ClientSlideOver) {
+  z-index: 50;
+}
 </style>
