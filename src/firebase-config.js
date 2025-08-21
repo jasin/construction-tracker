@@ -25,8 +25,8 @@ if (!isDevelopment) {
   }
 }
 
-
-console.log('Initializing Firebase with config:', firebaseConfig)
+// Check environment before displaying private information to the public
+console.log('Initializing Firebase with config:', !isDevelopment ? {} : firebaseConfig)
 console.log('Environment:', !isDevelopment ? 'production' : 'development')
 
 const app = initializeApp(firebaseConfig)
