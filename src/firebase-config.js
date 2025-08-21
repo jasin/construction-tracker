@@ -3,10 +3,11 @@ import { getDatabase, connectDatabaseEmulator } from 'firebase/database'
 import { getAuth, connectAuthEmulator } from 'firebase/auth'
 
 // Determine if we're in production based on hostname
-const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+const isDevelopment = import.meta.env.MODE === 'development'
+
 let firebaseConfig
 
-if (isProduction) {
+if (!isDevelopment) {
   firebaseConfig = {
     apiKey: import.meta.env.VITE_API_KEY,
     authDomain: import.meta.env.VITE_AUTH_DOMAIN,
@@ -26,14 +27,14 @@ if (isProduction) {
 
 
 console.log('Initializing Firebase with config:', firebaseConfig)
-console.log('Environment:', isProduction ? 'production' : 'development')
+console.log('Environment:', !isDevelopment ? 'production' : 'development')
 
 const app = initializeApp(firebaseConfig)
 const database = getDatabase(app)
 const auth = getAuth(app)
 
 // Only connect to emulators in development
-if (!isProduction && window.location.hostname === 'localhost') {
+if (isDevelopment) {
   connectDatabaseEmulator(database, '127.0.0.1', 9000)
   connectAuthEmulator(auth, 'http://127.0.0.1:9099')
   console.log('Connected to Database and Auth Emulators')
