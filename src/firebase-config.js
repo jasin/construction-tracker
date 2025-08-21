@@ -4,20 +4,21 @@ import { getAuth, connectAuthEmulator } from 'firebase/auth'
 
 // Determine if we're in production based on hostname
 const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-let firebaseConfig = {}
+let firebaseConfig
 
 if (isProduction) {
   firebaseConfig = {
-    apiKey: process.env.api_key,
-    authDomain: process.env.auth_domain,
-    databaseURL: process.env.database_url,  // HTTPS for production
-    projectId: process.env.project_id,
-    storageBucket: process.env.storage_bucket,
-    messagingSenderId: process.env.messenging_sender_id,
-    appId: process.env.app_id,
+    apiKey: import.meta.env.VITE_API_KEY,
+    authDomain: import.meta.env.VITE_AUTH_DOMAIN,
+    databaseURL: import.meta.env.VITE_DATABASE_URL,  // HTTPS for production
+    projectId: import.meta.env.VITE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_APP_ID,
   }
 } else {
   firebaseConfig = {
+    apiKey: 'fake-key',
     databaseURL: 'http://127.0.0.1:9000?ns=construction-tracker-fbdb-default-rtdb',
     projectId: 'construction-tracker-fbdb',
   }
