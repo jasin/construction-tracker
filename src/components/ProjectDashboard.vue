@@ -83,7 +83,7 @@
             {{ formatPhase(project.phase) }}
           </span>
           <span class="text-sm font-medium text-green-600">
-            ${{ formatCurrency(project.cost) }}
+            {{ formatCurrency(project.cost) }}
           </span>
           <span
             class="px-2.5 py-1 rounded text-xs font-medium"
@@ -136,29 +136,18 @@
                     <div class="flex items-center gap-3 flex-1 min-w-0">
                       <div
                         class="w-3 h-3 rounded-full flex-shrink-0"
-                        :class="{
-                          'bg-red-500': task.priority === 'critical',
-                          'bg-orange-500': task.priority === 'high',
-                          'bg-yellow-500': task.priority === 'medium',
-                          'bg-green-500': task.priority === 'low'
-                        }"
+                        :class="getPriorityClasses(task.priority)"
                       ></div>
                       <div class="flex-1 min-w-0">
                         <p class="text-sm font-medium text-gray-900 truncate">{{ task.title }}</p>
                         <p class="text-xs text-gray-500">
-                          {{ getUserName(task.assignedTo) }} • Due {{ formatDate(task.dueDate) }}
+                          {{ getUserName(task.assignedTo, usersMap) }} • Due {{ formatDate(task.dueDate) }}
                         </p>
                       </div>
                     </div>
                     <span
                       class="px-2 py-1 rounded-full text-xs font-medium flex-shrink-0"
-                      :class="{
-                        'bg-gray-100 text-gray-800': task.status === 'todo',
-                        'bg-blue-100 text-blue-800': task.status === 'in-progress',
-                        'bg-yellow-100 text-yellow-800': task.status === 'review',
-                        'bg-green-100 text-green-800': task.status === 'complete',
-                        'bg-red-100 text-red-800': task.status === 'on-hold'
-                      }"
+                      :class="getStatusClasses(task.status)"
                     >
                       {{ formatTaskStatus(task.status) }}
                     </span>
@@ -289,8 +278,19 @@ import firebaseService from '@/firebaseService'
 import ActivityFlyout from './ActivityFlyout.vue'
 import ProjectSlideOver from './ProjectSlideOver.vue'
 import TaskSlideOver from './TaskSlideOver.vue'
+import {
+  loadUsers,
+  getUserName,
+  createLookupMap,
+  formatDate,
+  formatCurrency,
+  formatPhase,
+  formatTaskStatus,
+  getPriorityClasses,
+  getStatusClasses
+} from '@/utils'
 
-// Props and existing setup (keep your existing code)
+// Props and existing setup
 const props = defineProps({
   projectId:{
     type: String,
@@ -300,80 +300,42 @@ const props = defineProps({
 
 const router = useRouter()
 
-// Reactive state (keep your existing state)
+// Reactive state
 const project = ref({})
 const rfis = ref([])
 const submittals = ref([])
 const changeOrders = ref([])
 const activities = ref([])
-const tasks = ref([]) // Ensure this is always an array
-const users = ref([]) // Add users state for lookups
+const tasks = ref([])
+const users = ref([])
 const loading = ref(true)
 const error = ref(null)
 const subscriptions = ref([])
-// New state for slide-overs
 const showProjectSlideOver = ref(false)
 const showTaskSlideOver = ref(false)
-const showActivityFlyout = ref(false) // Added this for the activity flyout
+const showActivityFlyout = ref(false)
 const editingTask = ref(null)
 
 // Computed properties
+const validTasks = computed(() => Array.isArray(tasks.value) ? tasks.value : [])
+const usersMap = computed(() => createLookupMap(users.value))
 
-
-// Ensure tasks is always a valid array for the TaskSlideOver component
-const validTasks = computed(() => {
-  return Array.isArray(tasks.value) ? tasks.value : []
-})
-
-// Helper function to get user name by ID
-const getUserName = (userId) => {
-  if (!userId) return 'Unassigned'
-  const user = users.value.find(u => u.id === userId)
-  return user ? (user.name || user.email) : userId
-}
-
-// Helper methods
-const formatCurrency = (amount) => {
-  if (!amount) return '0'
-  return new Intl.NumberFormat('en-US').format(amount)
-}
-
-const formatPhase = (phase) => {
-  const phaseMap = {
-    'pre-construction': 'Pre-Construction',
-    'construction': 'Construction',
-    'close-out': 'Close-Out',
-    'complete': 'Complete'
-  }
-  return phaseMap[phase] || phase
-}
-
-const formatTaskStatus = (status) => {
-  const statusMap = {
-    'todo': 'To Do',
-    'in-progress': 'In Progress',
-    'review': 'Review',
-    'complete': 'Complete',
-    'on-hold': 'On Hold'
-  }
-  return statusMap[status] || status
-}
-
+// Methods
 const editTask = (task) => {
-  console.log('Editing task:', task) // Debug log
+  console.log('Editing task:', task)
   editingTask.value = task
   showTaskSlideOver.value = true
 }
 
 const handleTaskCreated = (newTask) => {
-  console.log('Task created:', newTask) // Debug log
+  console.log('Task created:', newTask)
   tasks.value.unshift(newTask)
   editingTask.value = null
   showTaskSlideOver.value = false
 }
 
 const handleTaskUpdated = (updatedTask) => {
-  console.log('Task updated:', updatedTask) // Debug log
+  console.log('Task updated:', updatedTask)
   const index = tasks.value.findIndex(t => t.id === updatedTask.id)
   if (index !== -1) {
     tasks.value[index] = updatedTask
@@ -383,52 +345,19 @@ const handleTaskUpdated = (updatedTask) => {
 }
 
 const goToProjectSettings = () => {
-  // Navigate to project settings page (to be implemented)
   router.push(`/project/${props.projectId}/settings`)
 }
 
-const formatDate = (dateString) => {
-  if (!dateString) return 'N/A'
-  return new Date(dateString).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  })
-}
-
 const handleProjectUpdated = (updatedProject) => {
-  // Update local project data
   project.value = { ...project.value, ...updatedProject }
 }
 
 const handleViewAllActivity = () => {
-  // Navigate to full activity page or show modal
   console.log('View all activity clicked')
   showActivityFlyout.value = false
-  // Could navigate to: router.push(`/project/${props.projectId}/activity`)
 }
-
-// Load users for name lookups
-const loadUsers = async () => {
-  try {
-    const allUsers = await firebaseService.getAllUsers()
-    users.value = allUsers
-    console.log('Loaded users for name lookups:', allUsers)
-  } catch (err) {
-    console.error('Error loading users:', err)
-    users.value = []
-  }
-}
-// Keep all your existing methods:
-// - loadProjectData()
-// - setupRealtimeListeners()
-// - createNewRFI()
-// - createNewSubmittal()
-// - createNewChangeOrder()
-// - lifecycle hooks
 
 const loadProjectData = async () => {
-  // Load initial project data
   const [projectData, activitiesData] = await Promise.all([
     firebaseService.getProject(props.projectId),
     firebaseService.getActivityByProject(props.projectId),
@@ -439,7 +368,7 @@ const loadProjectData = async () => {
   }
 
   project.value = projectData
-  activities.value = activitiesData.slice(0, 10) // Show last 10 activities
+  activities.value = activitiesData.slice(0, 10)
   loading.value = false
 }
 
@@ -451,11 +380,10 @@ const createNewRFI = async () => {
       description: '',
       priority: 'medium',
       submittedBy: firebaseService.getCurrentUserId(),
-      assignedTo: '', // You might want to show a modal to select this
+      assignedTo: '',
     }
 
     await firebaseService.createRFI(rfiData)
-    // Real-time listener will update the UI automatically
   } catch (error) {
     console.error('Error creating RFI:', error)
     alert('Failed to create RFI')
@@ -470,7 +398,7 @@ const createNewSubmittal = async () => {
       description: '',
       submittedBy: firebaseService.getCurrentUserId(),
       reviewedBy: '',
-      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 2 weeks from now
+      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
     }
 
     await firebaseService.createSubmittal(submittalData)
@@ -481,43 +409,10 @@ const createNewSubmittal = async () => {
 }
 
 const createNewChangeOrder = () => {
-  // Placeholder for change order creation
   console.log('Create new change order')
 }
 
-// Lifecycle hooks
-watch(
-  () => props.projectId,
-  async (newProjectId, oldProjectId) => {
-    console.log('ProjectId changed from', oldProjectId, 'to', newProjectId)
-    if (newProjectId && newProjectId !== oldProjectId) {
-      // Clean up existing subscriptions
-      subscriptions.value.forEach((unsubscribe) => {
-        if (typeof unsubscribe === 'function') {
-          unsubscribe()
-        } else {
-          firebaseService.unsubscribe(unsubscribe)
-        }
-      })
-
-      // Reset state and load new project
-      loading.value = true
-      error.value = null
-
-      try {
-        await loadProjectData()
-        setupRealtimeListeners()
-      } catch (err) {
-        console.error('Error loading project:', err)
-        error.value = err.message
-        loading.value = false
-      }
-    }
-  },
-)
-
 const setupRealtimeListeners = () => {
-  // Subscribe to real-time updates
   const projectSub = firebaseService.subscribeToProject(props.projectId, (projectData) => {
     if (projectData) {
       project.value = projectData
@@ -546,20 +441,47 @@ const setupRealtimeListeners = () => {
     props.projectId,
     (taskData) => {
       console.log('Task data received:', taskData, 'Type:', typeof taskData, 'IsArray:', Array.isArray(taskData))
-      // Ensure we always set an array
       tasks.value = Array.isArray(taskData) ? taskData : []
     },
   )
 
-  // Store subscriptions for cleanup
   subscriptions.value = [projectSub, rfiSub, submittalSub, changeOrderSub, taskSub]
 }
 
 // Lifecycle hooks
+watch(
+  () => props.projectId,
+  async (newProjectId, oldProjectId) => {
+    console.log('ProjectId changed from', oldProjectId, 'to', newProjectId)
+    if (newProjectId && newProjectId !== oldProjectId) {
+      subscriptions.value.forEach((unsubscribe) => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe()
+        } else {
+          firebaseService.unsubscribe(unsubscribe)
+        }
+      })
+
+      loading.value = true
+      error.value = null
+
+      try {
+        await loadProjectData()
+        users.value = await loadUsers()
+        setupRealtimeListeners()
+      } catch (err) {
+        console.error('Error loading project:', err)
+        error.value = err.message
+        loading.value = false
+      }
+    }
+  },
+)
+
 onMounted(async () => {
   try {
     await loadProjectData()
-    await loadUsers() // Load users for name lookups
+    users.value = await loadUsers()
     setupRealtimeListeners()
   } catch (err) {
     console.error('Error loading project:', err)
@@ -569,7 +491,6 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  // Clean up all subscriptions
   subscriptions.value.forEach((unsubscribe) => {
     if (typeof unsubscribe === 'function') {
       unsubscribe()
@@ -581,7 +502,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* Custom scrollbar styling if needed */
 .overflow-y-auto::-webkit-scrollbar {
   width: 6px;
 }
