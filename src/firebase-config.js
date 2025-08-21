@@ -4,19 +4,25 @@ import { getAuth, connectAuthEmulator } from 'firebase/auth'
 
 // Determine if we're in production based on hostname
 const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+let firebaseConfig = {}
 
-const firebaseConfig = {
-  apiKey: 'AIzaSyAI_TiCoeNNQoR3IGOrnAGFZfXYadlrldg',
-  authDomain: 'construction-tracker-fbdb.firebaseapp.com',
-  // IMPORTANT: Use HTTPS for production!
-  databaseURL: isProduction
-    ? 'https://construction-tracker-fbdb-default-rtdb.firebaseio.com'  // HTTPS for production
-    : 'http://127.0.0.1:9000?ns=construction-tracker-fbdb-default-rtdb', // HTTP for local emulator
-  projectId: 'construction-tracker-fbdb',
-  storageBucket: 'construction-tracker-fbdb.firebasestorage.app',
-  messagingSenderId: '531430813912',
-  appId: '1:531430813912:web:b758acf956b80b293ce7ad',
+if (isProduction) {
+  firebaseConfig = {
+    apiKey: process.env.api_key,
+    authDomain: process.env.auth_domain,
+    databaseURL: process.env.database_url,  // HTTPS for production
+    projectId: process.env.project_id,
+    storageBucket: process.env.storage_bucket,
+    messagingSenderId: process.env.messenging_sender_id,
+    appId: process.env.app_id,
+  }
+} else {
+  firebaseConfig = {
+    databaseURL: 'http://127.0.0.1:9000?ns=construction-tracker-fbdb-default-rtdb',
+    projectId: 'construction-tracker-fbdb',
+  }
 }
+
 
 console.log('Initializing Firebase with config:', firebaseConfig)
 console.log('Environment:', isProduction ? 'production' : 'development')
