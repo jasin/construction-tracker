@@ -124,21 +124,61 @@ class FirebaseService {
   }
 
   async updateProject(projectId, updates) {
+    console.log('Firebase updateProject called with:', { projectId, updates })
+
     const projectRef = ref(database, `projects/${projectId}`)
-    await update(projectRef, updates)
 
-    // Log significant updates
-    if (updates.phase) {
-      await this.logActivity(
-        projectId,
-        'updated_project_phase',
-        'project',
-        projectId,
-        `Updated project phase to: ${updates.phase}`,
-      )
+    // Create the absolute cleanest update object
+    const cleanUpdates = {}
+
+    // Only add fields that have actual values
+    Object.keys(updates).forEach(key => {
+      const value = updates[key]
+
+      if (value !== null && value !== undefined && value !== '') {
+        // For strings, trim them
+        if (typeof value === 'string') {
+          const trimmed = value.trim()
+          if (trimmed.length > 0) {
+            cleanUpdates[key] = trimmed
+          }
+        }
+        // For numbers, ensure they're actually numbers
+        else if (typeof value === 'number' && !isNaN(value)) {
+          cleanUpdates[key] = value
+        }
+        // For booleans
+        else if (typeof value === 'boolean') {
+          cleanUpdates[key] = value
+        }
+        // For anything else (like ISO date strings)
+        else {
+          cleanUpdates[key] = value
+        }
+      }
+    })
+
+    console.log('Clean updates being sent to Firebase:', cleanUpdates)
+
+    try {
+      await update(projectRef, cleanUpdates)
+
+      // Log significant updates
+      if (cleanUpdates.phase) {
+        await this.logActivity(
+          projectId,
+          'updated_project_phase',
+          'project',
+          projectId,
+          `Updated project phase to: ${cleanUpdates.phase}`,
+        )
+      }
+
+      return { id: projectId, ...cleanUpdates }
+    } catch (error) {
+      console.error('Firebase update failed:', error)
+      throw error
     }
-
-    return { id: projectId, ...updates }
   }
 
   async deleteProject(projectId) {
