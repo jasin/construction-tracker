@@ -57,6 +57,13 @@ const routes = [
     props: true,
     beforeEnter: requireAuth,
   },
+  {
+    path: '/project/:projectId/documents',
+    name: 'ProjectDocuments',
+    component: () => import('@/components/DocumentManager.vue'),
+    props: true,
+    beforeEnter: requireAuth,
+  },
 
   // User management - Admin only
   {
@@ -79,7 +86,7 @@ const routes = [
     path: '/clients',
     name: 'Clients',
     component: ClientsPage,
-    beforeEnter: requireAuth
+    beforeEnter: requireAuth,
   },
 
   // Documents routes
