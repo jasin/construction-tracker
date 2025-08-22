@@ -7,12 +7,7 @@
           <h1 class="text-2xl font-bold text-gray-900">Clients</h1>
           <p class="text-sm text-gray-500 mt-1">Manage client information and relationships</p>
         </div>
-        <Button
-          @click="openCreateClient"
-          icon="pi pi-plus"
-          label="New Client"
-          size="small"
-        />
+        <Button @click="openCreateClient" icon="pi pi-plus" label="New Client" size="small" />
       </div>
     </div>
 
@@ -97,9 +92,7 @@
             <h3 class="text-sm font-semibold text-gray-900">
               Client List ({{ filteredClients.length }})
             </h3>
-            <div class="text-xs text-gray-500">
-              Last updated: {{ lastUpdated }}
-            </div>
+            <div class="text-xs text-gray-500">Last updated: {{ lastUpdated }}</div>
           </div>
         </div>
 
@@ -108,7 +101,11 @@
           <i class="pi pi-search text-4xl text-gray-400 mb-4"></i>
           <h3 class="text-lg font-medium text-gray-900 mb-2">No clients found</h3>
           <p class="text-gray-500 mb-6">
-            {{ searchQuery ? 'Try adjusting your search terms' : 'Get started by adding your first client' }}
+            {{
+              searchQuery
+                ? 'Try adjusting your search terms'
+                : 'Get started by adding your first client'
+            }}
           </p>
           <Button
             @click="openCreateClient"
@@ -123,19 +120,29 @@
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
                   Client
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
                   Contact Info
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
                   Projects
                 </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
                   Created
                 </th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th
+                  class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
                   Actions
                 </th>
               </tr>
@@ -150,14 +157,18 @@
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="flex items-center">
                     <div class="h-10 w-10 flex-shrink-0">
-                      <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <div
+                        class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center"
+                      >
                         <span class="text-sm font-medium text-blue-700">
                           {{ getClientInitials(client) }}
                         </span>
                       </div>
                     </div>
                     <div class="ml-4">
-                      <div class="text-sm font-medium text-gray-900">{{ client.name || 'Unnamed Client' }}</div>
+                      <div class="text-sm font-medium text-gray-900">
+                        {{ client.name || 'Unnamed Client' }}
+                      </div>
                       <div class="text-sm text-gray-500">{{ client.company || 'No company' }}</div>
                     </div>
                   </div>
@@ -211,19 +222,19 @@ import { ref, computed, onMounted } from 'vue'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import ProgressSpinner from 'primevue/progressspinner'
-import firebaseService from '@/firebaseService'
+import firebaseService from '@/services/firebaseService'
 import ClientSlideOver from '@/components/ClientSlideOver.vue'
 
 // ==================== REACTIVE STATE ====================
 // These are Vue 3 "ref" - they create reactive data that Vue watches for changes
 
-const loading = ref(true)          // Boolean: shows/hides loading spinner
-const error = ref(null)            // String or null: holds error messages
-const clients = ref([])            // Array: holds all client data from Firebase
-const searchQuery = ref('')        // String: holds the search input value
+const loading = ref(true) // Boolean: shows/hides loading spinner
+const error = ref(null) // String or null: holds error messages
+const clients = ref([]) // Array: holds all client data from Firebase
+const searchQuery = ref('') // String: holds the search input value
 const showCreateClient = ref(false) // Boolean: controls create client modal
-const editingClient = ref(null)    // Object or null: holds client being edited
-const lastUpdated = ref('')        // String: shows when data was last loaded
+const editingClient = ref(null) // Object or null: holds client being edited
+const lastUpdated = ref('') // String: shows when data was last loaded
 
 // ==================== COMPUTED PROPERTIES ====================
 // These are reactive and automatically update when their dependencies change
@@ -235,7 +246,7 @@ const filteredClients = computed(() => {
   }
 
   const query = searchQuery.value.toLowerCase()
-  return clients.value.filter(client => {
+  return clients.value.filter((client) => {
     // Search in multiple fields
     return (
       client.name?.toLowerCase().includes(query) ||
@@ -292,7 +303,6 @@ const loadClients = async () => {
     // Update our reactive data
     clients.value = clientData
     lastUpdated.value = new Date().toLocaleTimeString()
-
   } catch (err) {
     console.error('Error loading clients:', err)
     error.value = err.message || 'Failed to load clients'
@@ -308,7 +318,7 @@ const getClientInitials = (client) => {
 
   return client.name
     .split(' ')
-    .map(word => word[0])
+    .map((word) => word[0])
     .join('')
     .toUpperCase()
     .slice(0, 2) // Only take first 2 letters
@@ -327,7 +337,7 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
   })
 }
 
@@ -371,7 +381,7 @@ const handleClientUpdated = (updatedClient) => {
   console.log('Client updated:', updatedClient)
 
   // Find and replace the client in our list
-  const index = clients.value.findIndex(c => c.id === updatedClient.id)
+  const index = clients.value.findIndex((c) => c.id === updatedClient.id)
   if (index !== -1) {
     clients.value[index] = updatedClient
   }
@@ -395,7 +405,7 @@ const deleteClient = async (clientId) => {
       await firebaseService.deleteClient(clientId)
 
       // Remove from local list
-      clients.value = clients.value.filter(c => c.id !== clientId)
+      clients.value = clients.value.filter((c) => c.id !== clientId)
 
       console.log('Client deleted successfully')
     } catch (err) {

@@ -58,7 +58,10 @@
                 <i
                   class="pi pi-folder mr-2 text-gray-400 group-hover:text-emerald-600 transition-colors"
                 ></i>
-                <span class="truncate">{{ project.jobNumber }} - {{ project.name }}{{ getClientName(project.clientId, clientsMap) }}</span>
+                <span class="truncate"
+                  >{{ project.jobNumber }} - {{ project.name
+                  }}{{ getClientName(project.clientId, clientsMap) }}</span
+                >
               </button>
             </div>
           </AccordionContent>
@@ -72,7 +75,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { Accordion, AccordionPanel, AccordionHeader, AccordionContent } from 'primevue'
-import firebaseService from '@/firebaseService'
+import firebaseService from '@/services/firebaseService'
 import { loadClients, getClientName, createLookupMap } from '@/utils'
 
 // Reactive state

@@ -4,7 +4,9 @@
       {{ error ? error : 'Loading project...' }}
     </div>
     <div v-else-if="error" class="flex items-center justify-center h-full">
-      <div class="text-red-600 bg-red-50 border border-red-200 rounded-lg m-5 p-10 text-center text-lg">
+      <div
+        class="text-red-600 bg-red-50 border border-red-200 rounded-lg m-5 p-10 text-center text-lg"
+      >
         {{ error }}
       </div>
     </div>
@@ -113,18 +115,36 @@
             <!-- Upcoming Tasks Card -->
             <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
               <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="text-sm font-medium text-gray-900">Upcoming Tasks ({{ tasks.length }})</h3>
+                <h3 class="text-sm font-medium text-gray-900">
+                  Upcoming Tasks ({{ tasks.length }})
+                </h3>
                 <Button
                   icon="pi pi-plus"
                   size="small"
                   severity="secondary"
                   label="Add Task"
-                  @click="() => { editingTask = null; showTaskSlideOver = true; }"
+                  @click="
+                    () => {
+                      editingTask = null
+                      showTaskSlideOver = true
+                    }
+                  "
                 />
               </div>
               <div class="p-4">
                 <div v-if="tasks.length === 0" class="text-center py-8 text-gray-500 text-sm">
-                  No tasks yet. <button @click="() => { editingTask = null; showTaskSlideOver = true; }" class="text-emerald-600 hover:text-emerald-700 font-medium">Create your first task</button>
+                  No tasks yet.
+                  <button
+                    @click="
+                      () => {
+                        editingTask = null
+                        showTaskSlideOver = true
+                      }
+                    "
+                    class="text-emerald-600 hover:text-emerald-700 font-medium"
+                  >
+                    Create your first task
+                  </button>
                 </div>
                 <div v-else class="space-y-3">
                   <div
@@ -141,7 +161,8 @@
                       <div class="flex-1 min-w-0">
                         <p class="text-sm font-medium text-gray-900 truncate">{{ task.title }}</p>
                         <p class="text-xs text-gray-500">
-                          {{ getUserName(task.assignedTo, usersMap) }} • Due {{ formatDate(task.dueDate) }}
+                          {{ getUserName(task.assignedTo, usersMap) }} • Due
+                          {{ formatDate(task.dueDate) }}
                         </p>
                       </div>
                     </div>
@@ -218,9 +239,7 @@
                   <Button icon="pi pi-users" size="small" severity="secondary" />
                 </div>
                 <div class="p-4">
-                  <div class="text-center py-4 text-gray-500 text-sm">
-                    Team members coming soon
-                  </div>
+                  <div class="text-center py-4 text-gray-500 text-sm">Team members coming soon</div>
                 </div>
               </div>
 
@@ -231,9 +250,7 @@
                   <Button icon="pi pi-file" size="small" severity="secondary" />
                 </div>
                 <div class="p-4">
-                  <div class="text-center py-4 text-gray-500 text-sm">
-                    No recent documents
-                  </div>
+                  <div class="text-center py-4 text-gray-500 text-sm">No recent documents</div>
                 </div>
               </div>
             </div>
@@ -266,7 +283,6 @@
       @task-created="handleTaskCreated"
       @task-updated="handleTaskUpdated"
     />
-
   </div>
 </template>
 
@@ -274,7 +290,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
-import firebaseService from '@/firebaseService'
+import firebaseService from '@/services/firebaseService'
 import ActivityFlyout from './ActivityFlyout.vue'
 import ProjectSlideOver from './ProjectSlideOver.vue'
 import TaskSlideOver from './TaskSlideOver.vue'
@@ -287,15 +303,15 @@ import {
   formatPhase,
   formatTaskStatus,
   getPriorityClasses,
-  getStatusClasses
+  getStatusClasses,
 } from '@/utils'
 
 // Props and existing setup
 const props = defineProps({
-  projectId:{
+  projectId: {
     type: String,
-    required: true
-  }
+    required: true,
+  },
 })
 
 const router = useRouter()
@@ -317,7 +333,7 @@ const showActivityFlyout = ref(false)
 const editingTask = ref(null)
 
 // Computed properties
-const validTasks = computed(() => Array.isArray(tasks.value) ? tasks.value : [])
+const validTasks = computed(() => (Array.isArray(tasks.value) ? tasks.value : []))
 const usersMap = computed(() => createLookupMap(users.value))
 
 // Methods
@@ -336,7 +352,7 @@ const handleTaskCreated = (newTask) => {
 
 const handleTaskUpdated = (updatedTask) => {
   console.log('Task updated:', updatedTask)
-  const index = tasks.value.findIndex(t => t.id === updatedTask.id)
+  const index = tasks.value.findIndex((t) => t.id === updatedTask.id)
   if (index !== -1) {
     tasks.value[index] = updatedTask
   }
@@ -437,13 +453,17 @@ const setupRealtimeListeners = () => {
     },
   )
 
-  const taskSub = firebaseService.subscribeToProjectTasks(
-    props.projectId,
-    (taskData) => {
-      console.log('Task data received:', taskData, 'Type:', typeof taskData, 'IsArray:', Array.isArray(taskData))
-      tasks.value = Array.isArray(taskData) ? taskData : []
-    },
-  )
+  const taskSub = firebaseService.subscribeToProjectTasks(props.projectId, (taskData) => {
+    console.log(
+      'Task data received:',
+      taskData,
+      'Type:',
+      typeof taskData,
+      'IsArray:',
+      Array.isArray(taskData),
+    )
+    tasks.value = Array.isArray(taskData) ? taskData : []
+  })
 
   subscriptions.value = [projectSub, rfiSub, submittalSub, changeOrderSub, taskSub]
 }

@@ -7,12 +7,7 @@
           <h1 class="text-2xl font-bold text-gray-900">Tasks</h1>
           <p class="text-sm text-gray-500 mt-1">Manage and track project tasks</p>
         </div>
-        <Button
-          @click="showTaskSlideOver = true"
-          icon="pi pi-plus"
-          label="New Task"
-          size="small"
-        />
+        <Button @click="showTaskSlideOver = true" icon="pi pi-plus" label="New Task" size="small" />
       </div>
     </div>
 
@@ -204,7 +199,7 @@
                   'bg-red-500': task.priority === 'critical',
                   'bg-orange-500': task.priority === 'high',
                   'bg-yellow-500': task.priority === 'medium',
-                  'bg-green-500': task.priority === 'low'
+                  'bg-green-500': task.priority === 'low',
                 }"
               ></div>
               <span
@@ -214,7 +209,7 @@
                   'bg-blue-100 text-blue-800': task.status === 'in-progress',
                   'bg-yellow-100 text-yellow-800': task.status === 'review',
                   'bg-green-100 text-green-800': task.status === 'complete',
-                  'bg-red-100 text-red-800': task.status === 'on-hold'
+                  'bg-red-100 text-red-800': task.status === 'on-hold',
                 }"
               >
                 {{ formatTaskStatus(task.status) }}
@@ -276,7 +271,7 @@ import Select from 'primevue/select'
 import MultiSelect from 'primevue/multiselect'
 import DatePicker from 'primevue/datepicker'
 import ProgressSpinner from 'primevue/progressspinner'
-import firebaseService from '@/firebaseService'
+import firebaseService from '@/services/firebaseService'
 import authService from '@/authService'
 import TaskSlideOver from '@/components/TaskSlideOver.vue'
 
@@ -301,7 +296,7 @@ const filters = ref({
   priority: [],
   assignedTo: [],
   category: [],
-  dueDateRange: null
+  dueDateRange: null,
 })
 
 // Options for filters
@@ -310,14 +305,14 @@ const statusOptions = [
   { label: 'In Progress', value: 'in-progress' },
   { label: 'Review', value: 'review' },
   { label: 'Complete', value: 'complete' },
-  { label: 'On Hold', value: 'on-hold' }
+  { label: 'On Hold', value: 'on-hold' },
 ]
 
 const priorityOptions = [
   { label: 'Critical', value: 'critical' },
   { label: 'High', value: 'high' },
   { label: 'Medium', value: 'medium' },
-  { label: 'Low', value: 'low' }
+  { label: 'Low', value: 'low' },
 ]
 
 const categoryOptions = [
@@ -326,22 +321,22 @@ const categoryOptions = [
   { label: 'Construction', value: 'construction' },
   { label: 'Inspection', value: 'inspection' },
   { label: 'Documentation', value: 'documentation' },
-  { label: 'Administrative', value: 'administrative' }
+  { label: 'Administrative', value: 'administrative' },
 ]
 
 // Computed options
 const projectOptions = computed(() =>
-  projects.value.map(project => ({
+  projects.value.map((project) => ({
     label: `${project.jobNumber} - ${project.name}`,
-    value: project.id
-  }))
+    value: project.id,
+  })),
 )
 
 const userOptions = computed(() =>
-  users.value.map(user => ({
+  users.value.map((user) => ({
     label: user.name || user.email,
-    value: user.id
-  }))
+    value: user.id,
+  })),
 )
 
 // Task filtering
@@ -351,13 +346,11 @@ const filteredTasks = computed(() => {
   // Apply view filter first
   if (currentView.value === 'my-tasks') {
     const currentUserId = authService.getCurrentUserId()
-    tasks = allTasks.value.filter(task => task.assignedTo === currentUserId)
+    tasks = allTasks.value.filter((task) => task.assignedTo === currentUserId)
   } else if (currentView.value === 'overdue') {
     const now = new Date().toISOString()
-    tasks = allTasks.value.filter(task =>
-      task.dueDate &&
-      task.dueDate < now &&
-      task.status !== 'complete'
+    tasks = allTasks.value.filter(
+      (task) => task.dueDate && task.dueDate < now && task.status !== 'complete',
     )
   } else {
     tasks = allTasks.value
@@ -366,35 +359,36 @@ const filteredTasks = computed(() => {
   // Apply advanced filters
   if (filters.value.search) {
     const search = filters.value.search.toLowerCase()
-    tasks = tasks.filter(task =>
-      task.title.toLowerCase().includes(search) ||
-      (task.description && task.description.toLowerCase().includes(search))
+    tasks = tasks.filter(
+      (task) =>
+        task.title.toLowerCase().includes(search) ||
+        (task.description && task.description.toLowerCase().includes(search)),
     )
   }
 
   if (filters.value.projectId) {
-    tasks = tasks.filter(task => task.projectId === filters.value.projectId)
+    tasks = tasks.filter((task) => task.projectId === filters.value.projectId)
   }
 
   if (filters.value.status.length > 0) {
-    tasks = tasks.filter(task => filters.value.status.includes(task.status))
+    tasks = tasks.filter((task) => filters.value.status.includes(task.status))
   }
 
   if (filters.value.priority.length > 0) {
-    tasks = tasks.filter(task => filters.value.priority.includes(task.priority))
+    tasks = tasks.filter((task) => filters.value.priority.includes(task.priority))
   }
 
   if (filters.value.assignedTo.length > 0) {
-    tasks = tasks.filter(task => filters.value.assignedTo.includes(task.assignedTo))
+    tasks = tasks.filter((task) => filters.value.assignedTo.includes(task.assignedTo))
   }
 
   if (filters.value.category.length > 0) {
-    tasks = tasks.filter(task => filters.value.category.includes(task.category))
+    tasks = tasks.filter((task) => filters.value.category.includes(task.category))
   }
 
   if (filters.value.dueDateRange && filters.value.dueDateRange.length === 2) {
     const [startDate, endDate] = filters.value.dueDateRange
-    tasks = tasks.filter(task => {
+    tasks = tasks.filter((task) => {
       if (!task.dueDate) return false
       const taskDate = new Date(task.dueDate)
       return taskDate >= startDate && taskDate <= endDate
@@ -422,56 +416,53 @@ const filteredTasks = computed(() => {
 // Task counts for badges
 const myTasksCount = computed(() => {
   const currentUserId = authService.getCurrentUserId()
-  return allTasks.value.filter(task =>
-    task.assignedTo === currentUserId &&
-    task.status !== 'complete'
+  return allTasks.value.filter(
+    (task) => task.assignedTo === currentUserId && task.status !== 'complete',
   ).length
 })
 
-const allTasksCount = computed(() =>
-  allTasks.value.filter(task => task.status !== 'complete').length
+const allTasksCount = computed(
+  () => allTasks.value.filter((task) => task.status !== 'complete').length,
 )
 
 const overdueTasksCount = computed(() => {
   const now = new Date().toISOString()
-  return allTasks.value.filter(task =>
-    task.dueDate &&
-    task.dueDate < now &&
-    task.status !== 'complete'
+  return allTasks.value.filter(
+    (task) => task.dueDate && task.dueDate < now && task.status !== 'complete',
   ).length
 })
 
 // Helper functions
 const getUserName = (userId) => {
   if (!userId) return 'Unassigned'
-  const user = users.value.find(u => u.id === userId)
-  return user ? (user.name || user.email) : userId
+  const user = users.value.find((u) => u.id === userId)
+  return user ? user.name || user.email : userId
 }
 
 const getProjectName = (projectId) => {
-  const project = projects.value.find(p => p.id === projectId)
+  const project = projects.value.find((p) => p.id === projectId)
   return project ? `${project.jobNumber} - ${project.name}` : 'Unknown Project'
 }
 
 const formatTaskStatus = (status) => {
   const statusMap = {
-    'todo': 'To Do',
+    todo: 'To Do',
     'in-progress': 'In Progress',
-    'review': 'Review',
-    'complete': 'Complete',
-    'on-hold': 'On Hold'
+    review: 'Review',
+    complete: 'Complete',
+    'on-hold': 'On Hold',
   }
   return statusMap[status] || status
 }
 
 const formatCategory = (category) => {
   const categoryMap = {
-    'planning': 'Planning',
-    'design': 'Design',
-    'construction': 'Construction',
-    'inspection': 'Inspection',
-    'documentation': 'Documentation',
-    'administrative': 'Administrative'
+    planning: 'Planning',
+    design: 'Design',
+    construction: 'Construction',
+    inspection: 'Inspection',
+    documentation: 'Documentation',
+    administrative: 'Administrative',
   }
   return categoryMap[category] || category
 }
@@ -481,7 +472,7 @@ const formatDate = (dateString) => {
   return new Date(dateString).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric'
+    year: 'numeric',
   })
 }
 
@@ -508,7 +499,7 @@ const clearFilters = () => {
     priority: [],
     assignedTo: [],
     category: [],
-    dueDateRange: null
+    dueDateRange: null,
   }
 }
 
@@ -525,7 +516,7 @@ const handleTaskCreated = (newTask) => {
 }
 
 const handleTaskUpdated = (updatedTask) => {
-  const index = allTasks.value.findIndex(t => t.id === updatedTask.id)
+  const index = allTasks.value.findIndex((t) => t.id === updatedTask.id)
   if (index !== -1) {
     allTasks.value[index] = updatedTask
   }
@@ -541,13 +532,12 @@ const loadData = async () => {
     const [tasksData, projectsData, usersData] = await Promise.all([
       firebaseService.getAllTasks(),
       firebaseService.getAllProjects(),
-      firebaseService.getUsersMinimal() // Use minimal user data
+      firebaseService.getUsersMinimal(), // Use minimal user data
     ])
 
     allTasks.value = tasksData
     projects.value = projectsData
-    users.value = usersData.filter(user => user.active)
-
+    users.value = usersData.filter((user) => user.active)
   } catch (error) {
     console.error('Error loading tasks data:', error)
   } finally {
