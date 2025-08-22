@@ -7,8 +7,8 @@ import {
   updateProfile,
   sendPasswordResetEmail,
 } from 'firebase/auth'
-import { auth } from './firebase-config'
-import firebaseService from './firebaseService'
+import { auth } from './configs/firebase-config'
+import firebaseService from '@/services/firebaseService'
 
 class AuthService {
   constructor() {
@@ -39,7 +39,7 @@ class AuthService {
             } else {
               // Update last login time for existing users
               await firebaseService.updateUser(this.userProfile.id, {
-                lastLoginAt: new Date().toISOString()
+                lastLoginAt: new Date().toISOString(),
               })
             }
           } catch (error) {
@@ -48,7 +48,7 @@ class AuthService {
             try {
               this.userProfile = await this.createUserProfile(user, {
                 role: 'user', // Default role
-                active: true
+                active: true,
               })
               console.log('Created fallback user profile:', this.userProfile)
             } catch (fallbackError) {
@@ -91,7 +91,7 @@ class AuthService {
 
       // The user profile will be loaded automatically by the onAuthStateChanged listener
       // Wait a moment for the profile to be loaded
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      await new Promise((resolve) => setTimeout(resolve, 1000))
 
       return { success: true, user: userCredential.user, profile: this.userProfile }
     } catch (error) {
@@ -227,7 +227,12 @@ class AuthService {
 
   // Get current user name
   getCurrentUserName() {
-    return this.userProfile?.name || this.currentUser?.displayName || this.currentUser?.email || 'Unknown User'
+    return (
+      this.userProfile?.name ||
+      this.currentUser?.displayName ||
+      this.currentUser?.email ||
+      'Unknown User'
+    )
   }
 
   // Check if user is authenticated
@@ -343,7 +348,7 @@ class AuthService {
         // Create the user profile
         userProfile = await this.createUserProfile(this.currentUser, {
           role: 'admin', // You can set a default role here
-          active: true
+          active: true,
         })
         console.log('Created user profile:', userProfile)
       } else {

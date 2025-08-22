@@ -25,7 +25,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { Tree } from 'primevue'
-import firebaseService from '@/firebaseService'
+import firebaseService from '@/services/firebaseService'
 
 // Reactive state
 const treeData = ref([])

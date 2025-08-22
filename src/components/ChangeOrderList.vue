@@ -86,7 +86,7 @@
 </template>
 
 <script>
-import firebaseService from '@/firebaseService'
+import firebaseService from '@/services/firebaseService'
 
 export default {
   name: 'ChangeOrderList',
