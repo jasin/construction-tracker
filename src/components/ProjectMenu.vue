@@ -33,9 +33,6 @@
             <div
               class="px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 rounded-md transition-colors w-full flex items-center"
             >
-              <span class="text-sm font-bold text-gray-500 transition-colors">
-                {{ accordionValue.includes(phase.key) ? '−' : '+' }}
-              </span>
               <div class="flex items-center">
                 <i :class="phase.icon" class="mr-2" :style="{ color: phase.color }"></i>
                 <span>{{ phase.label }}</span>
