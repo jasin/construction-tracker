@@ -64,6 +64,270 @@ export const loadProjects = async () => {
   }
 }
 
+// ==================== DATA SANITIZATION UTILITIES ====================
+
+/**
+ * Sanitize data for Firebase/external APIs by removing null/undefined values and Vue reactivity
+ * @param {Object|Array} data - Data to sanitize
+ * @param {Object} options - Sanitization options
+ * @returns {Object|Array} Clean data ready for Firebase
+ */
+export const sanitizeData = (data, options = {}) => {
+  const {
+    removeEmpty = true,        // Remove empty strings
+    removeNull = true,         // Remove null values
+    removeUndefined = true,    // Remove undefined values
+    trimStrings = true,        // Trim string values
+    convertDates = true,       // Convert Date objects to ISO strings
+    preserveArrays = false,    // Keep empty arrays vs removing them
+  } = options
+
+  // Handle arrays
+  if (Array.isArray(data)) {
+    const cleanArray = data
+      .map(item => sanitizeData(item, options))
+      .filter(item => {
+        if (removeNull && item === null) return false
+        if (removeUndefined && item === undefined) return false
+        if (removeEmpty && item === '') return false
+        return true
+      })
+
+    return cleanArray.length > 0 || preserveArrays ? cleanArray : undefined
+  }
+
+  // Handle null/undefined
+  if (data === null && removeNull) return undefined
+  if (data === undefined && removeUndefined) return undefined
+
+  // Handle primitive types
+  if (typeof data !== 'object' || data === null) {
+    if (typeof data === 'string' && trimStrings) {
+      const trimmed = data.trim()
+      return removeEmpty && trimmed === '' ? undefined : trimmed
+    }
+    return data
+  }
+
+  // Handle Date objects
+  if (data instanceof Date) {
+    return convertDates ? data.toISOString() : data
+  }
+
+  // Handle objects - create completely clean object
+  const cleanObject = {}
+
+  Object.keys(data).forEach(key => {
+    let value = data[key]
+
+    // Recursively sanitize nested objects/arrays
+    if (typeof value === 'object' && value !== null) {
+      value = sanitizeData(value, options)
+    }
+    // Handle strings
+    else if (typeof value === 'string' && trimStrings) {
+      value = value.trim()
+    }
+    // Handle dates
+    else if (value instanceof Date && convertDates) {
+      value = value.toISOString()
+    }
+
+    // Decide whether to include this field
+    const shouldExclude = (
+      (removeNull && value === null) ||
+      (removeUndefined && value === undefined) ||
+      (removeEmpty && value === '') ||
+      (Array.isArray(value) && value.length === 0 && !preserveArrays)
+    )
+
+    if (!shouldExclude) {
+      cleanObject[key] = value
+    }
+  })
+
+  return cleanObject
+}
+
+/**
+ * Sanitize data specifically for Firebase (most restrictive)
+ * @param {Object} data - Data to sanitize for Firebase
+ * @returns {Object} Firebase-ready data
+ */
+export const sanitizeForFirebase = (data) => {
+  return sanitizeData(data, {
+    removeEmpty: true,
+    removeNull: true,
+    removeUndefined: true,
+    trimStrings: true,
+    convertDates: true,
+    preserveArrays: false,
+  })
+}
+
+/**
+ * Sanitize data for API calls (less restrictive, may keep empty strings)
+ * @param {Object} data - Data to sanitize for API
+ * @returns {Object} API-ready data
+ */
+export const sanitizeForAPI = (data) => {
+  return sanitizeData(data, {
+    removeEmpty: false,  // Keep empty strings for APIs
+    removeNull: true,
+    removeUndefined: true,
+    trimStrings: true,
+    convertDates: true,
+    preserveArrays: true,
+  })
+}
+
+/**
+ * Remove Vue reactivity from objects (nuclear option)
+ * @param {any} obj - Object to make plain
+ * @returns {any} Plain JavaScript object
+ */
+export const toPlainObject = (obj) => {
+  if (obj === null || obj === undefined) return obj
+  if (typeof obj !== 'object') return obj
+
+  try {
+    return JSON.parse(JSON.stringify(obj))
+  } catch (error) {
+    console.error('Failed to convert to plain object:', error)
+    return obj
+  }
+}
+
+/**
+ * Deep clean data by removing reactivity AND sanitizing
+ * @param {Object} data - Data to deep clean
+ * @param {Object} options - Sanitization options
+ * @returns {Object} Completely clean data
+ */
+export const deepClean = (data, options = {}) => {
+  const plainData = toPlainObject(data)
+  return sanitizeData(plainData, options)
+}
+
+/**
+ * Validate and clean form data for submission
+ * @param {Object} formData - Form data to clean
+ * @param {Array} requiredFields - Required field names
+ * @returns {Object} { isValid, errors, cleanData }
+ */
+export const validateAndCleanForm = (formData, requiredFields = []) => {
+  const errors = {}
+
+  // Validate required fields first
+  requiredFields.forEach(field => {
+    const value = formData[field]
+    if (!value || (typeof value === 'string' && !value.trim())) {
+      errors[field] = `${field} is required`
+    }
+  })
+
+  // Clean the data regardless
+  const cleanData = sanitizeForFirebase(formData)
+
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors,
+    cleanData
+  }
+}
+
+/**
+ * Clean data with type validation
+ * @param {Object} data - Data to clean
+ * @param {Object} schema - Schema defining expected types
+ * @returns {Object} Clean data matching schema
+ */
+export const sanitizeWithSchema = (data, schema) => {
+  const cleanData = {}
+
+  Object.keys(schema).forEach(key => {
+    const value = data[key]
+    const expectedType = schema[key]
+
+    if (value === undefined || value === null) return
+
+    switch (expectedType) {
+      case 'string':
+        if (typeof value === 'string') {
+          const trimmed = value.trim()
+          if (trimmed.length > 0) cleanData[key] = trimmed
+        }
+        break
+
+      case 'number':
+      {
+        const num = Number(value)
+        if (!isNaN(num)) cleanData[key] = num
+        break
+      }
+
+      case 'boolean':
+        cleanData[key] = Boolean(value)
+        break
+
+      case 'date':
+        if (value instanceof Date) {
+          cleanData[key] = value.toISOString()
+        } else if (typeof value === 'string') {
+          try {
+            cleanData[key] = new Date(value).toISOString()
+          } catch (e) {
+            console.warn(`Invalid date for field ${key}:`, value)
+          }
+        }
+        break
+
+      case 'array':
+        if (Array.isArray(value) && value.length > 0) {
+          cleanData[key] = value.filter(item => item !== null && item !== undefined)
+        }
+        break
+
+      default:
+        cleanData[key] = value
+    }
+  })
+
+  return cleanData
+}
+
+// Example usage schemas
+export const PROJECT_SCHEMA = {
+  name: 'string',
+  jobNumber: 'string',
+  clientId: 'string',
+  architect: 'string',
+  projectManager: 'string',
+  superintendent: 'string',
+  phase: 'string',
+  cost: 'number',
+  contractSigned: 'boolean',
+  startDate: 'date',
+  endDate: 'date',
+  address: 'string',
+  description: 'string'
+}
+
+export const TASK_SCHEMA = {
+  title: 'string',
+  description: 'string',
+  priority: 'string',
+  status: 'string',
+  assignedTo: 'string',
+  projectId: 'string',
+  dueDate: 'date',
+  estimatedHours: 'number',
+  actualHours: 'number',
+  progress: 'number',
+  category: 'string',
+  dependencies: 'array'
+}
+
 // ==================== LOOKUP UTILITIES ====================
 
 /**
