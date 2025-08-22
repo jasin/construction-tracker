@@ -243,14 +243,61 @@
                 </div>
               </div>
 
-              <!-- Recent Documents Card -->
+              <!-- Documents Card -->
               <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
                 <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
                   <h3 class="text-sm font-medium text-gray-900">Recent Documents</h3>
-                  <Button icon="pi pi-file" size="small" severity="secondary" />
+                  <div class="flex gap-2">
+                    <Button
+                      icon="pi pi-upload"
+                      size="small"
+                      severity="secondary"
+                      label="Upload"
+                      @click="showDocumentUploader = true"
+                    />
+                    <Button
+                      icon="pi pi-external-link"
+                      size="small"
+                      severity="secondary"
+                      label="View All"
+                      @click="$router.push(`/project/${projectId}/documents`)"
+                    />
+                  </div>
                 </div>
                 <div class="p-4">
-                  <div class="text-center py-4 text-gray-500 text-sm">No recent documents</div>
+                  <div
+                    v-if="recentDocuments.length === 0"
+                    class="text-center py-4 text-gray-500 text-sm"
+                  >
+                    No documents yet.
+                    <button
+                      @click="showDocumentUploader = true"
+                      class="text-emerald-600 hover:text-emerald-700 font-medium"
+                    >
+                      Upload your first document
+                    </button>
+                  </div>
+                  <div v-else class="space-y-2">
+                    <div
+                      v-for="doc in recentDocuments.slice(0, 3)"
+                      :key="doc.id"
+                      class="flex items-center justify-between p-2 rounded hover:bg-gray-50"
+                    >
+                      <div class="flex items-center gap-2">
+                        <i
+                          :class="getDocumentIcon(doc.name, doc.category)"
+                          class="text-gray-600"
+                        ></i>
+                        <div>
+                          <p class="text-sm font-medium text-gray-900 truncate">{{ doc.name }}</p>
+                          <p class="text-xs text-gray-500">
+                            {{ doc.category }} • {{ formatTimeAgo(doc.uploadedAt) }}
+                          </p>
+                        </div>
+                      </div>
+                      <DocumentStatusBadge :status="doc.status" size="small" />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -294,6 +341,9 @@ import firebaseService from '@/services/firebaseService'
 import ActivityFlyout from './ActivityFlyout.vue'
 import ProjectSlideOver from './ProjectSlideOver.vue'
 import TaskSlideOver from './TaskSlideOver.vue'
+import DocumentStatusBadge from '@/components/DocumentStatusBadge.vue'
+import DocumentUploader from '@/components/DocumentUploader.vue'
+import { getDocumentIcon } from '@/configs/documentCategories'
 import {
   loadUsers,
   getUserName,
@@ -331,6 +381,8 @@ const showProjectSlideOver = ref(false)
 const showTaskSlideOver = ref(false)
 const showActivityFlyout = ref(false)
 const editingTask = ref(null)
+const recentDocuments = ref([])
+const showDocumentUploader = ref(false)
 
 // Computed properties
 const validTasks = computed(() => (Array.isArray(tasks.value) ? tasks.value : []))
@@ -386,6 +438,17 @@ const loadProjectData = async () => {
   project.value = projectData
   activities.value = activitiesData.slice(0, 10)
   loading.value = false
+}
+
+const loadRecentDocuments = async () => {
+  try {
+    const docs = await firebaseService.getDocumentsByProject(props.projectId, {
+      limit: 5,
+    })
+    recentDocuments.value = docs
+  } catch (error) {
+    console.error('Error loading recent documents:', error)
+  }
 }
 
 const createNewRFI = async () => {
@@ -465,7 +528,11 @@ const setupRealtimeListeners = () => {
     tasks.value = Array.isArray(taskData) ? taskData : []
   })
 
-  subscriptions.value = [projectSub, rfiSub, submittalSub, changeOrderSub, taskSub]
+  const documentSub = firebaseService.subscribeToProjectDocuments(props.projectId, (docs) => {
+    recentDocuments.value = docs.slice(0, 5)
+  })
+
+  subscriptions.value = [projectSub, rfiSub, submittalSub, changeOrderSub, taskSub, documentSub]
 }
 
 // Lifecycle hooks
@@ -501,6 +568,7 @@ watch(
 onMounted(async () => {
   try {
     await loadProjectData()
+    await loadRecentDocuments()
     users.value = await loadUsers()
     setupRealtimeListeners()
   } catch (err) {
