@@ -293,6 +293,63 @@ export const formatCategory = (category) => {
   return categoryMap[category] || category
 }
 
+/**
+ * Format file size in bytes to human readable format
+ * @param {number} bytes - File size in bytes
+ * @param {number} decimals - Number of decimal places (default: 2)
+ * @returns {string} Formatted file size
+ */
+export const formatFileSize = (bytes, decimals = 2) => {
+  if (!bytes && bytes !== 0) return '0 B'
+  if (bytes === 0) return '0 B'
+
+  const k = 1024
+  const dm = decimals < 0 ? 0 : decimals
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
+}
+
+// Alternative implementation with more control
+export const formatFileSizeDetailed = (bytes, options = {}) => {
+  const {
+    decimals = 2,
+    binary = true, // Use 1024 (binary) vs 1000 (decimal)
+    longForm = false // Use "bytes" instead of "B"
+  } = options
+
+  if (!bytes && bytes !== 0) return '0 bytes'
+  if (bytes === 0) return '0 bytes'
+
+  const k = binary ? 1024 : 1000
+  const dm = decimals < 0 ? 0 : decimals
+
+  const sizes = longForm
+    ? ['bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+    : ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+  // Handle edge case for bytes
+  if (i === 0 && longForm) {
+    return bytes === 1 ? '1 byte' : `${bytes} bytes`
+  }
+
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i]
+}
+
+// Quick utility for common file size ranges
+export const getFileSizeCategory = (bytes) => {
+  if (!bytes) return 'empty'
+  if (bytes < 1024) return 'tiny'           // < 1KB
+  if (bytes < 1024 * 1024) return 'small'   // < 1MB
+  if (bytes < 1024 * 1024 * 10) return 'medium' // < 10MB
+  if (bytes < 1024 * 1024 * 100) return 'large' // < 100MB
+  return 'huge' // >= 100MB
+}
+
 // ==================== VALIDATION UTILITIES ====================
 
 /**
