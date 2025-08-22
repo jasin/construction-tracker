@@ -345,9 +345,9 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { Button, InputText, Select, ProgressSpinner } from 'primevue'
-import firebaseService from '@/firebaseService'
+import firebaseService from '@/services/firebaseService'
 import googleDriveService from '@/services/googleDriveService'
-import { DOCUMENT_CATEGORIES } from '@/config/documentCategories'
+import { DOCUMENT_CATEGORIES } from '@/configs/documentCategories'
 import DocumentUploader from './DocumentUploader.vue'
 import DocumentViewer from './DocumentViewer.vue'
 import DocumentStatusBadge from './DocumentStatusBadge.vue'
