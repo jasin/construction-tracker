@@ -256,32 +256,6 @@ class FirebaseService {
     await remove(userRef)
   }
 
-  // ==================== DOCUMENTS ====================
-
-  async getDocument(documentId) {
-    const docRef = ref(database, `documents/${documentId}`)
-    const snapshot = await get(docRef)
-    return snapshot.exists() ? { id: documentId, ...snapshot.val() } : null
-  }
-
-  async updateDocument(documentId, updates) {
-    const docRef = ref(database, `documents/${documentId}`)
-
-    // Add approval timestamp if status is being approved
-    if (updates.status === 'approved' && !updates.approvedAt) {
-      updates.approvedAt = new Date().toISOString()
-      updates.approvedBy = this.getCurrentUserId()
-    }
-
-    await update(docRef, updates)
-    return { id: documentId, ...updates }
-  }
-
-  async deleteDocument(documentId) {
-    const docRef = ref(database, `documents/${documentId}`)
-    await remove(docRef)
-  }
-
   // ==================== RFIs ====================
 
   async createRFI(rfiData) {
@@ -841,96 +815,223 @@ class FirebaseService {
   /**
    * Create document record with Google Drive integration
    */
-  async createDocument(documentData) {
-    const documentsRef = ref(database, 'documents')
-    const newDocRef = push(documentsRef)
+  // ==================== DOCUMENTS METHODS ====================
 
-    const docWithTimestamp = {
-      ...documentData,
-      id: newDocRef.key,
-      uploadedAt: new Date().toISOString(),
-      uploadedBy: this.getCurrentUserId(),
-      uploadedByName: this.getCurrentUserName(),
-      version: documentData.version || 1,
-      status: documentData.status || 'pending',
+/**
+ * Subscribe to project documents with real-time updates
+ */
+subscribeToProjectDocuments(projectId, callback) {
+  const documentsRef = ref(database, 'documents')
+  const projectDocsQuery = query(documentsRef, orderByChild('projectId'), equalTo(projectId))
 
-      // Google Drive specific fields
-      googleDriveFileId: documentData.googleDriveFileId,
-      googleDriveLink: documentData.googleDriveLink,
-      mimeType: documentData.mimeType,
-      fileSize: documentData.fileSize,
-
-      // Metadata
-      category: documentData.category,
-      description: documentData.description || '',
-      tags: documentData.tags || [],
-
-      // Version control
-      previousVersions: documentData.previousVersions || [],
-
-      // Access control
-      permissions: documentData.permissions || {
-        view: ['team', 'client'],
-        edit: ['pm', 'admin'],
-        download: ['team'],
-      },
-    }
-
-    await set(newDocRef, docWithTimestamp)
-
-    // Log activity
-    await this.logActivity(
-      documentData.projectId,
-      'uploaded_document',
-      'document',
-      newDocRef.key,
-      `Uploaded document: ${documentData.name}`,
-    )
-
-    return { id: newDocRef.key, ...docWithTimestamp }
-  }
-
-  /**
-   * Get documents by project with enhanced filtering
-   */
-  async getDocumentsByProject(projectId, filters = {}) {
-    const documentsRef = ref(database, 'documents')
-    const projectDocsQuery = query(documentsRef, orderByChild('projectId'), equalTo(projectId))
-    const snapshot = await get(projectDocsQuery)
-
-    if (!snapshot.exists()) return []
-
-    let documents = Object.entries(snapshot.val()).map(([id, data]) => ({
-      id,
-      ...data,
-    }))
-
-    // Apply filters
-    if (filters.category) {
-      documents = documents.filter((doc) => doc.category === filters.category)
-    }
-
-    if (filters.status) {
-      documents = documents.filter((doc) => doc.status === filters.status)
-    }
-
-    if (filters.uploadedBy) {
-      documents = documents.filter((doc) => doc.uploadedBy === filters.uploadedBy)
-    }
-
-    if (filters.dateRange) {
-      const { startDate, endDate } = filters.dateRange
-      documents = documents.filter((doc) => {
-        const docDate = new Date(doc.uploadedAt)
-        return docDate >= startDate && docDate <= endDate
-      })
-    }
+  onValue(projectDocsQuery, (snapshot) => {
+    const documents = snapshot.exists()
+      ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
+      : []
 
     // Sort by upload date (newest first)
     documents.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))
 
-    return documents
+    callback(documents)
+  })
+
+  return projectDocsQuery
+}
+
+/**
+ * Get documents by project with enhanced filtering
+ */
+async getDocumentsByProject(projectId, options = {}) {
+  const documentsRef = ref(database, 'documents')
+  const projectDocsQuery = query(documentsRef, orderByChild('projectId'), equalTo(projectId))
+  const snapshot = await get(projectDocsQuery)
+
+  if (!snapshot.exists()) return []
+
+  let documents = Object.entries(snapshot.val()).map(([id, data]) => ({
+    id,
+    ...data,
+  }))
+
+  // Apply filters
+  if (options.category) {
+    documents = documents.filter(doc => doc.category === options.category)
   }
+
+  if (options.status) {
+    documents = documents.filter(doc => doc.status === options.status)
+  }
+
+  // Sort by upload date (newest first)
+  documents.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))
+
+  // Apply limit if specified
+  if (options.limit) {
+    documents = documents.slice(0, options.limit)
+  }
+
+  return documents
+}
+
+/**
+ * Create document record with Google Drive integration
+ */
+async createDocument(documentData) {
+  const documentsRef = ref(database, 'documents')
+  const newDocRef = push(documentsRef)
+
+  const docWithTimestamp = {
+    ...documentData,
+    id: newDocRef.key,
+    uploadedAt: new Date().toISOString(),
+    uploadedBy: this.getCurrentUserId(),
+    uploadedByName: this.getCurrentUserName(),
+    version: documentData.version || 1,
+    status: documentData.status || 'pending',
+
+    // Google Drive specific fields
+    googleDriveFileId: documentData.googleDriveFileId,
+    googleDriveLink: documentData.googleDriveLink,
+    mimeType: documentData.mimeType,
+    fileSize: documentData.fileSize,
+
+    // Metadata
+    category: documentData.category,
+    description: documentData.description || '',
+    tags: documentData.tags || [],
+
+    // Version control
+    previousVersions: documentData.previousVersions || [],
+
+    // Access control
+    permissions: documentData.permissions || {
+      view: ['team', 'client'],
+      edit: ['pm', 'admin'],
+      download: ['team'],
+    },
+  }
+
+  await set(newDocRef, docWithTimestamp)
+
+  // Log activity
+  await this.logActivity(
+    documentData.projectId,
+    'uploaded_document',
+    'document',
+    newDocRef.key,
+    `Uploaded document: ${documentData.name}`,
+  )
+
+  return { id: newDocRef.key, ...docWithTimestamp }
+}
+
+/**
+ * Update document status (approve/reject)
+ */
+async updateDocumentStatus(documentId, status, comments = '', reviewedBy = null) {
+  const docRef = ref(database, `documents/${documentId}`)
+  const updates = {
+    status: status,
+    reviewedAt: new Date().toISOString(),
+    reviewedBy: reviewedBy || this.getCurrentUserId(),
+    reviewedByName: this.getCurrentUserName(),
+    reviewComments: comments,
+  }
+
+  if (status === 'approved') {
+    updates.approvedAt = new Date().toISOString()
+    updates.approvedBy = updates.reviewedBy
+    updates.approvedByName = updates.reviewedByName
+  }
+
+  await update(docRef, updates)
+
+  // Log activity
+  const doc = await this.getDocument(documentId)
+  await this.logActivity(
+    doc.projectId,
+    `document_${status}`,
+    'document',
+    documentId,
+    `${status.charAt(0).toUpperCase() + status.slice(1)} document: ${doc.name}`,
+  )
+
+  return { id: documentId, ...updates }
+}
+
+/**
+ * Get document version history
+ */
+async getDocumentVersionHistory(documentId) {
+  const doc = await this.getDocument(documentId)
+  if (!doc) return []
+
+  const versions = [
+    {
+      version: doc.version,
+      googleDriveFileId: doc.googleDriveFileId,
+      uploadedAt: doc.uploadedAt || doc.updatedAt,
+      uploadedBy: doc.uploadedBy || doc.updatedBy,
+      uploadedByName: doc.uploadedByName || doc.updatedByName,
+      isCurrent: true,
+    },
+    ...(doc.previousVersions || []),
+  ]
+
+  return versions.sort((a, b) => b.version - a.version)
+}
+
+/**
+ * Update document with version control
+ */
+async updateDocumentVersion(documentId, newFileData, updateData = {}) {
+  const docRef = ref(database, `documents/${documentId}`)
+  const currentDoc = await this.getDocument(documentId)
+
+  if (!currentDoc) {
+    throw new Error('Document not found')
+  }
+
+  // Create new version data
+  const newVersion = {
+    ...updateData,
+    version: currentDoc.version + 1,
+    previousVersions: [
+      ...currentDoc.previousVersions,
+      {
+        version: currentDoc.version,
+        googleDriveFileId: currentDoc.googleDriveFileId,
+        uploadedAt: currentDoc.uploadedAt,
+        uploadedBy: currentDoc.uploadedBy,
+        uploadedByName: currentDoc.uploadedByName,
+      },
+    ],
+
+    // New file data
+    googleDriveFileId: newFileData.googleDriveFileId,
+    googleDriveLink: newFileData.googleDriveLink,
+    fileSize: newFileData.fileSize,
+    mimeType: newFileData.mimeType,
+
+    // Update timestamps
+    updatedAt: new Date().toISOString(),
+    updatedBy: this.getCurrentUserId(),
+    updatedByName: this.getCurrentUserName(),
+  }
+
+  await update(docRef, newVersion)
+
+  // Log activity
+  await this.logActivity(
+    currentDoc.projectId,
+    'updated_document_version',
+    'document',
+    documentId,
+    `Updated ${currentDoc.name} to version ${newVersion.version}`,
+  )
+
+  return { id: documentId, ...currentDoc, ...newVersion }
+}
 
   /**
    * Search documents with text search
@@ -945,58 +1046,6 @@ class FirebaseService {
         doc.description?.toLowerCase().includes(term) ||
         doc.tags?.some((tag) => tag.toLowerCase().includes(term)),
     )
-  }
-
-  /**
-   * Update document with version control
-   */
-  async updateDocumentVersion(documentId, newFileData, updateData = {}) {
-    const docRef = ref(database, `documents/${documentId}`)
-    const currentDoc = await this.getDocument(documentId)
-
-    if (!currentDoc) {
-      throw new Error('Document not found')
-    }
-
-    // Create new version data
-    const newVersion = {
-      ...updateData,
-      version: currentDoc.version + 1,
-      previousVersions: [
-        ...currentDoc.previousVersions,
-        {
-          version: currentDoc.version,
-          googleDriveFileId: currentDoc.googleDriveFileId,
-          uploadedAt: currentDoc.uploadedAt,
-          uploadedBy: currentDoc.uploadedBy,
-          uploadedByName: currentDoc.uploadedByName,
-        },
-      ],
-
-      // New file data
-      googleDriveFileId: newFileData.googleDriveFileId,
-      googleDriveLink: newFileData.googleDriveLink,
-      fileSize: newFileData.fileSize,
-      mimeType: newFileData.mimeType,
-
-      // Update timestamps
-      updatedAt: new Date().toISOString(),
-      updatedBy: this.getCurrentUserId(),
-      updatedByName: this.getCurrentUserName(),
-    }
-
-    await update(docRef, newVersion)
-
-    // Log activity
-    await this.logActivity(
-      currentDoc.projectId,
-      'updated_document_version',
-      'document',
-      documentId,
-      `Updated ${currentDoc.name} to version ${newVersion.version}`,
-    )
-
-    return { id: documentId, ...currentDoc, ...newVersion }
   }
 
   /**
@@ -1059,40 +1108,6 @@ class FirebaseService {
   }
 
   /**
-   * Approve/Reject document
-   */
-  async updateDocumentStatus(documentId, status, comments = '', reviewedBy = null) {
-    const docRef = ref(database, `documents/${documentId}`)
-    const updates = {
-      status: status,
-      reviewedAt: new Date().toISOString(),
-      reviewedBy: reviewedBy || this.getCurrentUserId(),
-      reviewedByName: this.getCurrentUserName(),
-      reviewComments: comments,
-    }
-
-    if (status === 'approved') {
-      updates.approvedAt = new Date().toISOString()
-      updates.approvedBy = updates.reviewedBy
-      updates.approvedByName = updates.reviewedByName
-    }
-
-    await update(docRef, updates)
-
-    // Log activity
-    const doc = await this.getDocument(documentId)
-    await this.logActivity(
-      doc.projectId,
-      `document_${status}`,
-      'document',
-      documentId,
-      `${status.charAt(0).toUpperCase() + status.slice(1)} document: ${doc.name}`,
-    )
-
-    return { id: documentId, ...updates }
-  }
-
-  /**
    * Get document statistics for a project
    */
   async getDocumentStatistics(projectId) {
@@ -1144,29 +1159,7 @@ class FirebaseService {
     return await Promise.all(promises)
   }
 
-  /**
-   * Get document version history
-   */
-  async getDocumentVersionHistory(documentId) {
-    const doc = await this.getDocument(documentId)
-    if (!doc) return []
-
-    const versions = [
-      {
-        version: doc.version,
-        googleDriveFileId: doc.googleDriveFileId,
-        uploadedAt: doc.uploadedAt || doc.updatedAt,
-        uploadedBy: doc.uploadedBy || doc.updatedBy,
-        uploadedByName: doc.uploadedByName || doc.updatedByName,
-        isCurrent: true,
-      },
-      ...(doc.previousVersions || []),
-    ]
-
-    return versions.sort((a, b) => b.version - a.version)
-  }
-
-  /**
+    /**
    * Archive old document versions
    */
   async archiveOldDocumentVersions(documentId, keepVersions = 5) {
