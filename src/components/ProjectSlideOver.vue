@@ -3,15 +3,16 @@
     <!-- Slide-Over Panel -->
     <div
       class="fixed inset-y-0 right-0 z-40 transform transition-transform duration-300 ease-in-out"
-      :class="[
-        isOpen ? 'translate-x-0' : 'translate-x-full',
-        'w-full sm:w-96 lg:w-[32rem]'
-      ]"
+      :class="[isOpen ? 'translate-x-0' : 'translate-x-full', 'w-full sm:w-96 lg:w-[32rem]']"
     >
       <div class="h-full bg-white border-l border-gray-200 shadow-xl flex flex-col">
         <!-- Header -->
-        <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50 pt-5rem">
-          <h3 class="text-lg font-semibold text-gray-900">{{props.project?.id ? 'Edit Project' : 'New Project'}}</h3>
+        <div
+          class="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50 pt-5rem"
+        >
+          <h3 class="text-lg font-semibold text-gray-900">
+            {{ props.project?.id ? 'Edit Project' : 'New Project' }}
+          </h3>
           <Button
             @click="closeSlideOver"
             icon="pi pi-times"
@@ -43,7 +44,9 @@
                 placeholder="Enter job number"
                 :class="{ 'border-red-500': errors.jobNumber }"
               />
-              <span v-if="errors.jobNumber" class="text-red-500 text-xs mt-1">{{ errors.jobNumber }}</span>
+              <span v-if="errors.jobNumber" class="text-red-500 text-xs mt-1">{{
+                errors.jobNumber
+              }}</span>
             </div>
 
             <div>
@@ -59,7 +62,9 @@
                 filter
                 show-clear
               />
-              <span v-if="errors.clientId" class="text-red-500 text-xs mt-1">{{ errors.clientId }}</span>
+              <span v-if="errors.clientId" class="text-red-500 text-xs mt-1">{{
+                errors.clientId
+              }}</span>
               <small class="text-gray-500 text-xs">
                 Don't see your client?
                 <Button
@@ -123,11 +128,7 @@
             </div>
 
             <div class="flex items-center space-x-2">
-              <Checkbox
-                v-model="form.contractSigned"
-                binary
-                input-id="contract-signed"
-              />
+              <Checkbox v-model="form.contractSigned" binary input-id="contract-signed" />
               <label for="contract-signed" class="text-sm font-medium text-gray-700">
                 Contract Signed
               </label>
@@ -199,12 +200,7 @@
               @click="closeSlideOver"
               :disabled="loading"
             />
-            <Button
-              label="Save"
-              size="small"
-              @click="handleSubmit"
-              :loading="loading"
-            />
+            <Button label="Save" size="small" @click="handleSubmit" :loading="loading" />
           </div>
         </div>
       </div>
@@ -214,7 +210,7 @@
     <div
       v-if="isOpen"
       class="fixed inset-0 z-30 transition-opacity duration-300"
-      style="background-color: rgba(107, 114, 128, 0.1);"
+      style="background-color: rgba(107, 114, 128, 0.1)"
       @click="closeSlideOver"
     ></div>
 
@@ -236,19 +232,19 @@ import InputNumber from 'primevue/inputnumber'
 import Checkbox from 'primevue/checkbox'
 import DatePicker from 'primevue/datepicker'
 import Button from 'primevue/button'
-import firebaseService from '@/firebaseService'
+import firebaseService from '@/services/firebaseService'
 import ClientSlideOver from './ClientSlideOver.vue'
 
 // Props
 const props = defineProps({
   visible: {
     type: Boolean,
-    default: false
+    default: false,
   },
   project: {
     type: Object,
-    default: null
-  }
+    default: null,
+  },
 })
 
 // Emits
@@ -267,10 +263,10 @@ const isOpen = computed(() => props.visible)
 
 const clientOptions = computed(() => {
   return clients.value
-    .filter(client => client.name)
-    .map(client => ({
+    .filter((client) => client.name)
+    .map((client) => ({
       label: `${client.name}${client.company ? ` (${client.company})` : ''}`,
-      value: client.id
+      value: client.id,
     }))
 })
 
@@ -288,7 +284,7 @@ const form = ref({
   startDate: null,
   endDate: null,
   address: '',
-  description: ''
+  description: '',
 })
 
 // Phase options
@@ -296,7 +292,7 @@ const phaseOptions = [
   { label: 'Pre-Construction', value: 'pre-construction' },
   { label: 'Construction', value: 'construction' },
   { label: 'Close-Out', value: 'close-out' },
-  { label: 'Complete', value: 'complete' }
+  { label: 'Complete', value: 'complete' },
 ]
 
 // Load project data into form
@@ -315,7 +311,7 @@ const loadProjectData = () => {
       startDate: props.project.startDate ? new Date(props.project.startDate) : null,
       endDate: props.project.endDate ? new Date(props.project.endDate) : null,
       address: props.project.address || '',
-      description: props.project.description || ''
+      description: props.project.description || '',
     }
   }
 }
@@ -326,7 +322,7 @@ const loadClients = async () => {
     const clientData = await firebaseService.getAllClients()
     clients.value = clientData
     console.log('Loaded clients for project form:', clientData)
-  } catch(err) {
+  } catch (err) {
     console.error('Error loading clients:', err.message)
   }
 }
@@ -343,7 +339,7 @@ const validateForm = () => {
     errors.value.jobNumber = 'Job number is required'
   }
 
-  if(!form.value.clientId) {
+  if (!form.value.clientId) {
     errors.value.clientId = 'Client is required'
   }
 
@@ -375,7 +371,7 @@ const handleSubmit = async () => {
       endDate: form.value.endDate ? form.value.endDate.toISOString() : null,
       address: form.value.address?.trim() || '',
       description: form.value.description?.trim() || '',
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     }
 
     let newProject
@@ -388,13 +384,12 @@ const handleSubmit = async () => {
       success.value = 'Project created successfully'
     }
 
-    emit('project-updated', props.project?.id ? { ...props.project, ...projectData} : newProject)
+    emit('project-updated', props.project?.id ? { ...props.project, ...projectData } : newProject)
 
     // Close slide-over after a brief delay
     setTimeout(() => {
       closeSlideOver()
     }, 1500)
-
   } catch (err) {
     console.error('Error updating project:', err)
     error.value = err.message || 'Failed to update project'
@@ -430,18 +425,25 @@ const closeSlideOver = () => {
 }
 
 // Watch for visibility changes
-watch(() => props.visible, (newVal) => {
-  if (newVal) {
-    loadClients()
-    loadProjectData()
-  }
-})
+watch(
+  () => props.visible,
+  (newVal) => {
+    if (newVal) {
+      loadClients()
+      loadProjectData()
+    }
+  },
+)
 
-watch(() => props.project, () => {
-  if (props.visible) {
-    loadProjectData()
-  }
-}, { deep: true })
+watch(
+  () => props.project,
+  () => {
+    if (props.visible) {
+      loadProjectData()
+    }
+  },
+  { deep: true },
+)
 </script>
 
 <style scoped>

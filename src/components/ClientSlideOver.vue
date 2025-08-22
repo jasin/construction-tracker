@@ -3,10 +3,7 @@
     <!-- Slide-Over Panel -->
     <div
       class="fixed inset-y-0 right-0 z-40 transform transition-transform duration-300 ease-in-out"
-      :class="[
-        isOpen ? 'translate-x-0' : 'translate-x-full',
-        'w-full sm:w-96 lg:w-[28rem]'
-      ]"
+      :class="[isOpen ? 'translate-x-0' : 'translate-x-full', 'w-full sm:w-96 lg:w-[28rem]']"
     >
       <div class="h-full bg-white border-l border-gray-200 shadow-xl flex flex-col">
         <!-- Header -->
@@ -132,7 +129,7 @@
     <div
       v-if="isOpen"
       class="fixed inset-0 z-30 transition-opacity duration-300"
-      style="background-color: rgba(107, 114, 128, 0.1);"
+      style="background-color: rgba(107, 114, 128, 0.1)"
       @click="closeSlideOver"
     ></div>
   </div>
@@ -143,18 +140,18 @@ import { ref, computed, watch } from 'vue'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
-import firebaseService from '@/firebaseService'
+import firebaseService from '@/services/firebaseService'
 
 // Props
 const props = defineProps({
   visible: {
     type: Boolean,
-    default: false
+    default: false,
   },
   client: {
     type: Object,
-    default: null
-  }
+    default: null,
+  },
 })
 
 // Emits
@@ -177,14 +174,12 @@ const form = ref({
   email: '',
   phone: '',
   address: '',
-  notes: ''
+  notes: '',
 })
 
 // Form validation
 const isFormValid = computed(() => {
-  return form.value.name.trim() &&
-         form.value.email.trim() &&
-         Object.keys(errors.value).length === 0
+  return form.value.name.trim() && form.value.email.trim() && Object.keys(errors.value).length === 0
 })
 
 // Load client data into form (for editing)
@@ -196,7 +191,7 @@ const loadClientData = () => {
       email: props.client.email || '',
       phone: props.client.phone || '',
       address: props.client.address || '',
-      notes: props.client.notes || ''
+      notes: props.client.notes || '',
     }
   } else {
     resetForm()
@@ -243,14 +238,14 @@ const handleSubmit = async () => {
       email: form.value.email.trim().toLowerCase(),
       phone: form.value.phone?.trim() || '',
       address: form.value.address?.trim() || '',
-      notes: form.value.notes?.trim() || ''
+      notes: form.value.notes?.trim() || '',
     }
 
     if (isEditing.value) {
       // Update existing client
       const updates = {
         ...clientData,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       }
 
       await firebaseService.updateClient(props.client.id, updates)
@@ -267,7 +262,6 @@ const handleSubmit = async () => {
     setTimeout(() => {
       closeSlideOver()
     }, 1500)
-
   } catch (err) {
     console.error('Error saving client:', err)
     error.value = err.message || `Failed to ${isEditing.value ? 'update' : 'create'} client`
@@ -291,7 +285,7 @@ const resetForm = () => {
     email: '',
     phone: '',
     address: '',
-    notes: ''
+    notes: '',
   }
   errors.value = {}
   error.value = ''
@@ -299,17 +293,24 @@ const resetForm = () => {
 }
 
 // Watch for visibility changes
-watch(() => props.visible, (newVal) => {
-  if (newVal) {
-    loadClientData()
-  }
-})
+watch(
+  () => props.visible,
+  (newVal) => {
+    if (newVal) {
+      loadClientData()
+    }
+  },
+)
 
-watch(() => props.client, () => {
-  if (props.visible) {
-    loadClientData()
-  }
-}, { deep: true })
+watch(
+  () => props.client,
+  () => {
+    if (props.visible) {
+      loadClientData()
+    }
+  },
+  { deep: true },
+)
 </script>
 
 <style scoped>

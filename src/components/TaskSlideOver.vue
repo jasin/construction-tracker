@@ -3,10 +3,7 @@
     <!-- Slide-Over Panel -->
     <div
       class="fixed inset-y-0 right-0 z-40 transform transition-transform duration-300 ease-in-out"
-      :class="[
-        isOpen ? 'translate-x-0' : 'translate-x-full',
-        'w-full sm:w-96 lg:w-[28rem]'
-      ]"
+      :class="[isOpen ? 'translate-x-0' : 'translate-x-full', 'w-full sm:w-96 lg:w-[28rem]']"
     >
       <div class="h-full bg-white border-l border-gray-200 shadow-xl flex flex-col">
         <!-- Header -->
@@ -179,7 +176,7 @@
     <div
       v-if="isOpen"
       class="fixed inset-0 z-30 transition-opacity duration-300"
-      style="background-color: rgba(107, 114, 128, 0.1);"
+      style="background-color: rgba(107, 114, 128, 0.1)"
       @click="closeSlideOver"
     ></div>
   </div>
@@ -194,26 +191,26 @@ import MultiSelect from 'primevue/multiselect'
 import DatePicker from 'primevue/datepicker'
 import InputNumber from 'primevue/inputnumber'
 import Button from 'primevue/button'
-import firebaseService from '@/firebaseService'
+import firebaseService from '@/services/firebaseService'
 
 // Props
 const props = defineProps({
   visible: {
     type: Boolean,
-    default: false
+    default: false,
   },
   task: {
     type: Object,
-    default: null
+    default: null,
   },
   projectId: {
     type: String,
-    required: true
+    required: true,
   },
   availableTasks: {
     type: Array,
-    default: () => []
-  }
+    default: () => [],
+  },
 })
 
 // Emits
@@ -239,15 +236,15 @@ const filteredAvailableTasks = computed(() => {
     tasks = props.availableTasks
   } else if (props.availableTasks && typeof props.availableTasks === 'object') {
     // Handle case where it might be an object
-    tasks = Object.values(props.availableTasks).filter(task => task && typeof task === 'object')
+    tasks = Object.values(props.availableTasks).filter((task) => task && typeof task === 'object')
   }
 
   // Ensure each task has required properties
-  tasks = tasks.filter(task => task && task.id && task.title)
+  tasks = tasks.filter((task) => task && task.id && task.title)
 
   // When editing, filter out the current task to prevent self-dependency
   if (isEditing.value && props.task?.id) {
-    tasks = tasks.filter(task => task.id !== props.task.id)
+    tasks = tasks.filter((task) => task.id !== props.task.id)
   }
 
   return tasks
@@ -263,7 +260,7 @@ const form = ref({
   dueDate: null,
   estimatedHours: null,
   category: '',
-  dependencies: []
+  dependencies: [],
 })
 
 // Options
@@ -271,7 +268,7 @@ const priorityOptions = [
   { label: 'Low', value: 'low' },
   { label: 'Medium', value: 'medium' },
   { label: 'High', value: 'high' },
-  { label: 'Critical', value: 'critical' }
+  { label: 'Critical', value: 'critical' },
 ]
 
 const statusOptions = [
@@ -279,7 +276,7 @@ const statusOptions = [
   { label: 'In Progress', value: 'in-progress' },
   { label: 'Review', value: 'review' },
   { label: 'Complete', value: 'complete' },
-  { label: 'On Hold', value: 'on-hold' }
+  { label: 'On Hold', value: 'on-hold' },
 ]
 
 const categoryOptions = [
@@ -288,16 +285,16 @@ const categoryOptions = [
   { label: 'Construction', value: 'construction' },
   { label: 'Inspection', value: 'inspection' },
   { label: 'Documentation', value: 'documentation' },
-  { label: 'Administrative', value: 'administrative' }
+  { label: 'Administrative', value: 'administrative' },
 ]
 
 // User options - Load from Firebase users table
 const userOptions = computed(() => {
   return users.value
-    .filter(user => user.active) // Only show active users
-    .map(user => ({
+    .filter((user) => user.active) // Only show active users
+    .map((user) => ({
       label: user.name || user.email,
-      value: user.id
+      value: user.id,
     }))
 })
 
@@ -325,7 +322,7 @@ const loadTaskData = () => {
       dueDate: props.task.dueDate ? new Date(props.task.dueDate) : null,
       estimatedHours: props.task.estimatedHours || null,
       category: props.task.category || '',
-      dependencies: Array.isArray(props.task.dependencies) ? props.task.dependencies : []
+      dependencies: Array.isArray(props.task.dependencies) ? props.task.dependencies : [],
     }
   } else {
     resetForm()
@@ -364,14 +361,14 @@ const handleSubmit = async () => {
       estimatedHours: form.value.estimatedHours || 0,
       category: form.value.category || '',
       dependencies: Array.isArray(form.value.dependencies) ? form.value.dependencies : [],
-      projectId: props.projectId
+      projectId: props.projectId,
     }
 
     if (isEditing.value) {
       // Update existing task
       const updates = {
         ...taskData,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       }
 
       await firebaseService.updateTask(props.task.id, updates)
@@ -388,7 +385,6 @@ const handleSubmit = async () => {
     setTimeout(() => {
       closeSlideOver()
     }, 1500)
-
   } catch (err) {
     console.error('Error saving task:', err)
     error.value = err.message || `Failed to ${isEditing.value ? 'update' : 'create'} task`
@@ -415,7 +411,7 @@ const resetForm = () => {
     dueDate: null,
     estimatedHours: null,
     category: '',
-    dependencies: []
+    dependencies: [],
   }
   errors.value = {}
   error.value = ''
@@ -423,18 +419,25 @@ const resetForm = () => {
 }
 
 // Watch for visibility changes
-watch(() => props.visible, (newVal) => {
-  if (newVal) {
-    loadUsers() // Load users when slide-over opens
-    loadTaskData()
-  }
-})
+watch(
+  () => props.visible,
+  (newVal) => {
+    if (newVal) {
+      loadUsers() // Load users when slide-over opens
+      loadTaskData()
+    }
+  },
+)
 
-watch(() => props.task, () => {
-  if (props.visible) {
-    loadTaskData()
-  }
-}, { deep: true })
+watch(
+  () => props.task,
+  () => {
+    if (props.visible) {
+      loadTaskData()
+    }
+  },
+  { deep: true },
+)
 
 // Load users when component mounts
 onMounted(() => {

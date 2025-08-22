@@ -5,7 +5,9 @@
       <div class="flex justify-between items-center">
         <div>
           <h1 class="text-2xl font-bold text-surface-900">Dashboard</h1>
-          <p class="text-surface-600 mt-1">Welcome back, {{ currentUser?.displayName || currentUser?.email }}</p>
+          <p class="text-surface-600 mt-1">
+            Welcome back, {{ currentUser?.displayName || currentUser?.email }}
+          </p>
         </div>
         <div class="flex gap-2">
           <Button
@@ -45,7 +47,9 @@
                 <div class="text-sm text-surface-600">Active RFIs</div>
               </div>
               <div class="text-center p-4 border border-surface rounded-lg">
-                <div class="text-2xl font-bold text-green-500 mb-1">{{ stats.pendingSubmittals }}</div>
+                <div class="text-2xl font-bold text-green-500 mb-1">
+                  {{ stats.pendingSubmittals }}
+                </div>
                 <div class="text-sm text-surface-600">Pending Submittals</div>
               </div>
               <div class="text-center p-4 border border-surface rounded-lg">
@@ -100,12 +104,7 @@
           <template #header>
             <div class="flex justify-between items-center p-4 pb-0">
               <h2 class="text-lg font-semibold text-surface-900">Recent RFIs</h2>
-              <Button
-                text
-                size="small"
-                icon="pi pi-external-link"
-                label="View All"
-              />
+              <Button text size="small" icon="pi pi-external-link" label="View All" />
             </div>
           </template>
           <template #content>
@@ -175,7 +174,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { ProgressSpinner, Card, Button, Tag } from 'primevue'
 import authService from '@/authService'
-import firebaseService from '@/firebaseService'
+import firebaseService from '@/services/firebaseService'
 
 // Reactive state
 const loading = ref(true)
@@ -190,9 +189,9 @@ const currentUser = computed(() => authService.currentUser)
 
 const stats = computed(() => ({
   totalProjects: projects.value.length,
-  activeRFIs: recentRFIs.value.filter(rfi => ['open', 'submitted'].includes(rfi.status)).length,
-  pendingSubmittals: recentSubmittals.value.filter(sub => sub.status === 'pending').length,
-  changeOrders: recentChangeOrders.value.filter(co => co.status === 'proposed').length
+  activeRFIs: recentRFIs.value.filter((rfi) => ['open', 'submitted'].includes(rfi.status)).length,
+  pendingSubmittals: recentSubmittals.value.filter((sub) => sub.status === 'pending').length,
+  changeOrders: recentChangeOrders.value.filter((co) => co.status === 'proposed').length,
 }))
 
 // Methods
@@ -207,7 +206,7 @@ const loadDashboardData = async () => {
       firebaseService.getAllSubmittals(),
       firebaseService.getAllChangeOrders(),
       // Get activity from all projects - you might want to limit this
-      Promise.resolve([]) // Placeholder for activity
+      Promise.resolve([]), // Placeholder for activity
     ])
 
     // Filter data based on user permissions
@@ -217,7 +216,6 @@ const loadDashboardData = async () => {
     recentSubmittals.value = allSubmittals.slice(0, 10)
     recentChangeOrders.value = allChangeOrders.slice(0, 10)
     recentActivity.value = allActivity.slice(0, 20)
-
   } catch (error) {
     console.error('Error loading dashboard data:', error)
   } finally {
@@ -249,20 +247,20 @@ const formatTimeAgo = (timestamp) => {
 const getPhaseSeverity = (phase) => {
   const severityMap = {
     'pre-construction': 'warning',
-    'construction': 'info',
+    construction: 'info',
     'close-out': 'success',
-    'complete': 'success'
+    complete: 'success',
   }
   return severityMap[phase] || 'secondary'
 }
 
 const getRFIStatusSeverity = (status) => {
   const severityMap = {
-    'draft': 'secondary',
-    'open': 'info',
-    'submitted': 'warning',
-    'answered': 'success',
-    'closed': 'success'
+    draft: 'secondary',
+    open: 'info',
+    submitted: 'warning',
+    answered: 'success',
+    closed: 'success',
   }
   return severityMap[status] || 'secondary'
 }
