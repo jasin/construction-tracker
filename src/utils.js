@@ -1,6 +1,6 @@
 // utils.js - Common utility functions used across components
 
-import firebaseService from '@/firebaseService'
+import firebaseService from '@/services/firebaseService'
 
 // ==================== DATA LOADING UTILITIES ====================
 
@@ -28,7 +28,7 @@ export const loadUsers = async () => {
   try {
     const allUsers = await firebaseService.getAllUsers()
     console.log('Loaded users:', allUsers?.length || 0)
-    return allUsers.filter(user => user.active) // Only return active users
+    return allUsers.filter((user) => user.active) // Only return active users
   } catch (err) {
     console.error('Error loading users:', err)
     return []
@@ -42,7 +42,7 @@ export const loadUsers = async () => {
 export const loadUsersMinimal = async () => {
   try {
     const users = await firebaseService.getUsersMinimal()
-    return users.filter(user => user.active)
+    return users.filter((user) => user.active)
   } catch (err) {
     console.error('Error loading minimal users:', err)
     return []
@@ -105,12 +105,12 @@ export const getUserName = (userId, users) => {
   // Handle both array and map formats
   let user
   if (Array.isArray(users)) {
-    user = users.find(u => u.id === userId)
+    user = users.find((u) => u.id === userId)
   } else {
     user = users[userId]
   }
 
-  return user ? (user.name || user.email) : userId
+  return user ? user.name || user.email : userId
 }
 
 /**
@@ -125,7 +125,7 @@ export const getProjectName = (projectId, projects) => {
   // Handle both array and map formats
   let project
   if (Array.isArray(projects)) {
-    project = projects.find(p => p.id === projectId)
+    project = projects.find((p) => p.id === projectId)
   } else {
     project = projects[projectId]
   }
@@ -147,7 +147,7 @@ export const formatDate = (dateString, options = {}) => {
   const defaultOptions = {
     year: 'numeric',
     month: 'short',
-    day: 'numeric'
+    day: 'numeric',
   }
 
   try {
@@ -207,7 +207,7 @@ export const formatCurrency = (amount, currency = 'USD') => {
   try {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency
+      currency: currency,
     }).format(amount)
   } catch (err) {
     console.error('Error while formating currancy', err.message)
@@ -236,11 +236,11 @@ export const formatNumber = (number) => {
  */
 export const formatTaskStatus = (status) => {
   const statusMap = {
-    'todo': 'To Do',
+    todo: 'To Do',
     'in-progress': 'In Progress',
-    'review': 'Review',
-    'complete': 'Complete',
-    'on-hold': 'On Hold'
+    review: 'Review',
+    complete: 'Complete',
+    'on-hold': 'On Hold',
   }
   return statusMap[status] || status
 }
@@ -253,9 +253,9 @@ export const formatTaskStatus = (status) => {
 export const formatPhase = (phase) => {
   const phaseMap = {
     'pre-construction': 'Pre-Construction',
-    'construction': 'Construction',
+    construction: 'Construction',
     'close-out': 'Close-Out',
-    'complete': 'Complete'
+    complete: 'Complete',
   }
   return phaseMap[phase] || phase
 }
@@ -268,10 +268,10 @@ export const formatPhase = (phase) => {
 export const formatRole = (role) => {
   const roleMap = {
     'project-manager': 'Project Manager',
-    'superintendent': 'Superintendent',
-    'foreman': 'Foreman',
-    'admin': 'Admin',
-    'user': 'User'
+    superintendent: 'Superintendent',
+    foreman: 'Foreman',
+    admin: 'Admin',
+    user: 'User',
   }
   return roleMap[role] || role
 }
@@ -283,12 +283,12 @@ export const formatRole = (role) => {
  */
 export const formatCategory = (category) => {
   const categoryMap = {
-    'planning': 'Planning',
-    'design': 'Design',
-    'construction': 'Construction',
-    'inspection': 'Inspection',
-    'documentation': 'Documentation',
-    'administrative': 'Administrative'
+    planning: 'Planning',
+    design: 'Design',
+    construction: 'Construction',
+    inspection: 'Inspection',
+    documentation: 'Documentation',
+    administrative: 'Administrative',
   }
   return categoryMap[category] || category
 }
@@ -329,10 +329,10 @@ export const getInitials = (name) => {
  */
 export const getPriorityClasses = (priority) => {
   const classMap = {
-    'critical': 'bg-red-500',
-    'high': 'bg-orange-500',
-    'medium': 'bg-yellow-500',
-    'low': 'bg-green-500'
+    critical: 'bg-red-500',
+    high: 'bg-orange-500',
+    medium: 'bg-yellow-500',
+    low: 'bg-green-500',
   }
   return classMap[priority] || 'bg-gray-500'
 }
@@ -344,16 +344,16 @@ export const getPriorityClasses = (priority) => {
  */
 export const getStatusClasses = (status) => {
   const classMap = {
-    'todo': 'bg-gray-100 text-gray-800',
+    todo: 'bg-gray-100 text-gray-800',
     'in-progress': 'bg-blue-100 text-blue-800',
-    'review': 'bg-yellow-100 text-yellow-800',
-    'complete': 'bg-green-100 text-green-800',
+    review: 'bg-yellow-100 text-yellow-800',
+    complete: 'bg-green-100 text-green-800',
     'on-hold': 'bg-red-100 text-red-800',
-    'draft': 'bg-gray-100 text-gray-800',
-    'submitted': 'bg-blue-100 text-blue-800',
-    'approved': 'bg-green-100 text-green-800',
-    'rejected': 'bg-red-100 text-red-800',
-    'pending': 'bg-yellow-100 text-yellow-800'
+    draft: 'bg-gray-100 text-gray-800',
+    submitted: 'bg-blue-100 text-blue-800',
+    approved: 'bg-green-100 text-green-800',
+    rejected: 'bg-red-100 text-red-800',
+    pending: 'bg-yellow-100 text-yellow-800',
   }
   return classMap[status] || 'bg-gray-100 text-gray-800'
 }
@@ -365,11 +365,11 @@ export const getStatusClasses = (status) => {
  */
 export const getRoleClasses = (role) => {
   const classMap = {
-    'admin': 'bg-purple-100 text-purple-800',
+    admin: 'bg-purple-100 text-purple-800',
     'project-manager': 'bg-blue-100 text-blue-800',
-    'superintendent': 'bg-indigo-100 text-indigo-800',
-    'foreman': 'bg-yellow-100 text-yellow-800',
-    'user': 'bg-gray-100 text-gray-800'
+    superintendent: 'bg-indigo-100 text-indigo-800',
+    foreman: 'bg-yellow-100 text-yellow-800',
+    user: 'bg-gray-100 text-gray-800',
   }
   return classMap[role] || 'bg-gray-100 text-gray-800'
 }
@@ -383,15 +383,15 @@ export const getRoleClasses = (role) => {
  */
 export const getActivityIconClass = (action) => {
   const classMap = {
-    'created_project': 'bg-blue-100 text-blue-700',
-    'updated_project_phase': 'bg-purple-100 text-purple-700',
-    'created_rfi': 'bg-orange-100 text-orange-700',
-    'created_submittal': 'bg-green-100 text-green-700',
-    'created_change_order': 'bg-yellow-100 text-yellow-700',
-    'uploaded_document': 'bg-pink-100 text-pink-700',
-    'created_task': 'bg-blue-100 text-blue-700',
-    'updated_task_status': 'bg-purple-100 text-purple-700',
-    'assigned_task': 'bg-green-100 text-green-700'
+    created_project: 'bg-blue-100 text-blue-700',
+    updated_project_phase: 'bg-purple-100 text-purple-700',
+    created_rfi: 'bg-orange-100 text-orange-700',
+    created_submittal: 'bg-green-100 text-green-700',
+    created_change_order: 'bg-yellow-100 text-yellow-700',
+    uploaded_document: 'bg-pink-100 text-pink-700',
+    created_task: 'bg-blue-100 text-blue-700',
+    updated_task_status: 'bg-purple-100 text-purple-700',
+    assigned_task: 'bg-green-100 text-green-700',
   }
   return classMap[action] || 'bg-gray-100 text-gray-600'
 }
@@ -403,15 +403,15 @@ export const getActivityIconClass = (action) => {
  */
 export const getActivityIcon = (action) => {
   const iconMap = {
-    'created_project': 'pi pi-folder',
-    'updated_project_phase': 'pi pi-refresh',
-    'created_rfi': 'pi pi-question-circle',
-    'created_submittal': 'pi pi-file-check',
-    'created_change_order': 'pi pi-file-edit',
-    'uploaded_document': 'pi pi-file',
-    'created_task': 'pi pi-list',
-    'updated_task_status': 'pi pi-refresh',
-    'assigned_task': 'pi pi-user'
+    created_project: 'pi pi-folder',
+    updated_project_phase: 'pi pi-refresh',
+    created_rfi: 'pi pi-question-circle',
+    created_submittal: 'pi pi-file-check',
+    created_change_order: 'pi pi-file-edit',
+    uploaded_document: 'pi pi-file',
+    created_task: 'pi pi-list',
+    updated_task_status: 'pi pi-refresh',
+    assigned_task: 'pi pi-user',
   }
   return iconMap[action] || 'pi pi-circle'
 }
@@ -426,7 +426,7 @@ export const getActivityIcon = (action) => {
 export const ensureArray = (value) => {
   if (Array.isArray(value)) return value
   if (value && typeof value === 'object') {
-    return Object.values(value).filter(item => item && typeof item === 'object')
+    return Object.values(value).filter((item) => item && typeof item === 'object')
   }
   return []
 }
@@ -505,7 +505,7 @@ export const isNotEmpty = (value) => {
 export const validateRequired = (data, requiredFields) => {
   const errors = {}
 
-  requiredFields.forEach(field => {
+  requiredFields.forEach((field) => {
     if (!data[field] || (typeof data[field] === 'string' && !data[field].trim())) {
       errors[field] = `${field} is required`
     }
@@ -513,7 +513,7 @@ export const validateRequired = (data, requiredFields) => {
 
   return {
     isValid: Object.keys(errors).length === 0,
-    errors
+    errors,
   }
 }
 

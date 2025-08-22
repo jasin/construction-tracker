@@ -284,7 +284,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import firebaseService from '@/firebaseService'
+import firebaseService from '@/services/firebaseService'
 
 // Reactive state
 const users = ref([])
