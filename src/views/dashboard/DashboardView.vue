@@ -173,8 +173,8 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { ProgressSpinner, Card, Button, Tag } from 'primevue'
-import authService from '@/authService'
-import firebaseService from '@/services/firebaseService'
+import authService from '@/services/auth/authService'
+import firebaseService from '@/services/firebase/firebaseService'
 
 // Reactive state
 const loading = ref(true)

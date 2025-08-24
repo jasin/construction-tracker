@@ -140,7 +140,7 @@ import { ref, computed, watch } from 'vue'
 import InputText from 'primevue/inputtext'
 import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
-import firebaseService from '@/services/firebaseService'
+import firebaseService from '@/services/firebase/firebaseService'
 
 // Props
 const props = defineProps({

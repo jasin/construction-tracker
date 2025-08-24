@@ -72,8 +72,8 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { Accordion, AccordionPanel, AccordionHeader, AccordionContent } from 'primevue'
-import firebaseService from '@/services/firebaseService'
-import { loadClients, getClientName, createLookupMap } from '@/utils'
+import firebaseService from '@/services/firebase/firebaseService'
+import { loadClients, getClientName, createLookupMap } from '@/utils/index'
 
 // Reactive state
 const projects = ref([])

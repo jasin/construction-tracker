@@ -337,13 +337,13 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
-import firebaseService from '@/services/firebaseService'
-import ActivityFlyout from './ActivityFlyout.vue'
-import ProjectSlideOver from './ProjectSlideOver.vue'
-import TaskSlideOver from './TaskSlideOver.vue'
-import DocumentStatusBadge from '@/components/DocumentStatusBadge.vue'
-import DocumentUploader from '@/components/DocumentUploader.vue'
-import { getDocumentIcon } from '@/configs/documentCategories'
+import firebaseService from '@/services/firebase/firebaseService'
+import ActivityFlyout from '@/components/widgets/ActivityFlyout.vue'
+import ProjectSlideOver from '@/components/forms/ProjectSlideOver.vue'
+import TaskSlideOver from '@/components/forms/TaskSlideOver.vue'
+import DocumentStatusBadge from '@/components/features/documents/DocumentStatusBadge.vue'
+import DocumentUploader from '@/components/features/documents/DocumentUploader.vue'
+import { getDocumentIcon } from '@/constants/documentCategories'
 import {
   loadUsers,
   getUserName,
@@ -354,7 +354,7 @@ import {
   formatTaskStatus,
   getPriorityClasses,
   getStatusClasses,
-} from '@/utils'
+} from '@/utils/index'
 
 // Props and existing setup
 const props = defineProps({

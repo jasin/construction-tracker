@@ -232,7 +232,7 @@ import InputNumber from 'primevue/inputnumber'
 import Checkbox from 'primevue/checkbox'
 import DatePicker from 'primevue/datepicker'
 import Button from 'primevue/button'
-import firebaseService from '@/services/firebaseService'
+import firebaseService from '@/services/firebase/firebaseService'
 import ClientSlideOver from './ClientSlideOver.vue'
 
 // Props

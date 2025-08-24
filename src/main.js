@@ -1,7 +1,7 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
-import authService from './authService'
+import authService from './services/auth/authService'
 import './assets/main.css'
 import PrimeVue from 'primevue/config'
 import Aura from '@primeuix/themes/aura'

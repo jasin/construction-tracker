@@ -222,8 +222,8 @@
 <script setup>
 import { ref } from 'vue'
 import { ContextMenu } from 'primevue'
-import ProjectMenu from './ProjectMenu.vue'
-import ProjectSlideOver from './ProjectSlideOver.vue'
+import ProjectMenu from '@/components/widgets/ProjectMenu.vue'
+import ProjectSlideOver from '@/components/forms/ProjectSlideOver.vue'
 
 // Reactive state for expanded sections
 const expandedSections = ref({

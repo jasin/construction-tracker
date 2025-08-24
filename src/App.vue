@@ -60,8 +60,8 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { Button, Toolbar, ProgressSpinner, Chip } from 'primevue'
-import authService from '@/authService'
-import NavigationSidebar from '@/components/NavigationSidebar.vue'
+import authService from '@/services/auth/authService'
+import NavigationSidebar from '@/components/layout/AppSidebar.vue'
 
 const router = useRouter()
 const authLoading = ref(true)

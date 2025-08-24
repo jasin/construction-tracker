@@ -271,9 +271,9 @@ import Select from 'primevue/select'
 import MultiSelect from 'primevue/multiselect'
 import DatePicker from 'primevue/datepicker'
 import ProgressSpinner from 'primevue/progressspinner'
-import firebaseService from '@/services/firebaseService'
-import authService from '@/authService'
-import TaskSlideOver from '@/components/TaskSlideOver.vue'
+import firebaseService from '@/services/firebase/firebaseService'
+import authService from '@/services/auth/authService'
+import TaskSlideOver from '@/components/forms/TaskSlideOver.vue'
 
 // Reactive state
 const loading = ref(true)

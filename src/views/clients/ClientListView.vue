@@ -222,8 +222,8 @@ import { ref, computed, onMounted } from 'vue'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import ProgressSpinner from 'primevue/progressspinner'
-import firebaseService from '@/services/firebaseService'
-import ClientSlideOver from '@/components/ClientSlideOver.vue'
+import firebaseService from '@/services/firebase/firebaseService'
+import ClientSlideOver from '@/components/forms/ClientSlideOver.vue'
 
 // ==================== REACTIVE STATE ====================
 // These are Vue 3 "ref" - they create reactive data that Vue watches for changes

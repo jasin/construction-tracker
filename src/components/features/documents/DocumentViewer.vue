@@ -309,9 +309,9 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { Dialog, Button, Textarea, Tag, ProgressSpinner } from 'primevue'
 import DocumentStatusBadge from './DocumentStatusBadge.vue'
 import DocumentUploader from './DocumentUploader.vue'
-import firebaseService from '@/services/firebaseService'
-import { formatFileSize, formatTimeAgo, formatDate } from '@/utils'
-import { getDocumentIcon, DOCUMENT_CATEGORIES } from '@/configs/documentCategories'
+import firebaseService from '@/services/firebase/firebaseService'
+import { formatFileSize, formatTimeAgo, formatDate } from '@/utils/index'
+import { getDocumentIcon, DOCUMENT_CATEGORIES } from '@/constants/documentCategories'
 
 // Props
 const props = defineProps({
