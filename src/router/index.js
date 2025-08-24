@@ -9,6 +9,7 @@ import LoginPage from '@/views/auth/LoginView.vue'
 import UserDashboard from '@/views/dashboard/DashboardView.vue'
 import TasksPage from '@/views/tasks/TaskListView.vue'
 import ClientsPage from '@/views/clients/ClientListView.vue'
+import DocumentSearch from '@/views/documents/DocumentSearchView'
 
 // Placeholder component for routes that don't have components yet
 const PlaceholderPage = {
@@ -90,6 +91,15 @@ const routes = [
   },
 
   // Documents routes
+  {
+    path: '/documents/search',
+    name: 'DocumentSearch',
+    component: DocumentSearch,
+    beforeEnter: requireAuth,
+    meta: {
+      title: 'Document Search'
+    }
+  },
   {
     path: '/documents/all',
     name: 'AllDocuments',

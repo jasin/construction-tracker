@@ -62,57 +62,13 @@
 
         <!-- Documents Section -->
         <div class="mb-2">
-          <button
-            @click="toggleSection('documents')"
-            class="w-full flex items-center justify-between px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md font-medium"
+          <router-link
+            to="/documents/search"
+            class="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
           >
-            <div class="flex items-center">
-              <i class="pi pi-file-pdf w-5 h-5 mr-3"/>
-              Documents
-            </div>
-            <svg
-              class="w-4 h-4 transition-transform duration-200"
-              :class="{ 'rotate-90': expandedSections.documents }"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 5l7 7-7 7"
-              ></path>
-            </svg>
-          </button>
-
-          <!-- Documents Submenu -->
-          <div v-show="expandedSections.documents" class="ml-8 mt-2 space-y-1">
-            <router-link
-              to="/documents/all"
-              class="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
-            >
-              All Documents
-            </router-link>
-            <router-link
-              to="/documents/contracts"
-              class="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
-            >
-              Contracts
-            </router-link>
-            <router-link
-              to="/documents/insurance"
-              class="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
-            >
-              Insurance
-            </router-link>
-            <router-link
-              to="/documents/permits"
-              class="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
-            >
-              Permits
-            </router-link>
-          </div>
+            <i class="pi pi-search mr-2 text-xs"></i>
+            Advanced Search
+          </router-link>
         </div>
 
         <!-- Reports Section -->
