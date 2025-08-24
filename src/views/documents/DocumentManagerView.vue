@@ -345,12 +345,12 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { Button, InputText, Select, ProgressSpinner } from 'primevue'
-import firebaseService from '@/services/firebaseService'
-import googleDriveService from '@/services/googleDriveService'
+import firebaseService from '@/services/firebase/firebaseService'
+import googleDriveService from '@/services/api/googleDriveService'
 import { DOCUMENT_CATEGORIES } from '@/constants/documentCategories'
-import DocumentUploader from './DocumentUploader.vue'
-import DocumentViewer from './DocumentViewer.vue'
-import DocumentStatusBadge from './DocumentStatusBadge.vue'
+import DocumentUploader from '@/components/features/documents/DocumentUploader.vue'
+import DocumentViewer from '@/components/features/documents/DocumentViewer.vue'
+import DocumentStatusBadge from '@/components/features/documents/DocumentStatusBadge.vue'
 
 // Props
 const props = defineProps({
