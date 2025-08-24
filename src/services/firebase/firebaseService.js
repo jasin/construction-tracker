@@ -765,6 +765,118 @@ class FirebaseService {
     return documents
   }
 
+  // Add this function to the DOCUMENTS section of FirebaseService, right after getDocumentsByProject
+
+  async getDocumentStatistics(projectId) {
+    try {
+      const documents = await this.getDocumentsByProject(projectId)
+
+      const stats = {
+        total: documents.length,
+        totalSize: documents.reduce((sum, doc) => sum + (doc.fileSize || 0), 0),
+        byCategory: {},
+        byStatus: {},
+        byUploader: {},
+        byFileType: {},
+        averageFileSize: 0,
+        recentUploads: 0, // Last 7 days
+        versionCounts: {
+          latestVersions: 0,
+          totalVersions: 0
+        }
+      }
+
+      // Calculate category distribution
+      documents.forEach(doc => {
+        const category = doc.category || 'uncategorized'
+        stats.byCategory[category] = (stats.byCategory[category] || 0) + 1
+      })
+
+      // Calculate status distribution
+      documents.forEach(doc => {
+        const status = doc.status || 'unknown'
+        stats.byStatus[status] = (stats.byStatus[status] || 0) + 1
+      })
+
+      // Calculate uploader distribution
+      documents.forEach(doc => {
+        const uploader = doc.uploadedByName || 'Unknown'
+        stats.byUploader[uploader] = (stats.byUploader[uploader] || 0) + 1
+      })
+
+      // Calculate file type distribution
+      documents.forEach(doc => {
+        const fileName = doc.name || doc.fileName || ''
+        const extension = fileName.split('.').pop()?.toLowerCase() || 'unknown'
+        stats.byFileType[extension] = (stats.byFileType[extension] || 0) + 1
+      })
+
+      // Calculate average file size
+      if (documents.length > 0) {
+        stats.averageFileSize = stats.totalSize / documents.length
+      }
+
+      // Calculate recent uploads (last 7 days)
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+      stats.recentUploads = documents.filter(doc => {
+        return doc.uploadedAt && new Date(doc.uploadedAt) > sevenDaysAgo
+      }).length
+
+      // Calculate version statistics
+      stats.versionCounts.latestVersions = documents.length // Each document counts as latest
+      stats.versionCounts.totalVersions = documents.reduce((sum, doc) => {
+        return sum + (doc.version || 1) + (doc.previousVersions?.length || 0)
+      }, 0)
+
+      // Add size categories
+      stats.bySizeCategory = {
+        small: 0,    // < 1MB
+        medium: 0,   // 1MB - 10MB
+        large: 0,    // 10MB - 100MB
+        extraLarge: 0 // > 100MB
+      }
+
+      documents.forEach(doc => {
+        const sizeInMB = (doc.fileSize || 0) / (1024 * 1024)
+        if (sizeInMB < 1) {
+          stats.bySizeCategory.small++
+        } else if (sizeInMB <= 10) {
+          stats.bySizeCategory.medium++
+        } else if (sizeInMB <= 100) {
+          stats.bySizeCategory.large++
+        } else {
+          stats.bySizeCategory.extraLarge++
+        }
+      })
+
+      return stats
+    } catch (error) {
+      console.error('Error getting document statistics:', error)
+      return {
+        total: 0,
+        totalSize: 0,
+        byCategory: {},
+        byStatus: {},
+        byUploader: {},
+        byFileType: {},
+        bySizeCategory: {
+          small: 0,
+          medium: 0,
+          large: 0,
+          extraLarge: 0
+        },
+        averageFileSize: 0,
+        recentUploads: 0,
+        versionCounts: {
+          latestVersions: 0,
+          totalVersions: 0
+        }
+      }
+    }
+  }
+
   async updateDocument(documentId, updates) {
     try {
       // Add approval timestamp if status is being approved
