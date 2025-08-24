@@ -63,11 +63,11 @@
         <!-- Documents Section -->
         <div class="mb-2">
           <router-link
-            to="/documents/search"
-            class="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md"
+          to="/documents/search"
+          class="w-full flex items-center px-3 py-2 text-left text-gray-700 hover:bg-gray-100 rounded-md font-medium"
           >
             <i class="pi pi-search mr-2 text-xs"></i>
-            Advanced Search
+            Document Search
           </router-link>
         </div>
 

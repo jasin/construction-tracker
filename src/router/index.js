@@ -9,7 +9,7 @@ import LoginPage from '@/views/auth/LoginView.vue'
 import UserDashboard from '@/views/dashboard/DashboardView.vue'
 import TasksPage from '@/views/tasks/TaskListView.vue'
 import ClientsPage from '@/views/clients/ClientListView.vue'
-import DocumentSearch from '@/views/documents/DocumentSearchView'
+import DocumentSearch from '@/views/documents/DocumentSearchView.vue'
 
 // Placeholder component for routes that don't have components yet
 const PlaceholderPage = {
