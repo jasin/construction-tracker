@@ -12,8 +12,8 @@ import {
   onValue,
   off,
 } from 'firebase/database'
-import { database } from '../configs/firebase-config'
-import authService from '../authService'
+import { database } from '@/configs/firebase'
+import authService from '@/services/auth/authService'
 import {
   sanitizeForFirebase,
   sanitizeWithSchema,
@@ -22,7 +22,7 @@ import {
   PROJECT_SCHEMA,
   TASK_SCHEMA,
   // Add more schemas as needed
-} from '@/utils'
+} from '@/utils/index'
 
 // Define data schemas for validation
 const CLIENT_SCHEMA = {

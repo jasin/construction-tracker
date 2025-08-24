@@ -1,5 +1,5 @@
 // router/authGuard.js
-import authService from '@/authService'
+import authService from '@/services/auth/authService'
 
 export const requireAuth = (to, from, next) => {
   if (authService.isAuthenticated()) {

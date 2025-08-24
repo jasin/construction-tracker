@@ -191,7 +191,7 @@ import MultiSelect from 'primevue/multiselect'
 import DatePicker from 'primevue/datepicker'
 import InputNumber from 'primevue/inputnumber'
 import Button from 'primevue/button'
-import firebaseService from '@/services/firebaseService'
+import firebaseService from '@/services/firebase/firebaseService'
 
 // Props
 const props = defineProps({

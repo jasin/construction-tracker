@@ -259,9 +259,9 @@ import {
   ProgressBar,
   ProgressSpinner,
 } from 'primevue'
-import firebaseService from '@/services/firebaseService'
-import googleDriveService from '@/services/googleDriveService'
-import { DOCUMENT_CATEGORIES } from '@/configs/documentCategories'
+import firebaseService from '@/services/firebase/firebaseService'
+import googleDriveService from '@/services/api/googleDriveService'
+import { DOCUMENT_CATEGORIES } from '@/constants/documentCategories'
 
 // Props
 const props = defineProps({

@@ -1,6 +1,6 @@
 // utils.js - Common utility functions used across components
 
-import firebaseService from '@/services/firebaseService'
+import firebaseService from '@/services/firebase/firebaseService'
 
 // ==================== DATA LOADING UTILITIES ====================
 

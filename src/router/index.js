@@ -1,14 +1,14 @@
 // router.js
 import { createRouter, createWebHistory } from 'vue-router'
-import { requireAuth, requireRole, redirectIfAuthenticated } from './authGuard'
+import { requireAuth, requireRole, redirectIfAuthenticated } from './guards'
 
 // Existing components
-import ProjectDashboard from '@/components/ProjectDashboard.vue'
-import UserManagement from '@/components/UserManagement.vue'
-import LoginPage from '@/components/LoginPage.vue'
-import UserDashboard from './components/UserDashboard.vue'
-import TasksPage from '@/components/TasksPage.vue'
-import ClientsPage from './components/ClientsPage.vue'
+import ProjectDashboard from '@/views/projects/ProjectDetailView.vue'
+import UserManagement from '@/views/admin/UserManagementView.vue'
+import LoginPage from '@/views/auth/LoginView.vue'
+import UserDashboard from '@/views/dashboard/DashboardView.vue'
+import TasksPage from '@/views/tasks/TaskListView.vue'
+import ClientsPage from '@/views/clients/ClientListView.vue'
 
 // Placeholder component for routes that don't have components yet
 const PlaceholderPage = {
@@ -60,7 +60,7 @@ const routes = [
   {
     path: '/project/:projectId/documents',
     name: 'ProjectDocuments',
-    component: () => import('@/components/DocumentManager.vue'),
+    component: () => import('@/views/documents/DocumentManagerView.vue'),
     props: true,
     beforeEnter: requireAuth,
   },

@@ -7,8 +7,8 @@ import {
   updateProfile,
   sendPasswordResetEmail,
 } from 'firebase/auth'
-import { auth } from './configs/firebase-config'
-import firebaseService from '@/services/firebaseService'
+import { auth } from '@/configs/firebase'
+import firebaseService from '@/services/firebase/firebaseService'
 
 class AuthService {
   constructor() {
