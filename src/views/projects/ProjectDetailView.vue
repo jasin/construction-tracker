@@ -349,6 +349,7 @@ import {
   getUserName,
   createLookupMap,
   formatDate,
+  formatTimeAgo,
   formatCurrency,
   formatPhase,
   formatTaskStatus,
