@@ -9,7 +9,7 @@ import LoginPage from '@/views/auth/LoginView.vue'
 import UserDashboard from '@/views/dashboard/DashboardView.vue'
 import TasksPage from '@/views/tasks/TaskListView.vue'
 import ClientsPage from '@/views/clients/ClientListView.vue'
-import DocumentSearch from '@/views/documents/DocumentSearchView.vue'
+import DocumentsView from '@/views/documents/DocumentsView.vue'
 
 // Placeholder component for routes that don't have components yet
 const PlaceholderPage = {
@@ -90,54 +90,48 @@ const routes = [
     beforeEnter: requireAuth,
   },
 
-  // Documents routes
+  // Documents routes - ALL USE THE UNIFIED VIEW
+  {
+    path: '/documents',
+    name: 'AllDocuments',
+    component: DocumentsView,
+    beforeEnter: requireAuth,
+    props: {
+      mode: 'search',
+      allowUpload: false,
+      allowExport: true,
+    },
+    meta: {
+      title: 'All Documents',
+    },
+  },
   {
     path: '/documents/search',
     name: 'DocumentSearch',
-    component: DocumentSearch,
+    component: DocumentsView,
     beforeEnter: requireAuth,
+    props: {
+      mode: 'search',
+      allowUpload: false,
+      allowExport: true,
+    },
     meta: {
-      title: 'Document Search'
-    }
-  },
-  {
-    path: '/documents/all',
-    name: 'AllDocuments',
-    component: PlaceholderPage,
-    beforeEnter: requireAuth,
-    props: {
-      title: 'All Documents',
-      description: 'View and manage all project documents',
+      title: 'Document Search',
     },
   },
   {
-    path: '/documents/contracts',
-    name: 'Contracts',
-    component: PlaceholderPage,
+    path: '/documents/:projectId/manage',
+    name: 'DocumentManage',
+    component: DocumentsView,
     beforeEnter: requireAuth,
-    props: {
-      title: 'Contracts',
-      description: 'Project contracts and agreements',
-    },
-  },
-  {
-    path: '/documents/insurance',
-    name: 'Insurance',
-    component: PlaceholderPage,
-    beforeEnter: requireAuth,
-    props: {
-      title: 'Insurance Documents',
-      description: 'Insurance certificates and policies',
-    },
-  },
-  {
-    path: '/documents/permits',
-    name: 'Permits',
-    component: PlaceholderPage,
-    beforeEnter: requireAuth,
-    props: {
-      title: 'Permits',
-      description: 'Building permits and approvals',
+    props: (route) => ({
+      projectId: route.params.projectId,
+      mode: 'manage',
+      allowUpload: true,
+      allowExport: true,
+    }),
+    meta: {
+      title: 'Manage Documents',
     },
   },
 
