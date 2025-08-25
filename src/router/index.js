@@ -60,7 +60,7 @@ const routes = [
   {
     path: '/project/:projectId/documents',
     name: 'ProjectDocuments',
-    component: () => import('@/views/documents/DocumentManagerView.vue'),
+    component: () => import('@/views/documents/DocumentsView.vue'),
     props: true,
     beforeEnter: requireAuth,
   },
