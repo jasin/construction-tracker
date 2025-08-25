@@ -146,6 +146,39 @@ class GoogleDriveService {
     })
   }
 
+  async checkAndRefreshToken() {
+    if (!this.accessToken) {
+      console.log('No access token, need to sign in')
+      return false
+    }
+
+    // Test if current token is still valid
+    try {
+      const response = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+        },
+      })
+
+      if (response.ok) {
+        console.log('Token is still valid')
+        return true
+      } else if (response.status === 401) {
+        console.log('Token expired, attempting to refresh...')
+        // Clear the expired token
+        this.accessToken = null
+        this.gapi.client.setToken(null)
+
+        // Force re-authentication
+        await this.signIn()
+        return true
+      }
+    } catch (error) {
+      console.error('Error checking token:', error)
+      return false
+    }
+  }
+
   // FIX: Add error handling wrapper
   async safeApiCall(apiCall, errorMessage) {
     try {
@@ -155,10 +188,12 @@ class GoogleDriveService {
 
       // Check if it's an auth error and try to refresh
       if (error.status === 401 || error.status === 403) {
-        console.log('Auth error detected, attempting to re-authenticate...')
+        console.log('Auth error detected, checking token...')
         try {
-          await this.signIn()
-          return await apiCall() // Retry once
+          const tokenValid = await this.checkAndRefreshToken()
+          if (tokenValid) {
+            return await apiCall() // Retry once
+          }
         } catch (reAuthError) {
           console.error('Re-authentication failed:', reAuthError)
           throw new Error(`${errorMessage}: Authentication failed`)

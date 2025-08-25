@@ -104,6 +104,7 @@
             allow="autoplay; clipboard-read; clipboard-write"
             sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
             loading="lazy"
+            @error="handleIframeError"
           ></iframe>
 
           <!-- Fallback for unsupported files -->
@@ -409,9 +410,27 @@ const openInDrive = () => {
   }
 }
 
-const editDocument = () => {
-  // Implement edit functionality
-  console.log('Edit document:', props.document.id)
+const editDocument = async () => {
+  console.log('Edit document:', document.id)
+
+  // Instead of calling Google Drive API directly,
+  // just update the status in Firebase
+  try {
+    const updates = {
+      status: 'approved', // or whatever status change you want
+      updatedAt: new Date().toISOString(),
+    }
+
+    await firebaseService.updateDocument(document.id, updates)
+    console.log('Document updated successfully')
+
+    // Emit the update to parent component
+    emit('document-updated', { ...document, ...updates })
+  } catch (error) {
+    console.error('Error updating document:', error)
+    // Show user-friendly error message
+    alert('Failed to update document. Please try again.')
+  }
 }
 
 const uploadNewVersion = () => {
@@ -489,6 +508,11 @@ const loadVersionHistory = async () => {
     console.error('Error loading version history:', error)
     versionHistory.value = []
   }
+}
+
+const handleIframeError = () => {
+  console.log('Iframe failed to load, showing fallback')
+  // You could show a fallback UI or direct link to Google Drive
 }
 
 // Watch for document changes
