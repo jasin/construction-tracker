@@ -147,7 +147,7 @@
         <!-- Tags -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">Tags</label>
-          <Chips v-model="tags" class="w-full" placeholder="Add tags (press Enter to add)" />
+          <InputChips v-model="tags" class="w-full" placeholder="Add tags (press Enter to add)" />
           <small class="text-gray-500">Add tags to help organize and search for documents</small>
         </div>
 
@@ -255,7 +255,7 @@ import {
   Select,
   Textarea,
   InputText,
-  Chips,
+  InputChips,
   ProgressBar,
   ProgressSpinner,
 } from 'primevue'
@@ -302,6 +302,7 @@ const currentUploadFile = ref('')
 const error = ref('')
 const success = ref('')
 const errors = ref({})
+const fileInput = ref(null)
 
 // Helper functions
 const formatFileSize = (bytes) => {
