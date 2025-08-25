@@ -260,7 +260,7 @@
                       size="small"
                       severity="secondary"
                       label="View All"
-                      @click="$router.push(`/project/${projectId}/documents`)"
+                      @click="$router.push(`/documents/${projectId}/manage`)"
                     />
                   </div>
                 </div>
