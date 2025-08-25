@@ -366,7 +366,9 @@ const showApprovalSection = computed(() => {
 
 // Methods
 const getEmbedUrl = (fileId) => {
-  return `https://drive.google.com/file/d/${fileId}/preview`
+  //return `https://drive.google.com/file/d/${fileId}/preview`
+  //return `https://drive.google.com/file/d/${fileId}/preview?rm=minimal&embedded=true`
+  return `https://docs.google.com/viewer?srcid=${fileId}&pid=explorer&efh=false&a=v&chrome=false&embedded=true`
 }
 
 const getFileExtension = (filename) => {
