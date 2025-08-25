@@ -4,7 +4,6 @@ import { requireAuth, requireRole, redirectIfAuthenticated } from './guards'
 
 // Existing components
 import ProjectDashboard from '@/views/projects/ProjectDetailView.vue'
-import UserManagement from '@/views/admin/UserManagementView.vue'
 import LoginPage from '@/views/auth/LoginView.vue'
 import UserDashboard from '@/views/dashboard/DashboardView.vue'
 import TasksPage from '@/views/tasks/TaskListView.vue'
