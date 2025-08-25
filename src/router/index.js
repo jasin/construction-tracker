@@ -9,6 +9,7 @@ import UserDashboard from '@/views/dashboard/DashboardView.vue'
 import TasksPage from '@/views/tasks/TaskListView.vue'
 import ClientsPage from '@/views/clients/ClientListView.vue'
 import DocumentsView from '@/views/documents/DocumentsView.vue'
+import UserManagement from '@/views/admin/UserManagementView.vue'
 
 // Placeholder component for routes that don't have components yet
 const PlaceholderPage = {
