@@ -121,6 +121,19 @@
               />
             </div>
 
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Project (Optional)</label>
+              <Select
+                v-model="form.projectId"
+                :options="projectOptions"
+                option-label="label"
+                option-value="value"
+                placeholder="Select project (leave blank for independent task)"
+                class="w-full text-sm"
+                show-clear
+              />
+            </div>
+
             <!-- Dependencies -->
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Dependencies</label>
@@ -140,7 +153,7 @@
             </div>
 
             <!-- Attachments -->
-            <div div v-if="isEditing && task?.id" class="border-t border-gray-200 pt-4">
+            <div v-if="isEditing && task?.id" class="border-t border-gray-200 pt-4">
               <EntityAttachments
                 entity-type="task"
                 :entity-id="task.id"
@@ -222,7 +235,8 @@ const props = defineProps({
   },
   projectId: {
     type: String,
-    required: true,
+    required: false,
+    default: null,
   },
   availableTasks: {
     type: Array,
@@ -239,10 +253,17 @@ const error = ref('')
 const success = ref('')
 const errors = ref({})
 const users = ref([]) // Add users state)
+const projects = ref([])
 
 // Computed
 const isOpen = computed(() => props.visible)
 const isEditing = computed(() => !!(props.task && props.task.id))
+const projectOptions = computed(() => {
+  return projects.value.map((project) => ({
+    label: `${project.jobNumber} - ${project.name}`,
+    value: project.id,
+  }))
+})
 
 // Ensure availableTasks is always a valid array and filter out current task when editing
 const filteredAvailableTasks = computed(() => {
@@ -277,6 +298,7 @@ const form = ref({
   dueDate: null,
   estimatedHours: null,
   category: '',
+  projectId: null,
   dependencies: [],
 })
 
@@ -339,10 +361,23 @@ const loadTaskData = () => {
       dueDate: props.task.dueDate ? new Date(props.task.dueDate) : null,
       estimatedHours: props.task.estimatedHours || null,
       category: props.task.category || '',
+      projectId: props.task.projectId || props.projectId || null,
       dependencies: Array.isArray(props.task.dependencies) ? props.task.dependencies : [],
     }
   } else {
     resetForm()
+  }
+}
+
+// Load project data into form (for editing)
+const loadProjects = async () => {
+  try {
+    const allProjects = await firebaseService.getAllProjects()
+    projects.value = allProjects
+    console.log('Loaded projects for selection:', allProjects)
+  } catch (err) {
+    console.error('Error loading projects:', err)
+    projects.value = []
   }
 }
 
@@ -390,7 +425,7 @@ const handleSubmit = async () => {
       estimatedHours: form.value.estimatedHours || 0,
       category: form.value.category || '',
       dependencies: Array.isArray(form.value.dependencies) ? form.value.dependencies : [],
-      projectId: props.projectId,
+      projectId: form.value.projectId || props.projectId || null,
     }
 
     if (isEditing.value) {
@@ -440,6 +475,7 @@ const resetForm = () => {
     dueDate: null,
     estimatedHours: null,
     category: '',
+    projectId: null,
     dependencies: [],
   }
   errors.value = {}
@@ -454,6 +490,7 @@ watch(
     if (newVal) {
       loadUsers() // Load users when slide-over opens
       loadTaskData()
+      loadProjects()
     }
   },
 )
@@ -471,6 +508,7 @@ watch(
 // Load users when component mounts
 onMounted(() => {
   loadUsers()
+  loadProjects()
 })
 </script>
 

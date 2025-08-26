@@ -304,7 +304,7 @@ class FirebaseService {
 
   async createTask(taskData) {
     try {
-      const validation = validateAndCleanForm(taskData, ['title', 'projectId'])
+      const validation = validateAndCleanForm(taskData, ['title'])
       if (!validation.isValid) {
         throw new Error(`Validation failed: ${Object.values(validation.errors).join(', ')}`)
       }
@@ -1334,6 +1334,7 @@ class FirebaseService {
       rfi: 'rfis',
       submittal: 'submittals',
       changeOrder: 'changeOrders',
+      task: 'tasks',
     }
 
     return collectionMap[entityType] || entityType + 's'
