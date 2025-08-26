@@ -139,6 +139,19 @@
               </small>
             </div>
 
+            <!-- Attachments -->
+            <div div v-if="isEditing && task?.id" class="border-t border-gray-200 pt-4">
+              <EntityAttachments
+                entity-type="task"
+                :entity-id="task.id"
+                :project-id="projectId"
+                :can-attach="true"
+                view-mode="list"
+                @attachments-changed="handleAttachmentsChanged"
+                @error="handleAttachmentError"
+              />
+            </div>
+
             <!-- Error Message -->
             <div v-if="error" class="rounded-md bg-red-50 p-3">
               <p class="text-sm text-red-800">{{ error }}</p>
@@ -191,6 +204,10 @@ import MultiSelect from 'primevue/multiselect'
 import DatePicker from 'primevue/datepicker'
 import InputNumber from 'primevue/inputnumber'
 import Button from 'primevue/button'
+import EntityAttachments from '@/components/widgets/EntityAttachments.vue'
+import UserRepository from '@/services/firebase/repositories/UserRepository'
+
+// TODO: This needs to be phased out in favor of Repsitories
 import firebaseService from '@/services/firebase/firebaseService'
 
 // Props
@@ -301,7 +318,7 @@ const userOptions = computed(() => {
 // Load users from Firebase
 const loadUsers = async () => {
   try {
-    const allUsers = await firebaseService.getAllUsers()
+    const allUsers = await UserRepository.getAllUsers()
     users.value = allUsers
     console.log('Loaded users for assignment:', allUsers)
   } catch (err) {
@@ -338,6 +355,18 @@ const validateForm = () => {
   }
 
   return Object.keys(errors.value).length === 0
+}
+
+// Handle changed attachments
+const handleAttachmentsChanged = (attachmentData) => {
+  console.log('Task attachments changed:', attachmentData)
+  // Could emit to parent or update local state if needed
+}
+
+// Handle any errors encountered
+const handleAttachmentError = (error) => {
+  console.error('Attachment error:', error)
+  // Could show error in the form's error state
 }
 
 // Handle form submission

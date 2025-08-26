@@ -19,89 +19,16 @@ import {
   sanitizeWithSchema,
   validateAndCleanForm,
   deepClean,
+  USER_SCHEMA,
   PROJECT_SCHEMA,
   TASK_SCHEMA,
+  CLIENT_SCHEMA,
+  RFI_SCHEMA,
+  SUBMITTAL_SCHEMA,
+  CHANGE_ORDER_SCHEMA,
+  DOCUMENT_SCHEMA,
   // Add more schemas as needed
 } from '@/utils/index'
-
-// Define data schemas for validation
-const CLIENT_SCHEMA = {
-  name: 'string',
-  company: 'string',
-  email: 'string',
-  phone: 'string',
-  address: 'string',
-  notes: 'string',
-}
-
-const USER_SCHEMA = {
-  name: 'string',
-  email: 'string',
-  role: 'string',
-  phone: 'string',
-  active: 'boolean',
-}
-
-const RFI_SCHEMA = {
-  title: 'string',
-  description: 'string',
-  priority: 'string',
-  status: 'string',
-  projectId: 'string',
-  submittedBy: 'string',
-  assignedTo: 'string',
-  dueDate: 'date',
-  response: 'string',
-  attachment: 'array',
-  attachmentCount: 'number',
-}
-
-const SUBMITTAL_SCHEMA = {
-  title: 'string',
-  description: 'string',
-  status: 'string',
-  projectId: 'string',
-  submittedBy: 'string',
-  reviewedBy: 'string',
-  dueDate: 'date',
-  comments: 'string',
-  attachment: 'array',
-  attachmentCount: 'number',
-}
-
-const CHANGE_ORDER_SCHEMA = {
-  title: 'string',
-  description: 'string',
-  number: 'string',
-  status: 'string',
-  projectId: 'string',
-  reason: 'string',
-  requestedBy: 'string',
-  costImpact: 'number',
-  timeImpact: 'number',
-  billable: 'boolean',
-  attachment: 'array',
-  attachmentCount: 'number',
-}
-
-const DOCUMENT_SCHEMA = {
-  name: 'string',
-  description: 'string',
-  category: 'string',
-  projectId: 'string',
-  googleDriveFileId: 'string',
-  googleDriveLink: 'string',
-  mimeType: 'string',
-  fileSize: 'number',
-  status: 'string',
-  version: 'number',
-  tags: 'array',
-  uploadedBy: 'string',
-  uploadedByName: 'string',
-  linkedEntityType: 'string',
-  linkedEntityId: 'string',
-  isAttachment: 'boolean',
-}
 
 class FirebaseService {
   // ==================== HELPER METHODS ====================

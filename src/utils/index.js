@@ -74,19 +74,19 @@ export const loadProjects = async () => {
  */
 export const sanitizeData = (data, options = {}) => {
   const {
-    removeEmpty = true,        // Remove empty strings
-    removeNull = true,         // Remove null values
-    removeUndefined = true,    // Remove undefined values
-    trimStrings = true,        // Trim string values
-    convertDates = true,       // Convert Date objects to ISO strings
-    preserveArrays = false,    // Keep empty arrays vs removing them
+    removeEmpty = true, // Remove empty strings
+    removeNull = true, // Remove null values
+    removeUndefined = true, // Remove undefined values
+    trimStrings = true, // Trim string values
+    convertDates = true, // Convert Date objects to ISO strings
+    preserveArrays = false, // Keep empty arrays vs removing them
   } = options
 
   // Handle arrays
   if (Array.isArray(data)) {
     const cleanArray = data
-      .map(item => sanitizeData(item, options))
-      .filter(item => {
+      .map((item) => sanitizeData(item, options))
+      .filter((item) => {
         if (removeNull && item === null) return false
         if (removeUndefined && item === undefined) return false
         if (removeEmpty && item === '') return false
@@ -117,7 +117,7 @@ export const sanitizeData = (data, options = {}) => {
   // Handle objects - create completely clean object
   const cleanObject = {}
 
-  Object.keys(data).forEach(key => {
+  Object.keys(data).forEach((key) => {
     let value = data[key]
 
     // Recursively sanitize nested objects/arrays
@@ -134,12 +134,11 @@ export const sanitizeData = (data, options = {}) => {
     }
 
     // Decide whether to include this field
-    const shouldExclude = (
+    const shouldExclude =
       (removeNull && value === null) ||
       (removeUndefined && value === undefined) ||
       (removeEmpty && value === '') ||
       (Array.isArray(value) && value.length === 0 && !preserveArrays)
-    )
 
     if (!shouldExclude) {
       cleanObject[key] = value
@@ -172,7 +171,7 @@ export const sanitizeForFirebase = (data) => {
  */
 export const sanitizeForAPI = (data) => {
   return sanitizeData(data, {
-    removeEmpty: false,  // Keep empty strings for APIs
+    removeEmpty: false, // Keep empty strings for APIs
     removeNull: true,
     removeUndefined: true,
     trimStrings: true,
@@ -219,7 +218,7 @@ export const validateAndCleanForm = (formData, requiredFields = []) => {
   const errors = {}
 
   // Validate required fields first
-  requiredFields.forEach(field => {
+  requiredFields.forEach((field) => {
     const value = formData[field]
     if (!value || (typeof value === 'string' && !value.trim())) {
       errors[field] = `${field} is required`
@@ -232,7 +231,7 @@ export const validateAndCleanForm = (formData, requiredFields = []) => {
   return {
     isValid: Object.keys(errors).length === 0,
     errors,
-    cleanData
+    cleanData,
   }
 }
 
@@ -245,7 +244,7 @@ export const validateAndCleanForm = (formData, requiredFields = []) => {
 export const sanitizeWithSchema = (data, schema) => {
   const cleanData = {}
 
-  Object.keys(schema).forEach(key => {
+  Object.keys(schema).forEach((key) => {
     const value = data[key]
     const expectedType = schema[key]
 
@@ -259,8 +258,7 @@ export const sanitizeWithSchema = (data, schema) => {
         }
         break
 
-      case 'number':
-      {
+      case 'number': {
         const num = Number(value)
         if (!isNaN(num)) cleanData[key] = num
         break
@@ -284,7 +282,7 @@ export const sanitizeWithSchema = (data, schema) => {
 
       case 'array':
         if (Array.isArray(value) && value.length > 0) {
-          cleanData[key] = value.filter(item => item !== null && item !== undefined)
+          cleanData[key] = value.filter((item) => item !== null && item !== undefined)
         }
         break
 
@@ -310,7 +308,7 @@ export const PROJECT_SCHEMA = {
   startDate: 'date',
   endDate: 'date',
   address: 'string',
-  description: 'string'
+  description: 'string',
 }
 
 export const TASK_SCHEMA = {
@@ -325,7 +323,85 @@ export const TASK_SCHEMA = {
   actualHours: 'number',
   progress: 'number',
   category: 'string',
-  dependencies: 'array'
+  dependencies: 'array',
+}
+
+const CLIENT_SCHEMA = {
+  name: 'string',
+  company: 'string',
+  email: 'string',
+  phone: 'string',
+  address: 'string',
+  notes: 'string',
+}
+
+const USER_SCHEMA = {
+  name: 'string',
+  email: 'string',
+  role: 'string',
+  phone: 'string',
+  active: 'boolean',
+}
+
+const RFI_SCHEMA = {
+  title: 'string',
+  description: 'string',
+  priority: 'string',
+  status: 'string',
+  projectId: 'string',
+  submittedBy: 'string',
+  assignedTo: 'string',
+  dueDate: 'date',
+  response: 'string',
+  attachment: 'array',
+  attachmentCount: 'number',
+}
+
+const SUBMITTAL_SCHEMA = {
+  title: 'string',
+  description: 'string',
+  status: 'string',
+  projectId: 'string',
+  submittedBy: 'string',
+  reviewedBy: 'string',
+  dueDate: 'date',
+  comments: 'string',
+  attachment: 'array',
+  attachmentCount: 'number',
+}
+
+const CHANGE_ORDER_SCHEMA = {
+  title: 'string',
+  description: 'string',
+  number: 'string',
+  status: 'string',
+  projectId: 'string',
+  reason: 'string',
+  requestedBy: 'string',
+  costImpact: 'number',
+  timeImpact: 'number',
+  billable: 'boolean',
+  attachment: 'array',
+  attachmentCount: 'number',
+}
+
+const DOCUMENT_SCHEMA = {
+  name: 'string',
+  description: 'string',
+  category: 'string',
+  projectId: 'string',
+  googleDriveFileId: 'string',
+  googleDriveLink: 'string',
+  mimeType: 'string',
+  fileSize: 'number',
+  status: 'string',
+  version: 'number',
+  tags: 'array',
+  uploadedBy: 'string',
+  uploadedByName: 'string',
+  linkedEntityType: 'string',
+  linkedEntityId: 'string',
+  isAttachment: 'boolean',
 }
 
 // ==================== LOOKUP UTILITIES ====================
@@ -581,7 +657,7 @@ export const formatFileSizeDetailed = (bytes, options = {}) => {
   const {
     decimals = 2,
     binary = true, // Use 1024 (binary) vs 1000 (decimal)
-    longForm = false // Use "bytes" instead of "B"
+    longForm = false, // Use "bytes" instead of "B"
   } = options
 
   if (!bytes && bytes !== 0) return '0 bytes'
@@ -607,8 +683,8 @@ export const formatFileSizeDetailed = (bytes, options = {}) => {
 // Quick utility for common file size ranges
 export const getFileSizeCategory = (bytes) => {
   if (!bytes) return 'empty'
-  if (bytes < 1024) return 'tiny'           // < 1KB
-  if (bytes < 1024 * 1024) return 'small'   // < 1MB
+  if (bytes < 1024) return 'tiny' // < 1KB
+  if (bytes < 1024 * 1024) return 'small' // < 1MB
   if (bytes < 1024 * 1024 * 10) return 'medium' // < 10MB
   if (bytes < 1024 * 1024 * 100) return 'large' // < 100MB
   return 'huge' // >= 100MB
