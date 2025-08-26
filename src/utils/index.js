@@ -326,7 +326,7 @@ export const TASK_SCHEMA = {
   dependencies: 'array',
 }
 
-const CLIENT_SCHEMA = {
+export const CLIENT_SCHEMA = {
   name: 'string',
   company: 'string',
   email: 'string',
@@ -335,7 +335,7 @@ const CLIENT_SCHEMA = {
   notes: 'string',
 }
 
-const USER_SCHEMA = {
+export const USER_SCHEMA = {
   name: 'string',
   email: 'string',
   role: 'string',
@@ -343,7 +343,7 @@ const USER_SCHEMA = {
   active: 'boolean',
 }
 
-const RFI_SCHEMA = {
+export const RFI_SCHEMA = {
   title: 'string',
   description: 'string',
   priority: 'string',
@@ -357,7 +357,7 @@ const RFI_SCHEMA = {
   attachmentCount: 'number',
 }
 
-const SUBMITTAL_SCHEMA = {
+export const SUBMITTAL_SCHEMA = {
   title: 'string',
   description: 'string',
   status: 'string',
@@ -370,7 +370,7 @@ const SUBMITTAL_SCHEMA = {
   attachmentCount: 'number',
 }
 
-const CHANGE_ORDER_SCHEMA = {
+export const CHANGE_ORDER_SCHEMA = {
   title: 'string',
   description: 'string',
   number: 'string',
@@ -385,7 +385,7 @@ const CHANGE_ORDER_SCHEMA = {
   attachmentCount: 'number',
 }
 
-const DOCUMENT_SCHEMA = {
+export const DOCUMENT_SCHEMA = {
   name: 'string',
   description: 'string',
   category: 'string',
