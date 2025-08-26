@@ -284,7 +284,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import firebaseService from '@/services/firebase/firebaseService'
+import userRepository from '@/services/firebase/repositories/UserRepository'
 
 // Reactive state
 const users = ref([])
@@ -340,7 +340,7 @@ const filteredUsers = computed(() => {
 const loadUsers = async () => {
   try {
     loading.value = true
-    users.value = await firebaseService.getAllUsers()
+    users.value = await userRepository.getAllUsers()
   } catch (err) {
     console.error('Error loading users:', err)
     error.value = 'Failed to load users'
@@ -413,7 +413,7 @@ const editUser = (user) => {
 const toggleUserStatus = async (user) => {
   try {
     const newStatus = !user.active
-    await firebaseService.updateUser(user.id, { active: newStatus })
+    await userRepository.updateUser(user.id, { active: newStatus })
     user.active = newStatus
     success.value = `User ${newStatus ? 'activated' : 'deactivated'} successfully`
     setTimeout(() => {
@@ -451,7 +451,7 @@ const handleSubmit = async () => {
         createdBy: 'system', // TODO: Replace with current user ID when auth is ready
       }
 
-      await firebaseService.createUser(userData)
+      await userRepository.createUser(userData)
       success.value = 'User created successfully!'
       await loadUsers()
       closeModal()
@@ -464,7 +464,7 @@ const handleSubmit = async () => {
         active: userForm.value.active,
       }
 
-      await firebaseService.updateUser(editingUser.value.id, updates)
+      await userRepository.updateUser(editingUser.value.id, updates)
 
       // Update local user object
       Object.assign(editingUser.value, updates)
