@@ -51,7 +51,7 @@ class BaseRepository {
    */
   async updateWithValidation(entityId, updates, requiredFields = []) {
     // For updates, we don't require all fields, just validate what's provided
-    const validation = this.validateData(updates, [])
+    const validation = this.validateData(updates, requiredFields)
 
     if (!validation.isValid) {
       throw new Error(`Validation failed: ${Object.values(validation.errors).join(', ')}`)
