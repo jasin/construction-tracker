@@ -31,7 +31,7 @@ const CLIENT_SCHEMA = {
   email: 'string',
   phone: 'string',
   address: 'string',
-  notes: 'string'
+  notes: 'string',
 }
 
 const USER_SCHEMA = {
@@ -39,7 +39,7 @@ const USER_SCHEMA = {
   email: 'string',
   role: 'string',
   phone: 'string',
-  active: 'boolean'
+  active: 'boolean',
 }
 
 const RFI_SCHEMA = {
@@ -51,7 +51,9 @@ const RFI_SCHEMA = {
   submittedBy: 'string',
   assignedTo: 'string',
   dueDate: 'date',
-  response: 'string'
+  response: 'string',
+  attachment: 'array',
+  attachmentCount: 'number',
 }
 
 const SUBMITTAL_SCHEMA = {
@@ -62,7 +64,9 @@ const SUBMITTAL_SCHEMA = {
   submittedBy: 'string',
   reviewedBy: 'string',
   dueDate: 'date',
-  comments: 'string'
+  comments: 'string',
+  attachment: 'array',
+  attachmentCount: 'number',
 }
 
 const CHANGE_ORDER_SCHEMA = {
@@ -75,7 +79,9 @@ const CHANGE_ORDER_SCHEMA = {
   requestedBy: 'string',
   costImpact: 'number',
   timeImpact: 'number',
-  billable: 'boolean'
+  billable: 'boolean',
+  attachment: 'array',
+  attachmentCount: 'number',
 }
 
 const DOCUMENT_SCHEMA = {
@@ -91,7 +97,10 @@ const DOCUMENT_SCHEMA = {
   version: 'number',
   tags: 'array',
   uploadedBy: 'string',
-  uploadedByName: 'string'
+  uploadedByName: 'string',
+  linkedEntityType: 'string',
+  linkedEntityId: 'string',
+  isAttachment: 'boolean',
 }
 
 class FirebaseService {
@@ -547,7 +556,11 @@ class FirebaseService {
         status: validation.cleanData.status || 'draft',
       }
 
-      const newSubmittal = await this.createEntity('submittals', submittalDataWithDefaults, SUBMITTAL_SCHEMA)
+      const newSubmittal = await this.createEntity(
+        'submittals',
+        submittalDataWithDefaults,
+        SUBMITTAL_SCHEMA,
+      )
 
       await this.logActivity(
         newSubmittal.projectId,
@@ -747,11 +760,19 @@ class FirebaseService {
 
     // Apply filters
     if (options.category) {
-      documents = documents.filter(doc => doc.category === options.category)
+      documents = documents.filter((doc) => doc.category === options.category)
     }
 
     if (options.status) {
-      documents = documents.filter(doc => doc.status === options.status)
+      documents = documents.filter((doc) => doc.status === options.status)
+    }
+
+    if (options.attachmentsOnly !== undefined) {
+      documents = documents.filter((doc) => doc.isAttachment === options.attachmentsOnly)
+    }
+
+    if (options.entityType) {
+      documents = documents.filter((doc) => doc.linkedEntityType === options.entityType)
     }
 
     // Sort by upload date (newest first)
@@ -764,8 +785,6 @@ class FirebaseService {
 
     return documents
   }
-
-  // Add this function to the DOCUMENTS section of FirebaseService, right after getDocumentsByProject
 
   async getDocumentStatistics(projectId) {
     try {
@@ -782,30 +801,30 @@ class FirebaseService {
         recentUploads: 0, // Last 7 days
         versionCounts: {
           latestVersions: 0,
-          totalVersions: 0
-        }
+          totalVersions: 0,
+        },
       }
 
       // Calculate category distribution
-      documents.forEach(doc => {
+      documents.forEach((doc) => {
         const category = doc.category || 'uncategorized'
         stats.byCategory[category] = (stats.byCategory[category] || 0) + 1
       })
 
       // Calculate status distribution
-      documents.forEach(doc => {
+      documents.forEach((doc) => {
         const status = doc.status || 'unknown'
         stats.byStatus[status] = (stats.byStatus[status] || 0) + 1
       })
 
       // Calculate uploader distribution
-      documents.forEach(doc => {
+      documents.forEach((doc) => {
         const uploader = doc.uploadedByName || 'Unknown'
         stats.byUploader[uploader] = (stats.byUploader[uploader] || 0) + 1
       })
 
       // Calculate file type distribution
-      documents.forEach(doc => {
+      documents.forEach((doc) => {
         const fileName = doc.name || doc.fileName || ''
         const extension = fileName.split('.').pop()?.toLowerCase() || 'unknown'
         stats.byFileType[extension] = (stats.byFileType[extension] || 0) + 1
@@ -820,7 +839,7 @@ class FirebaseService {
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
-      stats.recentUploads = documents.filter(doc => {
+      stats.recentUploads = documents.filter((doc) => {
         return doc.uploadedAt && new Date(doc.uploadedAt) > sevenDaysAgo
       }).length
 
@@ -832,13 +851,13 @@ class FirebaseService {
 
       // Add size categories
       stats.bySizeCategory = {
-        small: 0,    // < 1MB
-        medium: 0,   // 1MB - 10MB
-        large: 0,    // 10MB - 100MB
-        extraLarge: 0 // > 100MB
+        small: 0, // < 1MB
+        medium: 0, // 1MB - 10MB
+        large: 0, // 10MB - 100MB
+        extraLarge: 0, // > 100MB
       }
 
-      documents.forEach(doc => {
+      documents.forEach((doc) => {
         const sizeInMB = (doc.fileSize || 0) / (1024 * 1024)
         if (sizeInMB < 1) {
           stats.bySizeCategory.small++
@@ -865,14 +884,14 @@ class FirebaseService {
           small: 0,
           medium: 0,
           large: 0,
-          extraLarge: 0
+          extraLarge: 0,
         },
         averageFileSize: 0,
         recentUploads: 0,
         versionCounts: {
           latestVersions: 0,
-          totalVersions: 0
-        }
+          totalVersions: 0,
+        },
       }
     }
   }
@@ -1151,7 +1170,12 @@ class FirebaseService {
         mimeType: newFileData.mimeType,
       }
 
-      const result = await this.updateEntity('documents', documentId, newVersionData, DOCUMENT_SCHEMA)
+      const result = await this.updateEntity(
+        'documents',
+        documentId,
+        newVersionData,
+        DOCUMENT_SCHEMA,
+      )
 
       // Log activity
       await this.logActivity(
@@ -1179,6 +1203,213 @@ class FirebaseService {
         doc.description?.toLowerCase().includes(term) ||
         doc.tags?.some((tag) => tag.toLowerCase().includes(term)),
     )
+  }
+
+  // ==================== ENTITY ATTACHMENT METHODS ====================
+
+  /**
+   * Upload a document as an attachment to an entity (RFI, Submittal, Change Order)
+   */
+  async uploadDocumentAsAttachment(file, entityType, entityId, metadata = {}) {
+    try {
+      // Create document data with attachment context
+      const documentData = {
+        ...metadata,
+        name: metadata.name || file.name,
+        projectId: metadata.projectId,
+        linkedEntityType: entityType,
+        linkedEntityId: entityId,
+        isAttachment: true,
+        // Mark as approved by default for attachments (or pending based on your workflow)
+        status: metadata.status || 'pending',
+      }
+
+      // Use existing createDocument method
+      const newDocument = await this.createDocument(documentData)
+
+      // Update the entity's attachment list
+      await this.addAttachmentToEntity(entityType, entityId, newDocument.id)
+
+      // Log activity
+      await this.logActivity(
+        metadata.projectId,
+        `attached_document_to_${entityType}`,
+        'document',
+        newDocument.id,
+        `Attached document "${newDocument.name}" to ${entityType}`,
+      )
+
+      return newDocument
+    } catch (error) {
+      console.error('Error uploading document as attachment:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Attach an existing document to an entity
+   */
+  async attachDocumentToEntity(documentId, entityType, entityId) {
+    try {
+      // Update the document to link it to the entity
+      const documentUpdates = {
+        linkedEntityType: entityType,
+        linkedEntityId: entityId,
+        isAttachment: true,
+      }
+
+      await this.updateEntity('documents', documentId, documentUpdates)
+
+      // Update the entity's attachment list
+      await this.addAttachmentToEntity(entityType, entityId, documentId)
+
+      // Get document for activity logging
+      const document = await this.getDocument(documentId)
+      if (document) {
+        await this.logActivity(
+          document.projectId,
+          `attached_existing_document_to_${entityType}`,
+          'document',
+          documentId,
+          `Attached existing document "${document.name}" to ${entityType}`,
+        )
+      }
+
+      return true
+    } catch (error) {
+      console.error('Error attaching document to entity:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Detach a document from an entity
+   */
+  async detachDocumentFromEntity(documentId, entityType, entityId) {
+    try {
+      // Update the document to remove entity link
+      const documentUpdates = {
+        linkedEntityType: null,
+        linkedEntityId: null,
+        isAttachment: false,
+      }
+
+      await this.updateEntity('documents', documentId, documentUpdates)
+
+      // Remove from entity's attachment list
+      await this.removeAttachmentFromEntity(entityType, entityId, documentId)
+
+      // Get document for activity logging
+      const document = await this.getDocument(documentId)
+      if (document) {
+        await this.logActivity(
+          document.projectId,
+          `detached_document_from_${entityType}`,
+          'document',
+          documentId,
+          `Detached document "${document.name}" from ${entityType}`,
+        )
+      }
+
+      return true
+    } catch (error) {
+      console.error('Error detaching document from entity:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get all documents attached to an entity
+   */
+  async getEntityAttachments(entityType, entityId) {
+    try {
+      const documentsRef = ref(database, 'documents')
+      const attachmentsQuery = query(
+        documentsRef,
+        orderByChild('linkedEntityId'),
+        equalTo(entityId),
+      )
+
+      const snapshot = await get(attachmentsQuery)
+
+      if (!snapshot.exists()) return []
+
+      const attachments = Object.entries(snapshot.val())
+        .map(([id, data]) => ({ id, ...data }))
+        .filter((doc) => doc.linkedEntityType === entityType && doc.isAttachment)
+        .sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))
+
+      return attachments
+    } catch (error) {
+      console.error('Error getting entity attachments:', error)
+      return []
+    }
+  }
+
+  /**
+   * Helper: Add attachment ID to entity's attachment list
+   */
+  async addAttachmentToEntity(entityType, entityId, documentId) {
+    try {
+      const entityRef = ref(database, `${this.getEntityCollection(entityType)}/${entityId}`)
+      const snapshot = await get(entityRef)
+
+      if (snapshot.exists()) {
+        const entityData = snapshot.val()
+        const currentAttachments = entityData.attachments || []
+
+        // Add if not already present
+        if (!currentAttachments.includes(documentId)) {
+          const updates = {
+            attachments: [...currentAttachments, documentId],
+            attachmentCount: currentAttachments.length + 1,
+          }
+
+          await update(entityRef, updates)
+        }
+      }
+    } catch (error) {
+      console.error('Error adding attachment to entity:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Helper: Remove attachment ID from entity's attachment list
+   */
+  async removeAttachmentFromEntity(entityType, entityId, documentId) {
+    try {
+      const entityRef = ref(database, `${this.getEntityCollection(entityType)}/${entityId}`)
+      const snapshot = await get(entityRef)
+
+      if (snapshot.exists()) {
+        const entityData = snapshot.val()
+        const currentAttachments = entityData.attachments || []
+
+        const updates = {
+          attachments: currentAttachments.filter((id) => id !== documentId),
+          attachmentCount: Math.max(0, currentAttachments.length - 1),
+        }
+
+        await update(entityRef, updates)
+      }
+    } catch (error) {
+      console.error('Error removing attachment from entity:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Helper: Get Firebase collection name for entity type
+   */
+  getEntityCollection(entityType) {
+    const collectionMap = {
+      rfi: 'rfis',
+      submittal: 'submittals',
+      changeOrder: 'changeOrders',
+    }
+
+    return collectionMap[entityType] || entityType + 's'
   }
 
   // ==================== TASK COMMENTS ====================
