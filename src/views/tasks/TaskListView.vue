@@ -271,9 +271,12 @@ import Select from 'primevue/select'
 import MultiSelect from 'primevue/multiselect'
 import DatePicker from 'primevue/datepicker'
 import ProgressSpinner from 'primevue/progressspinner'
-import firebaseService from '@/services/firebase/firebaseService'
+//import firebaseService from '@/services/firebase/firebaseService'
 import authService from '@/services/auth/authService'
 import TaskSlideOver from '@/components/forms/TaskSlideOver.vue'
+import TaskRepository from '@/services/firebase/Repositories/TaskRepository'
+import UserRepository from '@/services/firebase/Repositories/UserRepository'
+import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
 
 // Reactive state
 const loading = ref(true)
@@ -530,9 +533,9 @@ const loadData = async () => {
     loading.value = true
 
     const [tasksData, projectsData, usersData] = await Promise.all([
-      firebaseService.getAllTasks(),
-      firebaseService.getAllProjects(),
-      firebaseService.getUsersMinimal(), // Use minimal user data
+      TaskRepository.getAllTasks(),
+      ProjectRepository.getAllProjects(),
+      UserRepository.getUsersMinimal(),
     ])
 
     allTasks.value = tasksData
