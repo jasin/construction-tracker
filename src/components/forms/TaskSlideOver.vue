@@ -219,9 +219,8 @@ import InputNumber from 'primevue/inputnumber'
 import Button from 'primevue/button'
 import EntityAttachments from '@/components/widgets/EntityAttachments.vue'
 import UserRepository from '@/services/firebase/Repositories/UserRepository'
-
-// TODO: This needs to be phased out in favor of Repsitories
-import firebaseService from '@/services/firebase/firebaseService'
+import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
+import TaskRepository from '.@/services/firebase/Repositories/TaskRepository'
 
 // Props
 const props = defineProps({
@@ -372,7 +371,7 @@ const loadTaskData = () => {
 // Load project data into form (for editing)
 const loadProjects = async () => {
   try {
-    const allProjects = await firebaseService.getAllProjects()
+    const allProjects = await ProjectRepository.getAllProjects()
     projects.value = allProjects
     console.log('Loaded projects for selection:', allProjects)
   } catch (err) {
@@ -435,12 +434,12 @@ const handleSubmit = async () => {
         updatedAt: new Date().toISOString(),
       }
 
-      await firebaseService.updateTask(props.task.id, updates)
+      await TaskRepository.updateTask(props.task.id, updates)
       success.value = 'Task updated successfully!'
       emit('task-updated', { ...props.task, ...updates })
     } else {
       // Create new task
-      const newTask = await firebaseService.createTask(taskData)
+      const newTask = await TaskRepository.createTask(taskData)
       success.value = 'Task created successfully!'
       emit('task-created', newTask)
     }
