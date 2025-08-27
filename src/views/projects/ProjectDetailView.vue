@@ -357,6 +357,7 @@ import {
   getStatusClasses,
 } from '@/utils/index'
 import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
+import ActivityService from '@/services/logging/ActivityService'
 
 // Props and existing setup
 const props = defineProps({
@@ -430,7 +431,7 @@ const handleViewAllActivity = () => {
 const loadProjectData = async () => {
   const [projectData, activitiesData] = await Promise.all([
     ProjectRepository.getProject(props.projectId),
-    ProjectRepository.getActivityByProject(props.projectId),
+    ActivityService.getActivitiesByProject(props.projectId),
   ])
 
   if (!projectData) {
