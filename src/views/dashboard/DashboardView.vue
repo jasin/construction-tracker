@@ -175,6 +175,7 @@ import { ref, onMounted, computed } from 'vue'
 import { ProgressSpinner, Card, Button, Tag } from 'primevue'
 import authService from '@/services/auth/authService'
 import firebaseService from '@/services/firebase/firebaseService'
+import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
 
 // Reactive state
 const loading = ref(true)
@@ -201,7 +202,7 @@ const loadDashboardData = async () => {
 
     // Load all data in parallel
     const [allProjects, allRFIs, allSubmittals, allChangeOrders, allActivity] = await Promise.all([
-      firebaseService.getAllProjects(),
+      ProjectRepository.getAllProjects(),
       firebaseService.getAllRFIs(),
       firebaseService.getAllSubmittals(),
       firebaseService.getAllChangeOrders(),
