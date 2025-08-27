@@ -218,7 +218,7 @@ import DatePicker from 'primevue/datepicker'
 import InputNumber from 'primevue/inputnumber'
 import Button from 'primevue/button'
 import EntityAttachments from '@/components/widgets/EntityAttachments.vue'
-import UserRepository from '@/services/firebase/repositories/UserRepository'
+import UserRepository from '@/services/firebase/Repositories/UserRepository'
 
 // TODO: This needs to be phased out in favor of Repsitories
 import firebaseService from '@/services/firebase/firebaseService'
