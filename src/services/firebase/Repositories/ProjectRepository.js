@@ -32,18 +32,6 @@ class ProjectRepository extends BaseRepository {
   }
 
   /**
-   * Get projects by client ID
-   */
-  async getProjectsByClient(clientId) {
-    try {
-      return await this.getByField('clientId', clientId)
-    } catch (error) {
-      console.error('Error getting projects by client:', error)
-      throw error
-    }
-  }
-
-  /**
    * Get all projects
    */
   async getAllProjects() {
@@ -51,6 +39,30 @@ class ProjectRepository extends BaseRepository {
       return await this.getAll()
     } catch (error) {
       console.error('Error getting all projects:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get project by project ID
+   */
+  async getProject(projectId) {
+    try {
+      return await this.getById(projectId)
+    } catch (error) {
+      console.error('Error get project by projectId:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get projects by client ID
+   */
+  async getProjectsByClient(clientId) {
+    try {
+      return await this.getByField('clientId', clientId)
+    } catch (error) {
+      console.error('Error getting projects by client:', error)
       throw error
     }
   }
