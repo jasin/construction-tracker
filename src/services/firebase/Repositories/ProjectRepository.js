@@ -1,6 +1,8 @@
 // src/services/firebase/repositories/ProjectRepository.js
 import BaseRepository from '../core/BaseRepository'
-import ActivityService from '@/services/logging/ActivityService' // Better location!
+import ActivityService from '@/services/logging/ActivityService'
+import firebaseCore from '../core/FirebaseCore'
+import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database'
 import { PROJECT_SCHEMA } from '@/utils/index' // Assuming this exists in your utils
 
 /**
@@ -37,6 +39,18 @@ class ProjectRepository extends BaseRepository {
       return await this.getByField('clientId', clientId)
     } catch (error) {
       console.error('Error getting projects by client:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Get all projects
+   */
+  async getAllProjects() {
+    try {
+      return await this.getAll()
+    } catch (error) {
+      console.error('Error getting all projects:', error)
       throw error
     }
   }
@@ -306,6 +320,148 @@ class ProjectRepository extends BaseRepository {
     }
 
     return this.subscribeToAll(filterActive)
+  }
+
+  /**
+   * Subscribe to a single project (for project detail views)
+   */
+  subscribeToProject(projectId, callback) {
+    return this.subscribeToOne(projectId, callback)
+  }
+
+  /**
+   * Subscribe to project-related entities
+   * These methods coordinate with other collections but are project-centric
+   */
+  subscribeToProjectTasks(projectId, callback) {
+    try {
+      const tasksRef = ref(firebaseCore.database, 'tasks')
+      const projectTasksQuery = query(tasksRef, orderByChild('projectId'), equalTo(projectId))
+
+      onValue(projectTasksQuery, (snapshot) => {
+        const tasks = snapshot.exists()
+          ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
+          : []
+
+        // Sort by due date and priority (same logic as original)
+        tasks.sort((a, b) => {
+          if (a.dueDate && !b.dueDate) return -1
+          if (!a.dueDate && b.dueDate) return 1
+          if (a.dueDate && b.dueDate) {
+            const dateComparison = new Date(a.dueDate) - new Date(b.dueDate)
+            if (dateComparison !== 0) return dateComparison
+          }
+
+          const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 }
+          return (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2)
+        })
+
+        callback(tasks)
+      })
+
+      return projectTasksQuery
+    } catch (error) {
+      console.error('Error subscribing to project tasks:', error)
+      throw error
+    }
+  }
+
+  subscribeToProjectDocuments(projectId, callback) {
+    try {
+      const documentsRef = ref(firebaseCore.database, 'documents')
+      const projectDocsQuery = query(documentsRef, orderByChild('projectId'), equalTo(projectId))
+
+      onValue(projectDocsQuery, (snapshot) => {
+        const documents = snapshot.exists()
+          ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
+          : []
+
+        // Sort by upload date (newest first)
+        documents.sort(
+          (a, b) => new Date(b.uploadedAt || b.createdAt) - new Date(a.uploadedAt || a.createdAt),
+        )
+
+        callback(documents)
+      })
+
+      return projectDocsQuery
+    } catch (error) {
+      console.error('Error subscribing to project documents:', error)
+      throw error
+    }
+  }
+
+  subscribeToProjectRFIs(projectId, callback) {
+    try {
+      const rfisRef = ref(firebaseCore.database, 'rfis')
+      const projectRFIsQuery = query(rfisRef, orderByChild('projectId'), equalTo(projectId))
+
+      onValue(projectRFIsQuery, (snapshot) => {
+        const rfis = snapshot.exists()
+          ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
+          : []
+
+        // Sort by creation date (newest first)
+        rfis.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+
+        callback(rfis)
+      })
+
+      return projectRFIsQuery
+    } catch (error) {
+      console.error('Error subscribing to project RFIs:', error)
+      throw error
+    }
+  }
+
+  subscribeToProjectSubmittals(projectId, callback) {
+    try {
+      const submittalsRef = ref(firebaseCore.database, 'submittals')
+      const projectSubmittalsQuery = query(
+        submittalsRef,
+        orderByChild('projectId'),
+        equalTo(projectId),
+      )
+
+      onValue(projectSubmittalsQuery, (snapshot) => {
+        const submittals = snapshot.exists()
+          ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
+          : []
+
+        // Sort by creation date (newest first)
+        submittals.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+
+        callback(submittals)
+      })
+
+      return projectSubmittalsQuery
+    } catch (error) {
+      console.error('Error subscribing to project submittals:', error)
+      throw error
+    }
+  }
+
+  subscribeToProjectChangeOrders(projectId, callback) {
+    try {
+      const changeOrdersRef = ref(firebaseCore.database, 'changeOrders')
+      const projectCOsQuery = query(changeOrdersRef, orderByChild('projectId'), equalTo(projectId))
+
+      onValue(projectCOsQuery, (snapshot) => {
+        const changeOrders = snapshot.exists()
+          ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
+          : []
+
+        // Sort by creation date (newest first)
+        changeOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+
+        callback(changeOrders)
+      })
+
+      return projectCOsQuery
+    } catch (error) {
+      console.error('Error subscribing to project change orders:', error)
+      throw error
+    }
   }
 
   /**
