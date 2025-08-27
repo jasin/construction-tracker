@@ -342,7 +342,7 @@ import ActivityFlyout from '@/components/widgets/ActivityFlyout.vue'
 import ProjectSlideOver from '@/components/forms/ProjectSlideOver.vue'
 import TaskSlideOver from '@/components/forms/TaskSlideOver.vue'
 import DocumentStatusBadge from '@/components/features/documents/DocumentStatusBadge.vue'
-import DocumentUploader from '@/components/features/documents/DocumentUploader.vue'
+//import DocumentUploader from '@/components/features/documents/DocumentUploader.vue'
 import { getDocumentIcon } from '@/constants/documentCategories'
 import {
   loadUsers,
@@ -356,6 +356,7 @@ import {
   getPriorityClasses,
   getStatusClasses,
 } from '@/utils/index'
+import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
 
 // Props and existing setup
 const props = defineProps({
@@ -428,8 +429,8 @@ const handleViewAllActivity = () => {
 
 const loadProjectData = async () => {
   const [projectData, activitiesData] = await Promise.all([
-    firebaseService.getProject(props.projectId),
-    firebaseService.getActivityByProject(props.projectId),
+    ProjectRepository.getProject(props.projectId),
+    ProjectRepository.getActivityByProject(props.projectId),
   ])
 
   if (!projectData) {
@@ -443,7 +444,7 @@ const loadProjectData = async () => {
 
 const loadRecentDocuments = async () => {
   try {
-    const docs = await firebaseService.getDocumentsByProject(props.projectId, {
+    const docs = await ProjectRepository.getDocumentsByProject(props.projectId, {
       limit: 5,
     })
     recentDocuments.value = docs
@@ -493,31 +494,31 @@ const createNewChangeOrder = () => {
 }
 
 const setupRealtimeListeners = () => {
-  const projectSub = firebaseService.subscribeToProject(props.projectId, (projectData) => {
+  const projectSub = ProjectRepository.subscribeToProject(props.projectId, (projectData) => {
     if (projectData) {
       project.value = projectData
     }
   })
 
-  const rfiSub = firebaseService.subscribeToProjectRFIs(props.projectId, (rfiData) => {
+  const rfiSub = ProjectRepository.subscribeToProjectRFIs(props.projectId, (rfiData) => {
     rfis.value = rfiData
   })
 
-  const submittalSub = firebaseService.subscribeToProjectSubmittals(
+  const submittalSub = ProjectRepository.subscribeToProjectSubmittals(
     props.projectId,
     (submittalData) => {
       submittals.value = submittalData
     },
   )
 
-  const changeOrderSub = firebaseService.subscribeToProjectChangeOrders(
+  const changeOrderSub = ProjectRepository.subscribeToProjectChangeOrders(
     props.projectId,
     (changeOrderData) => {
       changeOrders.value = changeOrderData
     },
   )
 
-  const taskSub = firebaseService.subscribeToProjectTasks(props.projectId, (taskData) => {
+  const taskSub = ProjectRepository.subscribeToProjectTasks(props.projectId, (taskData) => {
     console.log(
       'Task data received:',
       taskData,
@@ -529,7 +530,7 @@ const setupRealtimeListeners = () => {
     tasks.value = Array.isArray(taskData) ? taskData : []
   })
 
-  const documentSub = firebaseService.subscribeToProjectDocuments(props.projectId, (docs) => {
+  const documentSub = ProjectRepository.subscribeToProjectDocuments(props.projectId, (docs) => {
     recentDocuments.value = docs.slice(0, 5)
   })
 
@@ -546,7 +547,7 @@ watch(
         if (typeof unsubscribe === 'function') {
           unsubscribe()
         } else {
-          firebaseService.unsubscribe(unsubscribe)
+          ProjectRepository.unsubscribe(unsubscribe)
         }
       })
 
@@ -584,7 +585,7 @@ onBeforeUnmount(() => {
     if (typeof unsubscribe === 'function') {
       unsubscribe()
     } else {
-      firebaseService.unsubscribe(unsubscribe)
+      ProjectRepository.unsubscribe(unsubscribe)
     }
   })
 })
