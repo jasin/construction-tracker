@@ -60,9 +60,7 @@
         <div class="flex items-center gap-2">
           <i class="pi pi-check-circle text-blue-600"></i>
           <span class="text-sm font-medium text-blue-900">
-            {{ selectedDocuments.size }} document{{
-              selectedDocuments.size !== 1 ? 's' : ''
-            }}
+            {{ selectedDocuments.size }} document{{ selectedDocuments.size !== 1 ? 's' : '' }}
             selected
           </span>
           <span class="text-sm text-blue-700"> ({{ formatFileSize(selectedTotalSize) }}) </span>
@@ -205,7 +203,7 @@ const props = defineProps({
   entityType: {
     type: String,
     required: true,
-    validator: (value) => ['rfi', 'submittal', 'changeOrder'].includes(value),
+    validator: (value) => ['rfi', 'submittal', 'changeOrder', 'task'].includes(value),
   },
   entityId: {
     type: String,

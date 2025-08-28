@@ -193,7 +193,9 @@ import DocumentUploader from '@/components/features/documents/DocumentUploader.v
 import DocumentViewer from '@/components/features/documents/DocumentViewer.vue'
 import AttachExistingModal from '@/components/modals/AttachExistingModal.vue'
 import firebaseService from '@/services/firebase/firebaseService'
+import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
 import { formatFileSize } from '@/utils/index'
+import AttatchmentRepository from '../../services/firebase/Repositories/AttatchmentRepository'
 
 // Props
 const props = defineProps({
@@ -201,7 +203,7 @@ const props = defineProps({
   entityType: {
     type: String,
     required: true,
-    validator: (value) => ['rfi', 'submittal', 'changeOrder'].includes(value),
+    validator: (value) => ['rfi', 'submittal', 'changeOrder', 'task'].includes(value),
   },
   entityId: {
     type: String,
@@ -268,7 +270,7 @@ const loadAttachments = async () => {
     loading.value = true
     error.value = ''
 
-    const attachmentData = await firebaseService.getEntityAttachments(
+    const attachmentData = await AttatchmentRepository.getEntityAttachments(
       props.entityType,
       props.entityId,
     )
@@ -296,7 +298,7 @@ const setupRealtimeListener = () => {
   // Subscribe to documents where linkedEntityId matches our entityId
   // This is a simplified version - you might want to create a specific
   // Firebase method for this subscription
-  attachmentsSubscription = firebaseService.subscribeToProjectDocuments(
+  attachmentsSubscription = ProjectRepository.subscribeToProjectDocuments(
     props.projectId,
     (allDocs) => {
       const entityAttachments = allDocs.filter(

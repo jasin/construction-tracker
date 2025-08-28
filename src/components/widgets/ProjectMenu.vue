@@ -72,8 +72,9 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { Accordion, AccordionPanel, AccordionHeader, AccordionContent } from 'primevue'
-import firebaseService from '@/services/firebase/firebaseService'
-import { loadClients, getClientName, createLookupMap } from '@/utils/index'
+import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
+import ClientRepository from '@/services/firebase/Repositories/ClientRepository'
+import { createLookupMap, getClientName } from '@/utils/index'
 
 // Reactive state
 const projects = ref([])
@@ -158,10 +159,10 @@ onMounted(async () => {
 
   try {
     // Load clients using utility function
-    clients.value = await loadClients()
+    clients.value = await ClientRepository.getAllClients()
 
     // Set up real-time listener for projects
-    unsubscribe = firebaseService.subscribeToProjects((projectsData) => {
+    unsubscribe = ProjectRepository.subscribeToProjects((projectsData) => {
       console.log('Projects updated:', projectsData)
       projects.value = projectsData
       loading.value = false
@@ -180,7 +181,7 @@ onBeforeUnmount(() => {
     if (typeof unsubscribe === 'function') {
       unsubscribe()
     } else {
-      firebaseService.unsubscribe(unsubscribe)
+      ProjectRepository.unsubscribe(unsubscribe)
     }
   }
 })

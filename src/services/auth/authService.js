@@ -8,7 +8,7 @@ import {
   sendPasswordResetEmail,
 } from 'firebase/auth'
 import { auth } from '@/configs/firebase'
-import firebaseService from '@/services/firebase/firebaseService'
+import UserRepository from '@/services/firebase/Repositories/UserRepository'
 
 class AuthService {
   constructor() {
@@ -28,7 +28,7 @@ class AuthService {
 
           try {
             // Always try to load user profile from database
-            this.userProfile = await firebaseService.getUserByEmail(user.email)
+            this.userProfile = await UserRepository.getUserByEmail(user.email)
             console.log('Loaded user profile:', this.userProfile)
 
             if (!this.userProfile) {
@@ -38,7 +38,7 @@ class AuthService {
               console.log('Created new user profile:', this.userProfile)
             } else {
               // Update last login time for existing users
-              await firebaseService.updateUser(this.userProfile.id, {
+              await UserRepository.updateUser(this.userProfile.id, {
                 lastLoginAt: new Date().toISOString(),
               })
             }
@@ -149,7 +149,7 @@ class AuthService {
       }
 
       console.log('Creating user profile:', userProfile)
-      const createdProfile = await firebaseService.createUser(userProfile)
+      const createdProfile = await UserRepository.createUser(userProfile)
       console.log('Successfully created user profile:', createdProfile)
 
       this.userProfile = createdProfile
@@ -196,7 +196,7 @@ class AuthService {
 
     try {
       // Update in database
-      const updatedProfile = await firebaseService.updateUser(this.userProfile.id, updates)
+      const updatedProfile = await UserRepository.updateUser(this.userProfile.id, updates)
 
       // Update display name in Firebase Auth if name changed
       if (updates.name && this.currentUser) {
@@ -342,7 +342,7 @@ class AuthService {
 
     try {
       // Check if user already exists
-      let userProfile = await firebaseService.getUserByEmail(this.currentUser.email)
+      let userProfile = await UserRepository.getUserByEmail(this.currentUser.email)
 
       if (!userProfile) {
         // Create the user profile

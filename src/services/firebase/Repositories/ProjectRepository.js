@@ -3,7 +3,7 @@ import BaseRepository from '../core/BaseRepository'
 import ActivityService from '@/services/logging/ActivityService'
 import firebaseCore from '../core/FirebaseCore'
 import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database'
-import { PROJECT_SCHEMA } from '@/utils/index' // Assuming this exists in your utils
+import { PROJECT_SCHEMA } from '../schemas' // Assuming this exists in your utils
 
 /**
  * Project Repository - handles all project-related Firebase operations

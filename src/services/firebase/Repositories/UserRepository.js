@@ -1,14 +1,6 @@
 // src/services/firebase/repositories/UserRepository.js
 import BaseRepository from '@/services/firebase/core/BaseRepository'
-
-// User-specific schema (moved from the original service)
-const USER_SCHEMA = {
-  name: 'string',
-  email: 'string',
-  role: 'string',
-  phone: 'string',
-  active: 'boolean',
-}
+import { USER_SCHEMA } from '../schemas'
 
 /**
  * User Repository - handles all user-related Firebase operations
