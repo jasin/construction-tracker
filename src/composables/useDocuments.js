@@ -1,8 +1,10 @@
 // src/composables/useDocuments.js - Documents business logic
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
-import firebaseService from '@/services/firebase/firebaseService'
-import googleDriveService from '@/services/api/googleDriveService'
-import { loadUsers, loadProjects, formatFileSize } from '@/utils/index'
+//import googleDriveService from '@/services/api/googleDriveService'
+import { formatFileSize } from '@/utils/index'
+import ProjectRepository from '../services/firebase/Repositories/ProjectRepository'
+import userRepository from '../services/firebase/Repositories/userRepository'
+import DocumentRepository from '../services/firebase/Repositories/DocumentRepository'
 
 export function useDocuments(options = {}) {
   const {
@@ -364,7 +366,10 @@ export function useDocuments(options = {}) {
       error.value = ''
 
       // Load supporting data
-      const [projectsData, usersData] = await Promise.all([loadProjects(), loadUsers()])
+      const [projectsData, usersData] = await Promise.all([
+        ProjectRepository.getAllProjects(),
+        userRepository.getAllUsers(),
+      ])
 
       projects.value = projectsData
       users.value = usersData
@@ -373,8 +378,8 @@ export function useDocuments(options = {}) {
       if (projectId) {
         // Project-specific modes (project, manage)
         const [documentsData, statsData] = await Promise.all([
-          firebaseService.getDocumentsByProject(projectId),
-          firebaseService.getDocumentStatistics(projectId),
+          DocumentRepository.getDocumentsByProject(projectId),
+          DocumentRepository.getDocumentStatistics(projectId),
         ])
         allDocuments.value = documentsData
         documentStats.value = statsData
@@ -382,7 +387,7 @@ export function useDocuments(options = {}) {
         // Global search mode
         const allProjectDocs = await Promise.all(
           projectsData.map((project) =>
-            firebaseService.getDocumentsByProject(project.id).catch(() => []),
+            DocumentRepository.getDocumentsByProject(project.id).catch(() => []),
           ),
         )
         allDocuments.value = allProjectDocs.flat()
@@ -407,14 +412,13 @@ export function useDocuments(options = {}) {
   const setupRealtimeListener = () => {
     if (!enableRealtime || !projectId) return
 
-    documentsSubscription = firebaseService.subscribeToProjectDocuments(
+    documentsSubscription = ProjectRepository.subscribeToProjectDocuments(
       projectId,
       (documentsData) => {
         allDocuments.value = documentsData
 
         // Update stats
-        firebaseService
-          .getDocumentStatistics(projectId)
+        DocumentRepository.getDocumentStatistics(projectId)
           .then((stats) => (documentStats.value = stats))
           .catch(console.error)
       },
@@ -553,7 +557,7 @@ export function useDocuments(options = {}) {
 
   onBeforeUnmount(() => {
     if (documentsSubscription) {
-      firebaseService.unsubscribe(documentsSubscription)
+      DocumentRepository.unsubscribe(documentsSubscription)
     }
   })
 

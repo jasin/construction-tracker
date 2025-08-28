@@ -1,69 +1,5 @@
 // utils.js - Common utility functions used across components
 
-import firebaseService from '@/services/firebase/firebaseService'
-
-// ==================== DATA LOADING UTILITIES ====================
-
-/**
- * Load clients data with error handling
- * @returns {Promise<Array>} Array of client objects
- */
-export const loadClients = async () => {
-  try {
-    console.log('Loading clients...')
-    const clientData = await firebaseService.getAllClients()
-    console.log('Loaded clients:', clientData?.length || 0)
-    return clientData || []
-  } catch (err) {
-    console.error('Error loading clients:', err)
-    return []
-  }
-}
-
-/**
- * Load users data with error handling
- * @returns {Promise<Array>} Array of user objects
- */
-export const loadUsers = async () => {
-  try {
-    const allUsers = await firebaseService.getAllUsers()
-    console.log('Loaded users:', allUsers?.length || 0)
-    return allUsers.filter((user) => user.active) // Only return active users
-  } catch (err) {
-    console.error('Error loading users:', err)
-    return []
-  }
-}
-
-/**
- * Load minimal user data for lookups/assignments
- * @returns {Promise<Array>} Array of minimal user objects
- */
-export const loadUsersMinimal = async () => {
-  try {
-    const users = await firebaseService.getUsersMinimal()
-    return users.filter((user) => user.active)
-  } catch (err) {
-    console.error('Error loading minimal users:', err)
-    return []
-  }
-}
-
-/**
- * Load all projects with error handling
- * @returns {Promise<Array>} Array of project objects
- */
-export const loadProjects = async () => {
-  try {
-    const projectData = await firebaseService.getAllProjects()
-    console.log('Loaded projects:', projectData?.length || 0)
-    return projectData || []
-  } catch (err) {
-    console.error('Error loading projects:', err)
-    return []
-  }
-}
-
 // ==================== DATA SANITIZATION UTILITIES ====================
 
 /**
@@ -274,8 +210,9 @@ export const sanitizeWithSchema = (data, schema) => {
         } else if (typeof value === 'string') {
           try {
             cleanData[key] = new Date(value).toISOString()
-          } catch (e) {
+          } catch (error) {
             console.warn(`Invalid date for field ${key}:`, value)
+            console.error(error)
           }
         }
         break
@@ -292,116 +229,6 @@ export const sanitizeWithSchema = (data, schema) => {
   })
 
   return cleanData
-}
-
-// Example usage schemas
-export const PROJECT_SCHEMA = {
-  name: 'string',
-  jobNumber: 'string',
-  clientId: 'string',
-  architect: 'string',
-  projectManager: 'string',
-  superintendent: 'string',
-  phase: 'string',
-  cost: 'number',
-  contractSigned: 'boolean',
-  startDate: 'date',
-  endDate: 'date',
-  address: 'string',
-  description: 'string',
-}
-
-export const TASK_SCHEMA = {
-  title: 'string',
-  description: 'string',
-  priority: 'string',
-  status: 'string',
-  assignedTo: 'string',
-  projectId: 'string',
-  dueDate: 'date',
-  estimatedHours: 'number',
-  actualHours: 'number',
-  progress: 'number',
-  category: 'string',
-  dependencies: 'array',
-}
-
-export const CLIENT_SCHEMA = {
-  name: 'string',
-  company: 'string',
-  email: 'string',
-  phone: 'string',
-  address: 'string',
-  notes: 'string',
-}
-
-export const USER_SCHEMA = {
-  name: 'string',
-  email: 'string',
-  role: 'string',
-  phone: 'string',
-  active: 'boolean',
-}
-
-export const RFI_SCHEMA = {
-  title: 'string',
-  description: 'string',
-  priority: 'string',
-  status: 'string',
-  projectId: 'string',
-  submittedBy: 'string',
-  assignedTo: 'string',
-  dueDate: 'date',
-  response: 'string',
-  attachment: 'array',
-  attachmentCount: 'number',
-}
-
-export const SUBMITTAL_SCHEMA = {
-  title: 'string',
-  description: 'string',
-  status: 'string',
-  projectId: 'string',
-  submittedBy: 'string',
-  reviewedBy: 'string',
-  dueDate: 'date',
-  comments: 'string',
-  attachment: 'array',
-  attachmentCount: 'number',
-}
-
-export const CHANGE_ORDER_SCHEMA = {
-  title: 'string',
-  description: 'string',
-  number: 'string',
-  status: 'string',
-  projectId: 'string',
-  reason: 'string',
-  requestedBy: 'string',
-  costImpact: 'number',
-  timeImpact: 'number',
-  billable: 'boolean',
-  attachment: 'array',
-  attachmentCount: 'number',
-}
-
-export const DOCUMENT_SCHEMA = {
-  name: 'string',
-  description: 'string',
-  category: 'string',
-  projectId: 'string',
-  googleDriveFileId: 'string',
-  googleDriveLink: 'string',
-  mimeType: 'string',
-  fileSize: 'number',
-  status: 'string',
-  version: 'number',
-  tags: 'array',
-  uploadedBy: 'string',
-  uploadedByName: 'string',
-  linkedEntityType: 'string',
-  linkedEntityId: 'string',
-  isAttachment: 'boolean',
 }
 
 // ==================== LOOKUP UTILITIES ====================

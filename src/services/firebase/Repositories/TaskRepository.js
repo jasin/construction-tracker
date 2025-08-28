@@ -13,7 +13,7 @@ import {
   get,
   remove,
 } from 'firebase/database'
-import { TASK_SCHEMA } from '@/utils/index' // Assuming this exists in your utils
+import { TASK_SCHEMA } from '../schemas'
 
 /**
  * Task Repository - handles all task-related Firebase operations
@@ -29,7 +29,8 @@ class TaskRepository extends BaseRepository {
    */
   async createTask(taskData) {
     try {
-      const validation = this.validateData(taskData, ['title', 'projectId'])
+      // Tasks can be independent of projects, so only require title
+      const validation = this.validateData(taskData, ['title'])
       if (!validation.isValid) {
         throw new Error(`Validation failed: ${Object.values(validation.errors).join(', ')}`)
       }
@@ -47,13 +48,26 @@ class TaskRepository extends BaseRepository {
 
       const newTask = await this.create(taskDataWithDefaults, TASK_SCHEMA)
 
-      // Log activity
-      await ActivityService.logEntityCreated(newTask.projectId, 'task', newTask.id, newTask.title)
+      // Only log activity if task is associated with a project
+      if (newTask.projectId) {
+        await ActivityService.logEntityCreated(newTask.projectId, 'task', newTask.id, newTask.title)
+      }
 
       return newTask
     } catch (error) {
       console.error('Error creating task:', error)
       throw error
+    }
+  }
+
+  /**
+   * Get all tasks
+   */
+  async getAllTasks() {
+    try {
+      return await this.getAll()
+    } catch (error) {
+      console.error('Error getting all tasks:', error)
     }
   }
 
@@ -207,8 +221,8 @@ class TaskRepository extends BaseRepository {
 
       const result = await this.update(taskId, updates, TASK_SCHEMA)
 
-      // Log significant updates
-      if (updates.status && updates.status !== originalTask.status) {
+      // Log significant updates (only if task has projectId)
+      if (updates.status && updates.status !== originalTask.status && originalTask.projectId) {
         await ActivityService.logStatusChange(
           originalTask.projectId,
           'task',
@@ -219,7 +233,11 @@ class TaskRepository extends BaseRepository {
         )
       }
 
-      if (updates.assignedTo && updates.assignedTo !== originalTask.assignedTo) {
+      if (
+        updates.assignedTo &&
+        updates.assignedTo !== originalTask.assignedTo &&
+        originalTask.projectId
+      ) {
         await ActivityService.logActivity(
           originalTask.projectId,
           'assigned_task',
@@ -233,7 +251,11 @@ class TaskRepository extends BaseRepository {
         )
       }
 
-      if (updates.priority && updates.priority !== originalTask.priority) {
+      if (
+        updates.priority &&
+        updates.priority !== originalTask.priority &&
+        originalTask.projectId
+      ) {
         await ActivityService.logActivity(
           originalTask.projectId,
           'updated_task_priority',
@@ -270,8 +292,10 @@ class TaskRepository extends BaseRepository {
       // Delete the task
       await this.delete(taskId)
 
-      // Log activity
-      await ActivityService.logEntityDeleted(task.projectId, 'task', taskId, task.title)
+      // Log activity (only if task has projectId)
+      if (task.projectId) {
+        await ActivityService.logEntityDeleted(task.projectId, 'task', taskId, task.title)
+      }
 
       return { success: true, id: taskId }
     } catch (error) {
@@ -387,15 +411,17 @@ class TaskRepository extends BaseRepository {
 
       await set(newCommentRef, commentData)
 
-      // Log activity
-      await ActivityService.logActivity(
-        task.projectId,
-        'commented_on_task',
-        'task',
-        taskId,
-        `Added comment to task: ${task.title}`,
-        { commentId: newCommentRef.key },
-      )
+      // Log activity (only if task has projectId)
+      if (task.projectId) {
+        await ActivityService.logActivity(
+          task.projectId,
+          'commented_on_task',
+          'task',
+          taskId,
+          `Added comment to task: ${task.title}`,
+          { commentId: newCommentRef.key },
+        )
+      }
 
       return { id: newCommentRef.key, ...commentData }
     } catch (error) {
@@ -699,7 +725,8 @@ class TaskRepository extends BaseRepository {
    * Validate task-specific data
    */
   validateTaskData(taskData) {
-    const validation = super.validateData(taskData, ['title', 'projectId'])
+    // Tasks are project-independent, so only require title
+    const validation = super.validateData(taskData, ['title'])
 
     // Add task-specific validations
     if (taskData.estimatedHours && taskData.estimatedHours < 0) {

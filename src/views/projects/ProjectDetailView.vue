@@ -345,7 +345,6 @@ import DocumentStatusBadge from '@/components/features/documents/DocumentStatusB
 //import DocumentUploader from '@/components/features/documents/DocumentUploader.vue'
 import { getDocumentIcon } from '@/constants/documentCategories'
 import {
-  loadUsers,
   getUserName,
   createLookupMap,
   formatDate,
@@ -357,6 +356,8 @@ import {
   getStatusClasses,
 } from '@/utils/index'
 import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
+import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository'
+import UserRepository from '@/services/firebase/Repositories/UserRepository'
 import ActivityService from '@/services/logging/ActivityService'
 
 // Props and existing setup
@@ -400,7 +401,6 @@ const editTask = (task) => {
 
 const handleTaskCreated = (newTask) => {
   console.log('Task created:', newTask)
-  tasks.value.unshift(newTask)
   editingTask.value = null
   showTaskSlideOver.value = false
 }
@@ -445,7 +445,7 @@ const loadProjectData = async () => {
 
 const loadRecentDocuments = async () => {
   try {
-    const docs = await ProjectRepository.getDocumentsByProject(props.projectId, {
+    const docs = await DocumentRepository.getDocumentsByProject(props.projectId, {
       limit: 5,
     })
     recentDocuments.value = docs
@@ -557,7 +557,7 @@ watch(
 
       try {
         await loadProjectData()
-        users.value = await loadUsers()
+        users.value = await UserRepository.getAllUsers()
         setupRealtimeListeners()
       } catch (err) {
         console.error('Error loading project:', err)
@@ -572,7 +572,7 @@ onMounted(async () => {
   try {
     await loadProjectData()
     await loadRecentDocuments()
-    users.value = await loadUsers()
+    users.value = await UserRepository.getAllUsers()
     setupRealtimeListeners()
   } catch (err) {
     console.error('Error loading project:', err)
