@@ -2,32 +2,7 @@
 import BaseRepository from '../core/BaseRepository'
 import ActivityService from '@/services/logging/ActivityService'
 import firebaseCore from '../core/FirebaseCore'
-
-// Attachment schema - kept in the repository where it belongs
-const ATTACHMENT_SCHEMA = {
-  name: 'string',
-  originalName: 'string',
-  description: 'string',
-  entityType: 'string', // 'project', 'task', 'document', 'client', etc.
-  entityId: 'string', // ID of the entity this attachment belongs to
-  fileType: 'string', // 'pdf', 'image', 'document', etc.
-  mimeType: 'string', // 'application/pdf', 'image/jpeg', etc.
-  fileSize: 'number', // Size in bytes
-  googleDriveFileId: 'string',
-  googleDriveLink: 'string',
-  thumbnail: 'string', // Thumbnail URL if available
-  downloadUrl: 'string', // Direct download URL
-  uploadedBy: 'string', // User ID who uploaded
-  uploadedByName: 'string', // User name who uploaded
-  uploadedAt: 'string', // ISO timestamp
-  tags: 'array', // Array of tags for categorization
-  isPublic: 'boolean', // Whether attachment is public or private
-  permissions: 'object', // Who can view/download/edit
-  version: 'number', // Version number for versioning
-  previousVersions: 'array', // Array of previous version info
-  virusScanStatus: 'string', // 'pending', 'clean', 'infected', 'error'
-  extractedText: 'string', // OCR/extracted text for search
-}
+import { ATTACHMENT_SCHEMA } from '../schemas'
 
 /**
  * Attachment Repository - handles all attachment-related Firebase operations
