@@ -95,20 +95,23 @@
         </div>
       </div>
 
-      <!-- Tab Navigation -->
+      <!-- Tab Navigation with PrimeVue v4 Tab Component -->
       <div class="bg-white border-b border-gray-200">
-        <TabView v-model:activeIndex="activeTab" class="project-tabs">
-          <TabPanel>
-            <template #header>
+        <Tab v-model:value="activeTab">
+          <TabList class="px-6 bg-transparent border-0">
+            <tab
+              value="overview"
+              class="px-6 py-4 border-0 bg-transparent border-b-2 border-transparent text-gray-600 font-medium hover:text-gray-700 data-[p-active=true]:border-b-blue-500 data-[p-active=true]:text-gray-900"
+            >
               <span class="flex items-center gap-2">
                 <i class="pi pi-home"></i>
                 <span>Project Overview</span>
               </span>
-            </template>
-          </TabPanel>
-
-          <TabPanel>
-            <template #header>
+            </tab>
+            <tab
+              value="construction"
+              class="px-6 py-4 border-0 bg-transparent border-b-2 border-transparent text-gray-600 font-medium hover:text-gray-700 data-[p-active=true]:border-b-blue-500 data-[p-active=true]:text-gray-900"
+            >
               <span class="flex items-center gap-2">
                 <i class="pi pi-wrench"></i>
                 <span>Construction Management</span>
@@ -118,11 +121,11 @@
                   severity="warning"
                 />
               </span>
-            </template>
-          </TabPanel>
-
-          <TabPanel>
-            <template #header>
+            </tab>
+            <tab
+              value="documents"
+              class="px-6 py-4 border-0 bg-transparent border-b-2 border-transparent text-gray-600 font-medium hover:text-gray-700 data-[p-active=true]:border-b-blue-500 data-[p-active=true]:text-gray-900"
+            >
               <span class="flex items-center gap-2">
                 <i class="pi pi-file"></i>
                 <span>Documents</span>
@@ -132,260 +135,268 @@
                   severity="secondary"
                 />
               </span>
-            </template>
-          </TabPanel>
-        </TabView>
+            </tab>
+          </TabList>
+        </Tab>
       </div>
 
       <!-- Tab Content -->
       <div class="flex-1 overflow-y-auto">
-        <!-- Project Overview Tab -->
-        <div v-if="activeTab === 0" class="p-6">
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <!-- Main Content Area: Full width -->
-            <div class="lg:col-span-3 space-y-6">
-              <!-- Upcoming Tasks Card -->
-              <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
-                <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                  <h3 class="text-sm font-medium text-gray-900">
-                    Upcoming Tasks ({{ tasks.length }})
-                  </h3>
-                  <Button
-                    icon="pi pi-plus"
-                    size="small"
-                    severity="secondary"
-                    label="Add Task"
-                    @click="
-                      () => {
-                        editingTask = null
-                        showTaskSlideOver = true
-                      }
-                    "
-                  />
-                </div>
-                <div class="p-4">
-                  <div v-if="tasks.length === 0" class="text-center py-8 text-gray-500 text-sm">
-                    No tasks yet.
-                    <button
-                      @click="
-                        () => {
-                          editingTask = null
-                          showTaskSlideOver = true
-                        }
-                      "
-                      class="text-blue-600 hover:text-blue-700 font-medium"
-                    >
-                      Create your first task
-                    </button>
-                  </div>
-                  <div v-else class="space-y-3">
-                    <div
-                      v-for="task in tasks.slice(0, 5)"
-                      :key="task.id"
-                      @click="editTask(task)"
-                      class="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
-                    >
-                      <div class="flex items-center gap-3 flex-1 min-w-0">
+        <!-- TabPanels with padding removed since we add it per panel -->
+        <TabPanels v-model:value="activeTab" class="p-0 bg-transparent border-0">
+          <TabPanel value="overview" class="p-0">
+            <div class="p-6">
+              <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <!-- Main Content Area: Full width -->
+                <div class="lg:col-span-3 space-y-6">
+                  <!-- Upcoming Tasks Card -->
+                  <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
+                    <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                      <h3 class="text-sm font-medium text-gray-900">
+                        Upcoming Tasks ({{ tasks.length }})
+                      </h3>
+                      <Button
+                        icon="pi pi-plus"
+                        size="small"
+                        severity="secondary"
+                        label="Add Task"
+                        @click="
+                          () => {
+                            editingTask = null
+                            showTaskSlideOver = true
+                          }
+                        "
+                      />
+                    </div>
+                    <div class="p-4">
+                      <div v-if="tasks.length === 0" class="text-center py-8 text-gray-500 text-sm">
+                        No tasks yet.
+                        <button
+                          @click="
+                            () => {
+                              editingTask = null
+                              showTaskSlideOver = true
+                            }
+                          "
+                          class="text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          Create your first task
+                        </button>
+                      </div>
+                      <div v-else class="space-y-3">
                         <div
-                          class="w-3 h-3 rounded-full flex-shrink-0"
-                          :class="getPriorityClasses(task.priority)"
-                        ></div>
-                        <div class="flex-1 min-w-0">
-                          <p class="text-sm font-medium text-gray-900 truncate">{{ task.title }}</p>
-                          <p class="text-xs text-gray-500">
-                            {{ getUserName(task.assignedTo, usersMap) }} • Due
-                            {{ formatDate(task.dueDate) }}
-                          </p>
+                          v-for="task in tasks.slice(0, 5)"
+                          :key="task.id"
+                          @click="editTask(task)"
+                          class="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
+                        >
+                          <div class="flex items-center gap-3 flex-1 min-w-0">
+                            <div
+                              class="w-3 h-3 rounded-full flex-shrink-0"
+                              :class="getPriorityClasses(task.priority)"
+                            ></div>
+                            <div class="flex-1 min-w-0">
+                              <p class="text-sm font-medium text-gray-900 truncate">{{ task.title }}</p>
+                              <p class="text-xs text-gray-500">
+                                {{ getUserName(task.assignedTo, usersMap) }} • Due
+                                {{ formatDate(task.dueDate) }}
+                              </p>
+                            </div>
+                          </div>
+                          <Tag
+                            :value="formatTaskStatus(task.status)"
+                            :severity="getStatusSeverity(task.status)"
+                            size="small"
+                          />
                         </div>
-                      </div>
-                      <Tag
-                        :value="formatTaskStatus(task.status)"
-                        :severity="getStatusSeverity(task.status)"
-                        size="small"
-                      />
-                    </div>
-                    <div v-if="tasks.length > 5" class="text-center pt-2">
-                      <Button
-                        @click="$router.push('/tasks')"
-                        label="View all tasks"
-                        link
-                        size="small"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Project Overview Cards -->
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Quick Stats Card -->
-                <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
-                  <div class="px-4 py-3 border-b border-gray-200">
-                    <h3 class="text-sm font-medium text-gray-900">Quick Stats</h3>
-                  </div>
-                  <div class="p-4 space-y-3">
-                    <div class="flex justify-between items-center">
-                      <span class="text-xs text-gray-600">RFIs</span>
-                      <div class="flex items-center gap-2">
-                        <span class="text-sm font-medium">{{ rfis.length }}</span>
-                        <Button
-                          icon="pi pi-external-link"
-                          size="small"
-                          severity="secondary"
-                          text
-                          @click="activeTab = 1"
-                          class="w-5 h-5 p-0"
-                        />
-                      </div>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-xs text-gray-600">Submittals</span>
-                      <div class="flex items-center gap-2">
-                        <span class="text-sm font-medium">{{ submittals.length }}</span>
-                        <Button
-                          icon="pi pi-external-link"
-                          size="small"
-                          severity="secondary"
-                          text
-                          @click="activeTab = 1"
-                          class="w-5 h-5 p-0"
-                        />
-                      </div>
-                    </div>
-                    <div class="flex justify-between items-center">
-                      <span class="text-xs text-gray-600">Change Orders</span>
-                      <div class="flex items-center gap-2">
-                        <span class="text-sm font-medium">{{ changeOrders.length }}</span>
-                        <Button
-                          icon="pi pi-external-link"
-                          size="small"
-                          severity="secondary"
-                          text
-                          @click="activeTab = 1"
-                          class="w-5 h-5 p-0"
-                        />
+                        <div v-if="tasks.length > 5" class="text-center pt-2">
+                          <Button
+                            @click="$router.push('/tasks')"
+                            label="View all tasks"
+                            link
+                            size="small"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <!-- Project Team Card -->
-                <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
-                  <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                    <h3 class="text-sm font-medium text-gray-900">Project Team</h3>
-                    <Button icon="pi pi-users" size="small" severity="secondary" text />
-                  </div>
-                  <div class="p-4">
-                    <div class="space-y-3">
-                      <div v-if="project.projectManager" class="flex items-center gap-3">
-                        <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <i class="pi pi-user text-blue-600 text-sm"></i>
-                        </div>
-                        <div>
-                          <p class="text-sm font-medium text-gray-900">{{ project.projectManager }}</p>
-                          <p class="text-xs text-gray-500">Project Manager</p>
-                        </div>
-                      </div>
-                      <div v-if="project.superintendent" class="flex items-center gap-3">
-                        <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
-                          <i class="pi pi-hard-hat text-yellow-600 text-sm"></i>
-                        </div>
-                        <div>
-                          <p class="text-sm font-medium text-gray-900">{{ project.superintendent }}</p>
-                          <p class="text-xs text-gray-500">Superintendent</p>
-                        </div>
-                      </div>
-                      <div v-if="project.architect" class="flex items-center gap-3">
-                        <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                          <i class="pi pi-pencil text-purple-600 text-sm"></i>
-                        </div>
-                        <div>
-                          <p class="text-sm font-medium text-gray-900">{{ project.architect }}</p>
-                          <p class="text-xs text-gray-500">Architect</p>
-                        </div>
-                      </div>
-                      <div v-if="!project.projectManager && !project.superintendent && !project.architect" class="text-center py-4 text-gray-500 text-sm">
-                        No team members assigned
-                      </div>
+                <!-- Project Overview Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <!-- Quick Stats Card -->
+                  <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
+                    <div class="px-4 py-3 border-b border-gray-200">
+                      <h3 class="text-sm font-medium text-gray-900">Quick Stats</h3>
                     </div>
-                  </div>
-                </div>
-
-                <!-- Documents Card -->
-                <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
-                  <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                    <h3 class="text-sm font-medium text-gray-900">Recent Documents</h3>
-                    <div class="flex gap-2">
-                      <Button
-                        icon="pi pi-upload"
-                        size="small"
-                        severity="secondary"
-                        text
-                        @click="showDocumentUploader = true"
-                      />
-                      <Button
-                        icon="pi pi-external-link"
-                        size="small"
-                        severity="secondary"
-                        text
-                        @click="activeTab = 2"
-                      />
-                    </div>
-                  </div>
-                  <div class="p-4">
-                    <div
-                      v-if="recentDocuments.length === 0"
-                      class="text-center py-4 text-gray-500 text-sm"
-                    >
-                      No documents yet.
-                      <button
-                        @click="showDocumentUploader = true"
-                        class="text-blue-600 hover:text-blue-700 font-medium"
-                      >
-                        Upload your first document
-                      </button>
-                    </div>
-                    <div v-else class="space-y-2">
-                      <div
-                        v-for="doc in recentDocuments.slice(0, 3)"
-                        :key="doc.id"
-                        class="flex items-center justify-between p-2 rounded hover:bg-gray-50"
-                      >
+                    <div class="p-4 space-y-3">
+                      <div class="flex justify-between items-center">
+                        <span class="text-xs text-gray-600">RFIs</span>
                         <div class="flex items-center gap-2">
-                          <i
-                            :class="getDocumentIcon(doc.name, doc.category)"
-                            class="text-gray-600"
-                          ></i>
+                          <span class="text-sm font-medium">{{ rfis.length }}</span>
+                          <Button
+                            icon="pi pi-external-link"
+                            size="small"
+                            severity="secondary"
+                            text
+                            @click="activeTab = 'construction'"
+                            class="w-5 h-5 p-0"
+                          />
+                        </div>
+                      </div>
+                      <div class="flex justify-between items-center">
+                        <span class="text-xs text-gray-600">Submittals</span>
+                        <div class="flex items-center gap-2">
+                          <span class="text-sm font-medium">{{ submittals.length }}</span>
+                          <Button
+                            icon="pi pi-external-link"
+                            size="small"
+                            severity="secondary"
+                            text
+                            @click="activeTab = 'construction'"
+                            class="w-5 h-5 p-0"
+                          />
+                        </div>
+                      </div>
+                      <div class="flex justify-between items-center">
+                        <span class="text-xs text-gray-600">Change Orders</span>
+                        <div class="flex items-center gap-2">
+                          <span class="text-sm font-medium">{{ changeOrders.length }}</span>
+                          <Button
+                            icon="pi pi-external-link"
+                            size="small"
+                            severity="secondary"
+                            text
+                            @click="activeTab = 'construction'"
+                            class="w-5 h-5 p-0"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Project Team Card -->
+                  <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
+                    <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                      <h3 class="text-sm font-medium text-gray-900">Project Team</h3>
+                      <Button icon="pi pi-users" size="small" severity="secondary" text />
+                    </div>
+                    <div class="p-4">
+                      <div class="space-y-3">
+                        <div v-if="project.projectManager" class="flex items-center gap-3">
+                          <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <i class="pi pi-user text-blue-600 text-sm"></i>
+                          </div>
                           <div>
-                            <p class="text-sm font-medium text-gray-900 truncate">{{ doc.name }}</p>
-                            <p class="text-xs text-gray-500">
-                              {{ doc.category }} • {{ formatTimeAgo(doc.uploadedAt) }}
-                            </p>
+                            <p class="text-sm font-medium text-gray-900">{{ project.projectManager }}</p>
+                            <p class="text-xs text-gray-500">Project Manager</p>
                           </div>
                         </div>
-                        <DocumentStatusBadge :status="doc.status" size="small" />
+                        <div v-if="project.superintendent" class="flex items-center gap-3">
+                          <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                            <i class="pi pi-hard-hat text-yellow-600 text-sm"></i>
+                          </div>
+                          <div>
+                            <p class="text-sm font-medium text-gray-900">{{ project.superintendent }}</p>
+                            <p class="text-xs text-gray-500">Superintendent</p>
+                          </div>
+                        </div>
+                        <div v-if="project.architect" class="flex items-center gap-3">
+                          <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                            <i class="pi pi-pencil text-purple-600 text-sm"></i>
+                          </div>
+                          <div>
+                            <p class="text-sm font-medium text-gray-900">{{ project.architect }}</p>
+                            <p class="text-xs text-gray-500">Architect</p>
+                          </div>
+                        </div>
+                        <div v-if="!project.projectManager && !project.superintendent && !project.architect" class="text-center py-4 text-gray-500 text-sm">
+                          No team members assigned
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Documents Card -->
+                  <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
+                    <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                      <h3 class="text-sm font-medium text-gray-900">Recent Documents</h3>
+                      <div class="flex gap-2">
+                        <Button
+                          icon="pi pi-upload"
+                          size="small"
+                          severity="secondary"
+                          text
+                          @click="showDocumentUploader = true"
+                        />
+                        <Button
+                          icon="pi pi-external-link"
+                          size="small"
+                          severity="secondary"
+                          text
+                          @click="activeTab = 'documents'"
+                        />
+                      </div>
+                    </div>
+                    <div class="p-4">
+                      <div
+                        v-if="recentDocuments.length === 0"
+                        class="text-center py-4 text-gray-500 text-sm"
+                      >
+                        No documents yet.
+                        <button
+                          @click="showDocumentUploader = true"
+                          class="text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          Upload your first document
+                        </button>
+                      </div>
+                      <div v-else class="space-y-2">
+                        <div
+                          v-for="doc in recentDocuments.slice(0, 3)"
+                          :key="doc.id"
+                          class="flex items-center justify-between p-2 rounded hover:bg-gray-50"
+                        >
+                          <div class="flex items-center gap-2">
+                            <i
+                              :class="getDocumentIcon(doc.name, doc.category)"
+                              class="text-gray-600"
+                            ></i>
+                            <div>
+                              <p class="text-sm font-medium text-gray-900 truncate">{{ doc.name }}</p>
+                              <p class="text-xs text-gray-500">
+                                {{ doc.category }} • {{ formatTimeAgo(doc.uploadedAt) }}
+                              </p>
+                            </div>
+                          </div>
+                          <DocumentStatusBadge :status="doc.status" size="small" />
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+          </TabPanel>
 
-        <!-- Construction Management Tab -->
-        <div v-else-if="activeTab === 1" class="p-6">
-          <ConstructionManagementSection :project-id="projectId" />
-        </div>
+          <!-- Construction Management Tab -->
+          <TabPanel value="construction" class="p-0">
+            <div class="p-6">
+              <ConstructionManagementSection :project-id="projectId" />
+            </div>
+          </TabPanel>
 
-        <!-- Documents Tab -->
-        <div v-else-if="activeTab === 2" class="p-6">
-          <DocumentsView
-            :project-id="projectId"
-            :project-name="project.name"
-            mode="project"
-          />
-        </div>
+          <!-- Documents Tab -->
+          <TabPanel value="documents" class="p-0">
+            <div class="p-6">
+              <DocumentsView
+                :project-id="projectId"
+                :project-name="project.name"
+                mode="project"
+              />
+            </div>
+          </TabPanel>
+        </TabPanels>
       </div>
     </div>
 
@@ -422,7 +433,9 @@ import { useRouter } from 'vue-router'
 import {
   Button,
   Tag,
-  TabView,
+  Tab,
+  TabList,
+  TabPanels,
   TabPanel,
   Badge
 } from 'primevue'
@@ -460,7 +473,7 @@ const props = defineProps({
 
 const router = useRouter()
 
-// Reactive state
+// Reactive state - Updated for string-based tab values
 const project = ref({})
 const rfis = ref([])
 const submittals = ref([])
@@ -471,7 +484,7 @@ const users = ref([])
 const loading = ref(true)
 const error = ref(null)
 const subscriptions = ref([])
-const activeTab = ref(0)
+const activeTab = ref('overview') // Changed from 0 to 'overview'
 
 // UI State
 const showProjectSlideOver = ref(false)
@@ -679,39 +692,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* Custom tab styling */
-.project-tabs :deep(.p-tabview-nav) {
-  border-bottom: none;
-  background: transparent;
-  padding: 0 1.5rem;
-}
-
-.project-tabs :deep(.p-tabview-nav li .p-tabview-nav-link) {
-  border: none;
-  background: transparent;
-  padding: 1rem 1.5rem;
-  border-bottom: 2px solid transparent;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.project-tabs :deep(.p-tabview-nav li.p-highlight .p-tabview-nav-link) {
-  border-bottom-color: #3b82f6;
-  color: #1f2937;
-  background: transparent;
-}
-
-.project-tabs :deep(.p-tabview-nav li:hover .p-tabview-nav-link) {
-  color: #374151;
-}
-
-.project-tabs :deep(.p-tabview-panels) {
-  padding: 0;
-  background: transparent;
-  border: none;
-}
-
-/* Custom scrollbar */
+/* Custom scrollbar - can't be done with Tailwind */
 .overflow-y-auto::-webkit-scrollbar {
   width: 6px;
 }
