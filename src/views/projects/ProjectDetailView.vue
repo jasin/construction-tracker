@@ -316,6 +316,47 @@
                       </div>
                     </div>
                   </div>
+                  <!-- Project Team Card -->
+                  <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
+                    <div class="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                      <h3 class="text-sm font-medium text-gray-900">Project Team</h3>
+                      <Button icon="pi pi-users" size="small" severity="secondary" text />
+                    </div>
+                    <div class="p-4">
+                      <div class="space-y-3">
+                        <div v-if="project.projectManager" class="flex items-center gap-3">
+                          <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <i class="pi pi-user text-blue-600 text-sm"></i>
+                          </div>
+                          <div>
+                            <p class="text-sm font-medium text-gray-900">{{ project.projectManager }}</p>
+                            <p class="text-xs text-gray-500">Project Manager</p>
+                          </div>
+                        </div>
+                        <div v-if="project.superintendent" class="flex items-center gap-3">
+                          <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                            <i class="pi pi-hard-hat text-yellow-600 text-sm"></i>
+                          </div>
+                          <div>
+                            <p class="text-sm font-medium text-gray-900">{{ project.superintendent }}</p>
+                            <p class="text-xs text-gray-500">Superintendent</p>
+                          </div>
+                        </div>
+                        <div v-if="project.architect" class="flex items-center gap-3">
+                          <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                            <i class="pi pi-pencil text-purple-600 text-sm"></i>
+                          </div>
+                          <div>
+                            <p class="text-sm font-medium text-gray-900">{{ project.architect }}</p>
+                            <p class="text-xs text-gray-500">Architect</p>
+                          </div>
+                        </div>
+                        <div v-if="!project.projectManager && !project.superintendent && !project.architect" class="text-center py-4 text-gray-500 text-sm">
+                          No team members assigned
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
                   <!-- Documents Card -->
                   <div class="bg-white rounded-lg border border-gray-200 shadow-sm">
@@ -379,6 +420,12 @@
             </div>
           </TabPanel>
 
+          <!-- Construction Management Tab -->
+          <TabPanel value="construction" class="p-0">
+            <div class="p-6">
+              <ConstructionManagementSection :project-id="projectId" />
+            </div>
+          </TabPanel>
           <!-- Construction Management Tab -->
           <TabPanel value="construction" class="p-0">
             <div class="p-6">
@@ -474,6 +521,7 @@ const props = defineProps({
 
 const router = useRouter()
 
+// Reactive state - Updated for string-based tab values
 // Reactive state - Updated for string-based tab values
 const project = ref({})
 const rfis = ref([])
@@ -693,6 +741,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* Custom scrollbar - can't be done with Tailwind */
 /* Custom scrollbar - can't be done with Tailwind */
 .overflow-y-auto::-webkit-scrollbar {
   width: 6px;
