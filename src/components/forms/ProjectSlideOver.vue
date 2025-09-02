@@ -232,7 +232,8 @@ import InputNumber from 'primevue/inputnumber'
 import Checkbox from 'primevue/checkbox'
 import DatePicker from 'primevue/datepicker'
 import Button from 'primevue/button'
-import firebaseService from '@/services/firebase/firebaseService'
+import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
+import ClientRepository from '@/services/firebase/Repositories/ClientRepository'
 import ClientSlideOver from './ClientSlideOver.vue'
 
 // Props
@@ -319,7 +320,7 @@ const loadProjectData = () => {
 // Load Client data
 const loadClients = async () => {
   try {
-    const clientData = await firebaseService.getAllClients()
+    const clientData = await ClientRepository.getAllClients()
     clients.value = clientData
     console.log('Loaded clients for project form:', clientData)
   } catch (err) {
@@ -377,10 +378,10 @@ const handleSubmit = async () => {
     let newProject
 
     if (props.project?.id) {
-      await firebaseService.updateProject(props.project.id, projectData)
+      await ProjectRepository.updateProject(props.project.id, projectData)
       success.value = 'Project updated successfully'
     } else {
-      newProject = await firebaseService.createProject(projectData)
+      newProject = await ProjectRepository.createProject(projectData)
       success.value = 'Project created successfully'
     }
 
