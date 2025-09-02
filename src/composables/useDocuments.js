@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 //import googleDriveService from '@/services/api/googleDriveService'
 import { formatFileSize } from '@/utils/index'
 import ProjectRepository from '../services/firebase/Repositories/ProjectRepository'
-import userRepository from '../services/firebase/Repositories/userRepository'
+import UserRepository from '../services/firebase/Repositories/UserRepository'
 import DocumentRepository from '../services/firebase/Repositories/DocumentRepository'
 
 export function useDocuments(options = {}) {
@@ -368,7 +368,7 @@ export function useDocuments(options = {}) {
       // Load supporting data
       const [projectsData, usersData] = await Promise.all([
         ProjectRepository.getAllProjects(),
-        userRepository.getAllUsers(),
+        UserRepository.getAllUsers(),
       ])
 
       projects.value = projectsData
