@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
+import { pinia } from './stores'
 import authService from './services/auth/authService'
 import './assets/main.css'
 import PrimeVue from 'primevue/config'
@@ -11,13 +12,16 @@ import { Tooltip } from 'primevue'
 authService.init()
 
 const app = createApp(App)
+
+app.use(router)
+app.use(pinia)
 app.use(PrimeVue, {
   theme: {
     preset: Aura,
   },
 })
+
 app.component('tree')
 app.directive('tooltip', Tooltip)
-app.use(router)
 
 app.mount('#app')
