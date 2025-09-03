@@ -173,7 +173,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { ProgressSpinner, Card, Button, Tag } from 'primevue'
-import authService from '@/services/auth/authService'
+import { useAuthStore } from '@/stores'
 import firebaseService from '@/services/firebase/firebaseService'
 import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
 
@@ -186,7 +186,8 @@ const recentChangeOrders = ref([])
 const recentActivity = ref([])
 
 // Computed
-const currentUser = computed(() => authService.currentUser)
+const authStore = useAuthStore()
+const currentUser = computed(() => authStore.currentUser)
 
 const stats = computed(() => ({
   totalProjects: projects.value.length,

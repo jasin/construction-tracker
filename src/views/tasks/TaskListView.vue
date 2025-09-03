@@ -272,7 +272,7 @@ import MultiSelect from 'primevue/multiselect'
 import DatePicker from 'primevue/datepicker'
 import ProgressSpinner from 'primevue/progressspinner'
 //import firebaseService from '@/services/firebase/firebaseService'
-import authService from '@/services/auth/authService'
+import { getCurrentUserId } from '@/services/auth/authService'
 import TaskSlideOver from '@/components/forms/TaskSlideOver.vue'
 import TaskRepository from '@/services/firebase/Repositories/TaskRepository'
 import UserRepository from '@/services/firebase/Repositories/UserRepository'
@@ -348,7 +348,7 @@ const filteredTasks = computed(() => {
 
   // Apply view filter first
   if (currentView.value === 'my-tasks') {
-    const currentUserId = authService.getCurrentUserId()
+    const currentUserId = getCurrentUserId()
     tasks = allTasks.value.filter((task) => task.assignedTo === currentUserId)
   } else if (currentView.value === 'overdue') {
     const now = new Date().toISOString()
@@ -418,7 +418,7 @@ const filteredTasks = computed(() => {
 
 // Task counts for badges
 const myTasksCount = computed(() => {
-  const currentUserId = authService.getCurrentUserId()
+  const currentUserId = getCurrentUserId()
   return allTasks.value.filter(
     (task) => task.assignedTo === currentUserId && task.status !== 'complete',
   ).length

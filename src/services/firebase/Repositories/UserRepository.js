@@ -1,21 +1,34 @@
-// src/services/firebase/repositories/UserRepository.js
-import BaseRepository from '@/services/firebase/core/BaseRepository'
-import { USER_SCHEMA } from '../schemas'
+// src/services/firebase/Repositories/UserRepository.js
+import BaseRepository from '../core/BaseRepository' // ES module import
+import { CrudMixin } from '../mixins/CrudMixin' // ES module import
+import { RealtimeMixin } from '../mixins/RealtimeMixin' // ES module import
 
 /**
- * User Repository - handles all user-related Firebase operations
- * Extends BaseRepository to get CRUD + Real-time functionality
+ * Repository for managing users in RTDB, synced with Firebase Auth UIDs.
+ * Extends BaseRepository with CRUD and Realtime mixins.
+ * Uses /users/{uid} path for storage, ensuring one user per Auth UID.
  */
-class UserRepository extends BaseRepository {
+class UserRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   constructor() {
-    super('users', 'User', USER_SCHEMA)
+    super('users') // Changed: Use 'users' as base path; entries will be /users/{uid}
   }
 
   /**
-   * Create a new user with validation
+   * Creates a new user synced with Auth data.
+   * @param {Object} data - User data including uid from Auth.
+   * @returns {Promise<Object>} Created user data.
    */
-  async createUser(userData) {
-    return await this.createWithValidation(userData, ['name', 'email'])
+  async create(data) {
+    if (!data.id) {
+      throw new Error('UID required for user creation')
+    }
+    try {
+      await this.set(data.id, data) // Changed: Use set with UID as key for atomic creation
+      return data
+    } catch (err) {
+      console.error('Create user error:', err)
+      throw new Error(`Failed to create user: ${err.message}`)
+    }
   }
 
   /**
@@ -28,6 +41,20 @@ class UserRepository extends BaseRepository {
     } catch (error) {
       console.error('Error getting all users:', error)
       throw error
+    }
+  }
+
+  /**
+   * Gets a user by Auth UID.
+   * @param {string} uid - Firebase Auth UID.
+   * @returns {Promise<Object|null>} User data or null if not found.
+   */
+  async getById(uid) {
+    try {
+      return await this.get(uid) // Changed: Use UID directly as key instead of separate ID
+    } catch (err) {
+      console.error('Get user error:', err)
+      throw new Error(`Failed to get user: ${err.message}`)
     }
   }
 

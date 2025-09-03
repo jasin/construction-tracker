@@ -11,7 +11,7 @@ if (!isDevelopment) {
   firebaseConfig = {
     apiKey: import.meta.env.VITE_API_KEY,
     authDomain: import.meta.env.VITE_AUTH_DOMAIN,
-    databaseURL: import.meta.env.VITE_DATABASE_URL,  // HTTPS for production
+    databaseURL: import.meta.env.VITE_DATABASE_URL, // HTTPS for production
     projectId: import.meta.env.VITE_PROJECT_ID,
     storageBucket: import.meta.env.VITE_STORAGE_BUCKET,
     messagingSenderId: import.meta.env.VITE_MESSAGING_SENDER_ID,
@@ -29,7 +29,13 @@ if (!isDevelopment) {
 console.log('Initializing Firebase with config:', !isDevelopment ? {} : firebaseConfig)
 console.log('Environment:', !isDevelopment ? 'production' : 'development')
 
-const app = initializeApp(firebaseConfig)
+let app // Added: Variable to hold the app instance for export
+try {
+  app = initializeApp(firebaseConfig)
+} catch (error) {
+  console.error('Firebase initialization error:', error) // Standardized error logging
+  throw new Error(`Failed to initialize Firebase app: ${error.message}`) // Rethrow descriptive error
+}
 const database = getDatabase(app)
 const auth = getAuth(app)
 
@@ -40,4 +46,4 @@ if (isDevelopment) {
   console.log('Connected to Database and Auth Emulators')
 }
 
-export { database, auth }
+export { app, database, auth }

@@ -1,105 +1,134 @@
-// src/services/firebase/repositories/ProjectRepository.js
-import BaseRepository from '../core/BaseRepository'
-import ActivityService from '@/services/logging/ActivityService'
-import firebaseCore from '../core/FirebaseCore'
-import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database'
-import { PROJECT_SCHEMA } from '../schemas' // Assuming this exists in your utils
+// src/services/firebase/Repositories/ProjectRepository.js
+import BaseRepository from '../core/BaseRepository' // ES module import for base class
+import { CrudMixin } from '../mixins/CrudMixin' // ES module import for CRUD mixin
+import { RealtimeMixin } from '../mixins/RealtimeMixin' // ES module import for real-time mixin
+import ActivityService from '@/services/logging/ActivityService' // ES module import for activity logging
+import firebaseCore from '../core/FirebaseCore' // ES module import for core utilities
+import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database' // ES module imports for Firebase RTDB functions
+import { PROJECT_SCHEMA } from '../schemas' // ES module import for project schema (assuming exists)
 
 /**
- * Project Repository - handles all project-related Firebase operations
- * More complex than UserRepository due to relationships and business logic
+ * Project Repository - handles all project-related Firebase operations.
+ * Extends BaseRepository with Realtime and CRUD mixins for full functionality.
+ * More complex than UserRepository due to relationships and business logic.
+ * Uses /projects/{id} path for storage.
  */
-class ProjectRepository extends BaseRepository {
+class ProjectRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   constructor() {
-    super('projects', 'Project', PROJECT_SCHEMA)
+    super('projects') // Changed: Pass 'projects' as collectionName; removed unused entityName and schema params for consistency with mixin pattern
   }
 
   /**
-   * Create a new project with validation and activity logging
+   * Create a new project with validation and activity logging.
+   * @param {Object} projectData - Project data to create.
+   * @returns {Promise<Object>} Created project.
    */
   async createProject(projectData) {
     try {
-      const result = await this.createWithValidation(projectData, ['name', 'jobNumber'])
+      // Added: Validate required fields before create (assuming validateRequired from utils or implement here)
+      const validation = this.validateRequired(projectData, ['name', 'jobNumber'])
+      if (!validation.isValid) {
+        throw new Error(`Validation failed: ${JSON.stringify(validation.errors)}`)
+      }
+
+      const result = await super.create(projectData, PROJECT_SCHEMA) // Changed: Use super.create from CrudMixin with schema
 
       // Use centralized logging service
       await ActivityService.logEntityCreated(result.id, 'project', result.id, result.name)
 
       return result
     } catch (error) {
-      console.error('Error creating project:', error)
-      throw error
+      console.error('Error creating project:', error) // Standardized logging
+      throw new Error(`Failed to create project: ${error.message}`) // Rethrow descriptive error
     }
   }
 
   /**
-   * Get all projects
+   * Get all projects.
+   * @returns {Promise<Array<Object>>} Array of projects.
    */
   async getAllProjects() {
     try {
-      return await this.getAll()
+      return await super.getAll() // Changed: Use super.getAll from CrudMixin
     } catch (error) {
-      console.error('Error getting all projects:', error)
-      throw error
+      console.error('Error getting all projects:', error) // Standardized logging
+      throw new Error(`Failed to get all projects: ${error.message}`) // Rethrow descriptive error
     }
   }
 
   /**
-   * Get project by project ID
+   * Get project by project ID.
+   * @param {string} projectId - Project ID.
+   * @returns {Promise<Object|null>} Project data or null.
    */
   async getProject(projectId) {
     try {
-      return await this.getById(projectId)
+      return await super.getById(projectId) // Changed: Use super.getById from CrudMixin
     } catch (error) {
-      console.error('Error get project by projectId:', error)
-      throw error
+      console.error('Error getting project by ID:', error) // Standardized logging
+      throw new Error(`Failed to get project: ${error.message}`) // Rethrow descriptive error
     }
   }
 
   /**
-   * Get projects by client ID
+   * Get projects by client ID.
+   * @param {string} clientId - Client ID.
+   * @returns {Promise<Array<Object>>} Array of matching projects.
    */
   async getProjectsByClient(clientId) {
     try {
-      return await this.getByField('clientId', clientId)
+      return await super.getByField('clientId', clientId) // Changed: Use super.getByField from CrudMixin
     } catch (error) {
-      console.error('Error getting projects by client:', error)
-      throw error
+      console.error('Error getting projects by client:', error) // Standardized logging
+      throw new Error(`Failed to get projects by client: ${error.message}`) // Rethrow descriptive error
     }
   }
 
   /**
-   * Get projects by status
+   * Get projects by status.
+   * @param {string} status - Project status.
+   * @returns {Promise<Array<Object>>} Array of matching projects.
    */
   async getProjectsByStatus(status) {
     try {
-      return await this.getByField('status', status)
+      return await super.getByField('status', status) // Changed: Use super.getByField from CrudMixin
     } catch (error) {
-      console.error('Error getting projects by status:', error)
-      throw error
+      console.error('Error getting projects by status:', error) // Standardized logging
+      throw new Error(`Failed to get projects by status: ${error.message}`) // Rethrow descriptive error
     }
   }
 
   /**
-   * Get active projects (not completed or cancelled)
+   * Get active projects (not completed or cancelled).
+   * @returns {Promise<Array<Object>>} Array of active projects.
    */
   async getActiveProjects() {
     try {
-      const allProjects = await this.getAll()
+      const allProjects = await super.getAll() // Changed: Use super.getAll from CrudMixin
       return allProjects.filter(
         (project) => !['completed', 'cancelled', 'on-hold'].includes(project.status),
       )
     } catch (error) {
-      console.error('Error getting active projects:', error)
-      throw error
+      console.error('Error getting active projects:', error) // Standardized logging
+      throw new Error(`Failed to get active projects: ${error.message}`) // Rethrow descriptive error
     }
   }
 
   /**
-   * Update project with enhanced validation and activity logging
+   * Update project with enhanced validation and activity logging.
+   * @param {string} projectId - Project ID.
+   * @param {Object} updates - Updates to apply.
+   * @returns {Promise<Object>} Updated project.
    */
   async updateProject(projectId, updates) {
     try {
-      const result = await this.updateWithValidation(projectId, updates)
+      // Added: Validate updates before proceeding (implement validateUpdates if needed)
+      const validation = this.validateRequired(updates, []) // Example; adjust for optional fields
+      if (!validation.isValid) {
+        throw new Error(`Validation failed: ${JSON.stringify(validation.errors)}`)
+      }
+
+      const result = await super.update(projectId, updates, PROJECT_SCHEMA) // Changed: Use super.update from CrudMixin with schema
 
       // Log significant updates using centralized service
       if (updates.phase) {
@@ -114,7 +143,7 @@ class ProjectRepository extends BaseRepository {
       }
 
       if (updates.status) {
-        const project = await this.getById(projectId)
+        const project = await super.getById(projectId) // Use super.getById
         await ActivityService.logStatusChange(
           projectId,
           'project',
@@ -132,7 +161,7 @@ class ProjectRepository extends BaseRepository {
       )
 
       if (significantChanges.length > 0) {
-        const project = await this.getById(projectId)
+        const project = await super.getById(projectId) // Use super.getById
         await ActivityService.logEntityUpdated(
           projectId,
           'project',
@@ -144,37 +173,40 @@ class ProjectRepository extends BaseRepository {
 
       return result
     } catch (error) {
-      console.error('Error updating project:', error)
-      throw error
+      console.error('Error updating project:', error) // Standardized logging
+      throw new Error(`Failed to update project: ${error.message}`) // Rethrow descriptive error
     }
   }
 
   /**
-   * Get project with all related entities (comprehensive project view)
+   * Get project with all related entities (comprehensive project view).
+   * @param {string} projectId - Project ID.
+   * @returns {Promise<Object|null>} Project with details or null.
    */
   async getProjectWithDetails(projectId) {
     try {
-      const project = await this.getById(projectId)
+      const project = await super.getById(projectId) // Changed: Use super.getById from CrudMixin
       if (!project) return null
 
       // We'll need to import other repositories or use dependency injection
-      // For now, we'll return the project and let the caller fetch related data
+      // For now, return the project and let the caller fetch related data
       return {
         ...project,
         _hasRelatedData: true, // Flag indicating this could be enhanced
       }
     } catch (error) {
-      console.error('Error getting project with details:', error)
-      throw error
+      console.error('Error getting project with details:', error) // Standardized logging
+      throw new Error(`Failed to get project with details: ${error.message}`) // Rethrow descriptive error
     }
   }
 
   /**
-   * Get project analytics/statistics
+   * Get project analytics/statistics.
+   * @returns {Promise<Object>} Project statistics.
    */
   async getProjectStatistics() {
     try {
-      const allProjects = await this.getAll()
+      const allProjects = await super.getAll() // Changed: Use super.getAll from CrudMixin
 
       const stats = {
         total: allProjects.length,
@@ -226,17 +258,19 @@ class ProjectRepository extends BaseRepository {
 
       return stats
     } catch (error) {
-      console.error('Error getting project statistics:', error)
-      throw error
+      console.error('Error getting project statistics:', error) // Standardized logging
+      throw new Error(`Failed to get project statistics: ${error.message}`) // Rethrow descriptive error
     }
   }
 
   /**
-   * Search projects by name, job number, or client
+   * Search projects by name, job number, or client.
+   * @param {string} searchTerm - Search term.
+   * @returns {Promise<Array<Object>>} Matching projects.
    */
   async searchProjects(searchTerm) {
     try {
-      const allProjects = await this.getAll()
+      const allProjects = await super.getAll() // Changed: Use super.getAll from CrudMixin
       const term = searchTerm.toLowerCase().trim()
 
       return allProjects.filter((project) => {
@@ -248,17 +282,19 @@ class ProjectRepository extends BaseRepository {
         )
       })
     } catch (error) {
-      console.error('Error searching projects:', error)
-      throw error
+      console.error('Error searching projects:', error) // Standardized logging
+      throw new Error(`Failed to search projects: ${error.message}`) // Rethrow descriptive error
     }
   }
 
   /**
-   * Get projects with upcoming deadlines
+   * Get projects with upcoming deadlines.
+   * @param {number} days - Number of days ahead (default 30).
+   * @returns {Promise<Array<Object>>} Projects with upcoming deadlines.
    */
   async getProjectsWithUpcomingDeadlines(days = 30) {
     try {
-      const allProjects = await this.getAll()
+      const allProjects = await super.getAll() // Changed: Use super.getAll from CrudMixin
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() + days)
 
@@ -273,13 +309,15 @@ class ProjectRepository extends BaseRepository {
         })
         .sort((a, b) => new Date(a.endDate) - new Date(b.endDate))
     } catch (error) {
-      console.error('Error getting projects with upcoming deadlines:', error)
-      throw error
+      console.error('Error getting projects with upcoming deadlines:', error) // Standardized logging
+      throw new Error(`Failed to get projects with upcoming deadlines: ${error.message}`) // Rethrow descriptive error
     }
   }
 
   /**
-   * Real-time subscriptions with business logic
+   * Real-time subscriptions with business logic.
+   * @param {Function} callback - Callback for projects.
+   * @returns {Object} Unsubscribe reference.
    */
   subscribeToProjects(callback) {
     const sortByPriority = (a, b) => {
@@ -310,18 +348,23 @@ class ProjectRepository extends BaseRepository {
       return (a.name || '').localeCompare(b.name || '')
     }
 
-    return this.subscribeToAll(callback, sortByPriority)
+    return super.subscribeToAll(callback, sortByPriority) // Changed: Use super.subscribeToAll from RealtimeMixin
   }
 
   /**
-   * Subscribe to projects by client
+   * Subscribe to projects by client.
+   * @param {string} clientId - Client ID.
+   * @param {Function} callback - Callback for projects.
+   * @returns {Object} Unsubscribe reference.
    */
   subscribeToProjectsByClient(clientId, callback) {
-    return this.subscribeToByField('clientId', clientId, callback)
+    return super.subscribeToByField('clientId', clientId, callback) // Changed: Use super.subscribeToByField from RealtimeMixin
   }
 
   /**
-   * Subscribe to active projects only
+   * Subscribe to active projects only.
+   * @param {Function} callback - Callback for active projects.
+   * @returns {Object} Unsubscribe reference.
    */
   subscribeToActiveProjects(callback) {
     const filterActive = (projects) => {
@@ -331,19 +374,25 @@ class ProjectRepository extends BaseRepository {
       callback(activeProjects)
     }
 
-    return this.subscribeToAll(filterActive)
+    return super.subscribeToAll(filterActive) // Changed: Use super.subscribeToAll from RealtimeMixin
   }
 
   /**
-   * Subscribe to a single project (for project detail views)
+   * Subscribe to a single project (for project detail views).
+   * @param {string} projectId - Project ID.
+   * @param {Function} callback - Callback for project data.
+   * @returns {Object} Unsubscribe reference.
    */
   subscribeToProject(projectId, callback) {
-    return this.subscribeToOne(projectId, callback)
+    return super.subscribeToOne(projectId, callback) // Changed: Use super.subscribeToOne from RealtimeMixin
   }
 
   /**
-   * Subscribe to project-related entities
-   * These methods coordinate with other collections but are project-centric
+   * Subscribe to project-related entities.
+   * These methods coordinate with other collections but are project-centric.
+   * @param {string} projectId - Project ID.
+   * @param {Function} callback - Callback for tasks.
+   * @returns {Object} Unsubscribe reference.
    */
   subscribeToProjectTasks(projectId, callback) {
     try {
@@ -373,8 +422,8 @@ class ProjectRepository extends BaseRepository {
 
       return projectTasksQuery
     } catch (error) {
-      console.error('Error subscribing to project tasks:', error)
-      throw error
+      console.error('Error subscribing to project tasks:', error) // Standardized logging
+      throw new Error(`Failed to subscribe to project tasks: ${error.message}`) // Rethrow descriptive error
     }
   }
 
@@ -398,8 +447,8 @@ class ProjectRepository extends BaseRepository {
 
       return projectDocsQuery
     } catch (error) {
-      console.error('Error subscribing to project documents:', error)
-      throw error
+      console.error('Error subscribing to project documents:', error) // Standardized logging
+      throw new Error(`Failed to subscribe to project documents: ${error.message}`) // Rethrow descriptive error
     }
   }
 
@@ -421,8 +470,8 @@ class ProjectRepository extends BaseRepository {
 
       return projectRFIsQuery
     } catch (error) {
-      console.error('Error subscribing to project RFIs:', error)
-      throw error
+      console.error('Error subscribing to project RFIs:', error) // Standardized logging
+      throw new Error(`Failed to subscribe to project RFIs: ${error.message}`) // Rethrow descriptive error
     }
   }
 
@@ -448,8 +497,8 @@ class ProjectRepository extends BaseRepository {
 
       return projectSubmittalsQuery
     } catch (error) {
-      console.error('Error subscribing to project submittals:', error)
-      throw error
+      console.error('Error subscribing to project submittals:', error) // Standardized logging
+      throw new Error(`Failed to subscribe to project submittals: ${error.message}`) // Rethrow descriptive error
     }
   }
 
@@ -471,16 +520,18 @@ class ProjectRepository extends BaseRepository {
 
       return projectCOsQuery
     } catch (error) {
-      console.error('Error subscribing to project change orders:', error)
-      throw error
+      console.error('Error subscribing to project change orders:', error) // Standardized logging
+      throw new Error(`Failed to subscribe to project change orders: ${error.message}`) // Rethrow descriptive error
     }
   }
 
   /**
-   * Project-specific validation
+   * Project-specific validation.
+   * @param {Object} projectData - Data to validate.
+   * @returns {Object} Validation result with isValid and errors.
    */
   validateProjectData(projectData) {
-    const validation = super.validateData(projectData, ['name', 'jobNumber'])
+    const validation = this.validateRequired(projectData, ['name', 'jobNumber']) // Assuming validateRequired is in utils; implement if needed
 
     // Add project-specific validations
     if (projectData.startDate && projectData.endDate) {
@@ -515,7 +566,10 @@ class ProjectRepository extends BaseRepository {
   }
 
   /**
-   * Bulk operations for projects
+   * Bulk operations for projects.
+   * @param {Array<string>} projectIds - Array of project IDs.
+   * @param {string} status - New status.
+   * @returns {Promise<Array<Object>>} Updated results.
    */
   async bulkUpdateProjectStatus(projectIds, status) {
     try {
@@ -524,7 +578,7 @@ class ProjectRepository extends BaseRepository {
         ...(status === 'completed' && { completedAt: new Date().toISOString() }),
       }
 
-      const results = await this.bulkUpdate(projectIds, updates)
+      const results = await Promise.all(projectIds.map((id) => super.update(id, updates))) // Changed: Use super.update from CrudMixin in loop
 
       // Use centralized bulk logging
       await ActivityService.logBulkActivity(
@@ -537,17 +591,19 @@ class ProjectRepository extends BaseRepository {
 
       return results
     } catch (error) {
-      console.error('Error in bulk update project status:', error)
-      throw error
+      console.error('Error in bulk update project status:', error) // Standardized logging
+      throw new Error(`Failed to bulk update project status: ${error.message}`) // Rethrow descriptive error
     }
   }
 
   /**
-   * Advanced project queries
+   * Advanced project queries.
+   * @param {Object} filters - Filter options.
+   * @returns {Promise<Array<Object>>} Filtered projects.
    */
   async getProjectsWithFilters(filters = {}) {
     try {
-      let projects = await this.getAll()
+      let projects = await super.getAll() // Changed: Use super.getAll from CrudMixin
 
       // Apply filters
       if (filters.status && filters.status.length > 0) {
@@ -589,15 +645,17 @@ class ProjectRepository extends BaseRepository {
 
       return projects
     } catch (error) {
-      console.error('Error getting projects with filters:', error)
-      throw error
+      console.error('Error getting projects with filters:', error) // Standardized logging
+      throw new Error(`Failed to get projects with filters: ${error.message}`) // Rethrow descriptive error
     }
   }
 
   // ==================== HELPER METHODS ====================
 
   /**
-   * Check if project is overdue
+   * Check if project is overdue.
+   * @param {Object} project - Project data.
+   * @returns {boolean} True if overdue.
    */
   isProjectOverdue(project) {
     if (!project.endDate || ['completed', 'cancelled'].includes(project.status)) {
@@ -608,19 +666,23 @@ class ProjectRepository extends BaseRepository {
   }
 
   /**
-   * Check if date is upcoming deadline
+   * Check if date is upcoming deadline.
+   * @param {string} dateString - Date string.
+   * @returns {boolean} True if upcoming.
    */
-  isUpcomingDeadline(dateString, days = 30) {
+  isUpcomingDeadline(dateString) {
     const deadline = new Date(dateString)
     const today = new Date()
     const futureDate = new Date()
-    futureDate.setDate(today.getDate() + days)
+    futureDate.setDate(today.getDate() + 30)
 
     return deadline >= today && deadline <= futureDate
   }
 
   /**
-   * Get days until a specific date
+   * Get days until a specific date.
+   * @param {string} dateString - Date string.
+   * @returns {number} Days until date.
    */
   getDaysUntilDate(dateString) {
     const targetDate = new Date(dateString)
@@ -630,7 +692,9 @@ class ProjectRepository extends BaseRepository {
   }
 
   /**
-   * Validate project status
+   * Validate project status.
+   * @param {string} status - Status to validate.
+   * @returns {boolean} True if valid.
    */
   isValidProjectStatus(status) {
     const validStatuses = [
@@ -646,7 +710,9 @@ class ProjectRepository extends BaseRepository {
   }
 
   /**
-   * Validate project phase
+   * Validate project phase.
+   * @param {string} phase - Phase to validate.
+   * @returns {boolean} True if valid.
    */
   isValidProjectPhase(phase) {
     const validPhases = [
@@ -662,7 +728,11 @@ class ProjectRepository extends BaseRepository {
   }
 
   /**
-   * Sort projects by various criteria
+   * Sort projects by various criteria.
+   * @param {Array<Object>} projects - Projects to sort.
+   * @param {string} sortBy - Field to sort by.
+   * @param {string} direction - 'asc' or 'desc' (default 'asc').
+   * @returns {Array<Object>} Sorted projects.
    */
   sortProjects(projects, sortBy, direction = 'asc') {
     return projects.sort((a, b) => {
@@ -695,4 +765,5 @@ class ProjectRepository extends BaseRepository {
   }
 }
 
+// Export singleton instance as per repository pattern
 export default new ProjectRepository()

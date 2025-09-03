@@ -1,52 +1,64 @@
 // src/composables/useAuth.js
-import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import authService from '@/services/auth/authService'
+import { useAuthStore } from '@/stores' // Import via stores/index.js wrapper for centralized access
 
+/**
+ * Composable for handling authentication using Pinia store.
+ * Provides access to auth state and methods, with optional Google sign-in and user syncing.
+ *
+ * @returns {Object} Auth state and methods.
+ * @property {Ref<Object|null>} user - Current synced user (from Auth and RTDB).
+ * @property {ComputedRef<boolean>} isAuthenticated - Authentication status.
+ * @property {Ref<boolean>} loading - Loading state.
+ * @property {Ref<string>} error - Error message.
+ * @property {Ref<string>} success - Success message.
+ * @property {Function} signIn - Email/password sign-in with sync.
+ * @property {Function} googleSignIn - Optional Google sign-in with sync.
+ * @property {Function} logout - Logout function.
+ */
 export function useAuth() {
   const router = useRouter()
+  const authStore = useAuthStore()
 
-  // State - moved from LoginView
-  const loading = ref(false)
-  const error = ref('')
-  const success = ref('')
-
-  // Login method - moved from LoginView
   const signIn = async (email, password) => {
-    if (!email || !password) {
-      error.value = 'Please enter both email and password'
-      return
-    }
-
-    loading.value = true
-    error.value = ''
-    success.value = ''
-
     try {
-      const result = await authService.signIn(email, password)
-
-      if (result.success) {
-        success.value = 'Successfully signed in!'
-        // Redirect to dashboard or intended route
-        router.push('/')
-      } else {
-        error.value = result.error
-      }
+      await authStore.signIn(email, password)
+      router.push('/')
     } catch (err) {
-      error.value = 'An unexpected error occurred. Please try again.'
-      console.error('Login error:', err)
-    } finally {
-      loading.value = false
+      console.error('Sign-in error:', err)
+      throw new Error(`Sign-in failed: ${err.message}`)
+    }
+  }
+
+  // Added: Optional Google sign-in method, calling store action for sync
+  const googleSignIn = async () => {
+    try {
+      await authStore.googleSignIn()
+      router.push('/')
+    } catch (err) {
+      console.error('Google sign-in error:', err)
+      throw new Error(`Google sign-in failed: ${err.message}`)
+    }
+  }
+
+  const logout = async () => {
+    try {
+      await authStore.logout()
+      router.push('/login')
+    } catch (err) {
+      console.error('Logout error:', err)
+      throw new Error(`Logout failed: ${err.message}`)
     }
   }
 
   return {
-    // State
-    loading,
-    error,
-    success,
-
-    // Methods
-    signIn
+    user: authStore.user,
+    isAuthenticated: authStore.isAuthenticated,
+    loading: authStore.loading,
+    error: authStore.error,
+    success: authStore.success,
+    signIn,
+    googleSignIn, // Added: Expose Google sign-in for optional use in views
+    logout,
   }
 }

@@ -13,7 +13,7 @@ import {
   off,
 } from 'firebase/database'
 import { database } from '@/configs/firebase'
-import authService from '@/services/auth/authService'
+import { getCurrentUserId, getCurrentUserName } from '@/services/auth/authService'
 import {
   sanitizeForFirebase,
   sanitizeWithSchema,
@@ -594,11 +594,11 @@ class FirebaseService {
   // ==================== UTILITY METHODS ====================
 
   getCurrentUserId() {
-    return authService.getCurrentUserId() || 'system'
+    return getCurrentUserId() || 'system'
   }
 
   getCurrentUserName() {
-    return authService.getCurrentUserName() || 'System'
+    return getCurrentUserName() || 'System'
   }
 
   // Generic batch operations
