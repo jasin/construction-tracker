@@ -9,15 +9,35 @@
           <div class="text-xl font-bold">Construction Tracker</div>
           <!-- Project Selector with fuzzy search -->
           <AutoComplete
+            ref="autoCompleteRef"
             v-model="selectedProject"
             :suggestions="filteredProjects"
             @complete="handleProjectSearch"
             optionLabel="name"
+            optionGroupLabel="name"
+            optionGroupChildren="items"
             placeholder="Select a project"
-            class="ml-4 w-64"
+            class="ml-4 w-64 text-xs"
             @item-select="handleProjectSelect"
+            size="small"
             dropdown
-          />
+          >
+            <template #optiongroup="slotProps">
+              <div class="font-semibold text-sm text-gray-700">{{ slotProps.option.name }}</div>
+            </template>
+            <template #header>
+              <div
+                v-if="selectedProject"
+                class="p-3 text-sm font-medium text-blue-600 cursor-pointer hover:bg-blue-50"
+                @click="resetToDashboard"
+                >
+                ← Back to Dashboard
+              </div>
+            </template>
+            <template #option="slotProps">
+              <div class="text-xs text-gray-800">{{ slotProps.option.name }}</div>
+            </template>
+          </AutoComplete>
         </div>
         <div class="flex items-center gap-4">
           <Button icon="pi pi-bell" severity="secondary" text />
@@ -350,18 +370,52 @@ onUnmounted(() => {
   }
 })
 
+// New: Mapping from project phase to group name (based on HTML structure)
+const phaseToGroup = {
+  'construction': 'Active Projects',
+  'pre-construction': 'Pre-Construction',
+  'complete': 'Completed',
+  // Add more mappings if needed, e.g., 'close-out': 'Close-Out'
+}
+
+// New: Ordered list for sorting groups
+const groupOrder = ['Active Projects', 'Pre-Construction', 'Completed']
+
+// New: Function to group and sort projects (with optional query for filtering)
+const groupProjects = (projectsList, query = '') => {
+  const lowerQuery = query.toLowerCase()
+  const filtered = query
+    ? projectsList.filter(p =>
+        p.name.toLowerCase().includes(lowerQuery) ||
+        (p.jobNumber || '').toLowerCase().includes(lowerQuery)
+      )
+    : projectsList
+
+  const groupsMap = {}
+  filtered.forEach(p => {
+    const groupName = phaseToGroup[p.phase] || 'Other'
+    if (!groupsMap[groupName]) groupsMap[groupName] = []
+    groupsMap[groupName].push(p)
+  })
+
+  const groups = Object.keys(groupsMap).map(name => ({
+    name,
+    items: groupsMap[name].sort((a, b) => a.name.localeCompare(b.name))  // Sort projects by name within group
+  })).filter(g => g.items.length > 0)  // Exclude empty groups
+
+  // Sort groups by predefined order
+  groups.sort((a, b) => groupOrder.indexOf(a.name) - groupOrder.indexOf(b.name))
+
+  return groups
+}
+
 /**
  * Handles project search by filtering projects based on query.
  * Assigns to filteredProjects ref for dropdown suggestions.
  * @param {Object} event - AutoComplete complete event.
  */
 const handleProjectSearch = (event) => {
-  searchQuery.value = event.query
-  const query = searchQuery.value.toLowerCase()
-  filteredProjects.value = projects.value.filter(
-    (p) =>
-      p.name.toLowerCase().includes(query) || (p.jobNumber || p.id).toLowerCase().includes(query),
-  )
+  filteredProjects.value = groupProjects(projects.value, event.query)
 }
 
 const handleProjectSelect = (event) => {
