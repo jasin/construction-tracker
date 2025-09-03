@@ -1,7 +1,7 @@
 // src/services/logging/ActivityService.js
 import { ref, push, set, get, query, orderByChild, equalTo, remove } from 'firebase/database'
 import { database } from '@/configs/firebase'
-import authService from '@/services/auth/authService'
+import { getCurrentUserId, getCurrentUserName } from '@/services/auth/authService'
 import { sanitizeForFirebase } from '@/utils/index'
 
 /**
@@ -19,11 +19,11 @@ class ActivityService {
    * Get current user info with fallbacks
    */
   getCurrentUserId() {
-    return authService.getCurrentUserId() || 'system'
+    return getCurrentUserId() || 'system'
   }
 
   getCurrentUserName() {
-    return authService.getCurrentUserName() || 'System'
+    return getCurrentUserName() || 'System'
   }
 
   /**

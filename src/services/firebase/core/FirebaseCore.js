@@ -1,6 +1,6 @@
 // src/services/firebase/core/FirebaseCore.js
 import { database } from '@/configs/firebase'
-import authService from '@/services/auth/authService'
+import { getCurrentUserId, getCurrentUserName } from '@/services/auth/authService'
 
 /**
  * Core Firebase utilities and connection management
@@ -14,14 +14,14 @@ class FirebaseCore {
    * Get current user ID with fallback
    */
   getCurrentUserId() {
-    return authService.getCurrentUserId() || 'system'
+    return getCurrentUserId() || 'system'
   }
 
   /**
    * Get current user name with fallback
    */
   getCurrentUserName() {
-    return authService.getCurrentUserName() || 'System'
+    return getCurrentUserName() || 'System'
   }
 
   /**
