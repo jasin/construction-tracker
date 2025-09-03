@@ -1,5 +1,6 @@
 // composables/useProject.js
 import { storeToRefs } from 'pinia'
+import { computed } from 'vue'
 import { useProjectStore } from '@/stores/project'
 import { useConstructionStore } from '@/stores/construction'
 import { useActivityStore } from '@/stores/activity'
@@ -30,7 +31,7 @@ export function useProject(projectId) {
     recentDocuments
   } = storeToRefs(constructionStore)
   const { recentActivities, todaysActivities } = storeToRefs(activityStore)
-  const { permissions } = storeToRefs(authStore)
+  const permissions = computed(() => authStore.getPermissions)
   const { setActiveTab, openModal, closeModal } = uiStore
 
   // Initialize project data
@@ -51,12 +52,13 @@ export function useProject(projectId) {
         title: 'Project Loaded',
         message: `Connected to ${currentProject.value.name}`
       })
-    } catch (err) {
+    } catch (error) {
       uiStore.addNotification({
         type: 'error',
         title: 'Error',
         message: 'Failed to load project data'
       })
+      throw new Error(`Failed to load project data: ${error.message}`)
     }
   }
 

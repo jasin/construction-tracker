@@ -10,9 +10,22 @@ export const useAuthStore = defineStore('auth', {
     loading: false,
     error: '',
     success: '',
+    permissions: {},
   }),
 
+
+
   getters: {
+    getPermissions(state) {
+      const role = state.user?.role || 'guest'  // Fallback role
+      return {
+        canManageProject: role === 'admin' || role === 'project-manager',
+        canViewSubmittals: role !== 'foreman',
+        canManageChangeOrders: role === 'admin' || role === 'project-manager',
+        canCreateTasks: true,
+        canUploadDocuments: true
+      }
+    },
     isAuthenticated: (state) => !!state.user,
   },
 
@@ -37,6 +50,7 @@ export const useAuthStore = defineStore('auth', {
                   email: firebaseUser.email,
                   name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
                   photo: firebaseUser.photoURL || null,
+                  role: 'user',
                   // Add other defaults per your user schema
                 })
               }
