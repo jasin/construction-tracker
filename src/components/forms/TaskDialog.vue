@@ -405,7 +405,7 @@ const handleSubmit = async () => {
       projectId: form.value.projectId || props.projectId || null,
     }
 
-    let updatedTask
+    let taskSaved
 
     if (props.task?.id) {
       // Update existing task
@@ -416,13 +416,13 @@ const handleSubmit = async () => {
 
       await TaskRepository.updateTask(props.task.id, updates)
       success.value = 'Task updated successfully!'
-      updatedTask = { ...props.task, ...updates }
-      emit('task-updated', updatedTask)
+      taskSaved = { ...props.task, ...updates }
+      emit('task-saved', taskSaved)
     } else {
       // Create new task
-      updatedTask = await TaskRepository.createTask(taskData)
+      taskSaved = await TaskRepository.createTask(taskData)
       success.value = 'Task created successfully!'
-      emit('task-created', updatedTask)
+      emit('task-saved', taskSaved)
     }
 
     // Close modal after a brief delay

@@ -218,7 +218,7 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['update:visible', 'project-updated'])
+const emit = defineEmits(['update:visible', 'project-saved'])
 
 // Reactive state
 const loading = ref(false)
@@ -347,18 +347,18 @@ const handleSubmit = async () => {
       updatedAt: new Date().toISOString(),
     }
 
-    let newProject
+    let projectSaved
 
     if (props.project?.id) {
       await ProjectRepository.updateProject(props.project.id, projectData)
       success.value = 'Project updated successfully'
-      newProject = { ...props.project, ...projectData }
+      projectSaved = { ...props.project, ...projectData }
     } else {
-      newProject = await ProjectRepository.createProject(projectData)
+      projectSaved = await ProjectRepository.createProject(projectData)
       success.value = 'Project created successfully'
     }
 
-    emit('project-updated', newProject)
+    emit('project-saved', projectSaved)
 
     // Close modal after a brief delay
     setTimeout(() => {

@@ -60,8 +60,9 @@
       <!-- Context Menu for actions (right-click anywhere) -->
       <ContextMenu ref="contextMenu" :model="contextMenuItems" />
       <Toast />
-      <ProjectDialog v-model:visible="showProjectDialog" @project-updated="handleProjectUpdated" />
-      <TaskDialog v-model:visible="showTaskDialog" @task-updated="handleTaskUpdated" />
+      <ProjectDialog v-model:visible="showProjectDialog" @project-saved="handleProjectUpdated" />
+      <TaskDialog v-model:visible="showTaskDialog" @task-saved="handleTaskUpdated" />
+      <RFIDialog v-model:visible="showRFIDialog" @rfi-saved="handleRFISaved" />
     </div>
   </div>
 </template>
@@ -72,7 +73,6 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores' // Centralized store import via index.js
 import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository' // Singleton repository import
 import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository' // Singleton for document uploads
-import RFIRepository from '@/services/firebase/Repositories/RFIRepository' // Singleton for RFIs
 import SubmittalRepository from '@/services/firebase/Repositories/SubmittalRepository' // Singleton for submittals
 import ChangeOrderRepository from '@/services/firebase/Repositories/ChangeOrderRepository' // Singleton for change orders
 import { useToast } from 'primevue/usetoast' // Composable for toast notifications
@@ -87,6 +87,7 @@ import ContextMenu from 'primevue/contextmenu' // PrimeVue ContextMenu for right
 import Toast from 'primevue/toast' // PrimeVue Toast component for notifications
 import ProjectDialog from './components/forms/ProjectDialog.vue'
 import TaskDialog from './components/forms/TaskDialog.vue'
+import RFIDialog from './components/forms/RFIDialog.vue'
 
 let projectUnsubscribe = null
 
@@ -102,6 +103,7 @@ const contextMenu = ref() // Ref for ContextMenu component
 const autoCompleteRef = ref()
 const showProjectDialog = ref(false)
 const showTaskDialog = ref(false)
+const showRFIDialog = ref(false)
 
 // Define functions before refs for proper initialization order
 
@@ -155,19 +157,20 @@ const handleTaskUpdated = (task) => {
     life: 3000,
   })
 }
-
 /**
- * Submits an RFI.
+ * Handles the rfi-saved event from TaskDialog.
+ * Since realtime subscriptions are in place, we don't need to manually refresh rfis.value.
+ * This can be used for additional UI feedback if needed.
+ * @param {Object} RFI - The created or updated RFI data.
  */
-const submitRFI = async () => {
-  try {
-    await RFIRepository.create({ title: 'New RFI', projectId: selectedProject.value?.id })
-    toast.add({ severity: 'success', summary: 'Success', detail: 'RFI submitted', life: 3000 })
-  } catch (error) {
-    console.error('Submit RFI error:', error)
-    toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to submit RFI', life: 3000 })
-    throw new Error(`Failed to submit RFI: ${error.message}`)
-  }
+const handleRFISaved = (rfi) => {
+  showRFIDialog.value = false
+  toast.add({
+    severity: 'success',
+    summary: 'Success',
+    detail: rfi.id ? 'RFI updated successfully' : 'RFI created successfully',
+    life: 3000,
+  })
 }
 
 /**
@@ -296,7 +299,9 @@ const contextMenuItems = ref([
   {
     label: 'Submit RFI',
     icon: 'pi pi-question-circle',
-    command: submitRFI,
+    command: () => {
+      showRFIDialog.value = true
+    },
   },
   {
     label: 'New Submittal',
