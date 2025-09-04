@@ -1,28 +1,17 @@
 // src/services/firebase/repositories/ClientRepository.js
-import BaseRepository from '@/services/firebase/core/BaseRepository'
-import ActivityService from '@/services/logging/ActivityService'
+import BaseRepository from '../core/BaseRepository'
+import { CrudMixin } from '../mixins/CrudMixin'
+import { RealtimeMixin } from '../mixins/RealtimeMixin'
+import ActivityService from '../../logging/ActivityService'
 import { CLIENT_SCHEMA } from '../schemas'
-
-/*// Client schema
-const CLIENT_SCHEMA = {
-  name: 'string',
-  company: 'string',
-  email: 'string',
-  phone: 'string',
-  address: 'string',
-  notes: 'string',
-  website: 'string',
-  contactPerson: 'string',
-  active: 'boolean',
-}*/
 
 /**
  * Client Repository - handles all client-related Firebase operations
  * Includes client management, project relationships, and contact information
  */
-class ClientRepository extends BaseRepository {
+class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   constructor() {
-    super('clients', 'Client', CLIENT_SCHEMA)
+    super('clients')
   }
 
   /**
