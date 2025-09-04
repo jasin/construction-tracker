@@ -30,7 +30,7 @@
                 v-if="selectedProject"
                 class="p-3 text-sm font-medium text-blue-600 cursor-pointer hover:bg-blue-50"
                 @click="resetToDashboard"
-                >
+              >
                 ← Back to Dashboard
               </div>
             </template>
@@ -60,6 +60,8 @@
       <!-- Context Menu for actions (right-click anywhere) -->
       <ContextMenu ref="contextMenu" :model="contextMenuItems" />
       <Toast />
+      <ProjectDialog v-model:visible="showProjectDialog" @project-updated="handleProjectUpdated" />
+      <TaskDialog v-model:visible="showTaskDialog" @task-updated="handleTaskUpdated" />
     </div>
   </div>
 </template>
@@ -70,7 +72,6 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores' // Centralized store import via index.js
 import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository' // Singleton repository import
 import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository' // Singleton for document uploads
-import TaskRepository from '@/services/firebase/Repositories/TaskRepository' // Singleton for tasks
 import RFIRepository from '@/services/firebase/Repositories/RFIRepository' // Singleton for RFIs
 import SubmittalRepository from '@/services/firebase/Repositories/SubmittalRepository' // Singleton for submittals
 import ChangeOrderRepository from '@/services/firebase/Repositories/ChangeOrderRepository' // Singleton for change orders
@@ -84,6 +85,8 @@ import Avatar from 'primevue/avatar'
 import Menu from 'primevue/menu'
 import ContextMenu from 'primevue/contextmenu' // PrimeVue ContextMenu for right-click menu
 import Toast from 'primevue/toast' // PrimeVue Toast component for notifications
+import ProjectDialog from './components/forms/ProjectDialog.vue'
+import TaskDialog from './components/forms/TaskDialog.vue'
 
 let projectUnsubscribe = null
 
@@ -94,35 +97,28 @@ const toast = useToast() // PrimeVue toast for success/error messages
 const projects = ref([])
 const selectedProject = ref(null)
 const filteredProjects = ref([])
-const searchQuery = ref('')
 const userMenu = ref()
 const contextMenu = ref() // Ref for ContextMenu component
+const autoCompleteRef = ref()
+const showProjectDialog = ref(false)
+const showTaskDialog = ref(false)
 
 // Define functions before refs for proper initialization order
 
 /**
- * Creates a new project and refreshes the projects list.
+ * Handles the project-updated event from the ProjectDialog.
+ * Since realtime subscriptions are in place, we don't need to manually refresh projects.value.
+ * This can be used for additional UI feedback if needed.
+ * @param {Object} project - The created or updated project data.
  */
-const createNewProject = async () => {
-  try {
-    await ProjectRepository.create({ name: 'New Project', phase: 'pre-construction' })
-    projects.value = await ProjectRepository.getAll()
-    toast.add({
-      severity: 'success',
-      summary: 'Success',
-      detail: 'New project created',
-      life: 3000,
-    })
-  } catch (error) {
-    console.error('Create project error:', error)
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to create project',
-      life: 3000,
-    })
-    throw new Error(`Failed to create project: ${error.message}`)
-  }
+const handleProjectUpdated = (project) => {
+  showProjectDialog.value = false
+  toast.add({
+    severity: 'success',
+    summary: 'Success',
+    detail: project.id ? 'Project updated successfully' : 'Project created successfully',
+    life: 3000,
+  })
 }
 
 /**
@@ -145,17 +141,19 @@ const uploadDocument = async () => {
 }
 
 /**
- * Creates a new task.
+ * Handles the task-updated event from TaskDialog.
+ * Since realtime subscriptions are in place, we don't need to manually refresh tasks.value.
+ * This can be used for additional UI feedback if needed.
+ * @param {Object} task - The created or updated task data.
  */
-const createTask = async () => {
-  try {
-    await TaskRepository.create({ title: 'New Task', projectId: selectedProject.value?.id })
-    toast.add({ severity: 'success', summary: 'Success', detail: 'Task created', life: 3000 })
-  } catch (error) {
-    console.error('Create task error:', error)
-    toast.add({ severity: 'error', summary: 'Error', detail: 'Failed to create task', life: 3000 })
-    throw new Error(`Failed to create task: ${error.message}`)
-  }
+const handleTaskUpdated = (task) => {
+  showTaskDialog.value = false
+  toast.add({
+    severity: 'success',
+    summary: 'Success',
+    detail: task.id ? 'Task updated successfully' : 'Task created successfully',
+    life: 3000,
+  })
 }
 
 /**
@@ -279,7 +277,9 @@ const contextMenuItems = ref([
   {
     label: 'New Project',
     icon: 'pi pi-plus',
-    command: createNewProject,
+    command: () => {
+      showProjectDialog.value = true
+    },
   },
   {
     label: 'Upload Document',
@@ -289,7 +289,9 @@ const contextMenuItems = ref([
   {
     label: 'Create Task',
     icon: 'pi pi-check-square',
-    command: createTask,
+    command: () => {
+      showTaskDialog.value = true
+    },
   },
   {
     label: 'Submit RFI',
@@ -317,14 +319,6 @@ const contextMenuItems = ref([
     command: settings,
   },
 ])
-/*
-const filteredProjects = computed(() => {
-  const query = searchQuery.value.toLowerCase()
-  return projects.value.filter(
-    (p) =>
-      p.name.toLowerCase().includes(query) || (p.jobNumber || p.id).toLowerCase().includes(query),
-  )
-})*/
 
 const userInitials = computed(() => {
   if (!authStore.user?.name) return 'U'
@@ -372,9 +366,9 @@ onUnmounted(() => {
 
 // New: Mapping from project phase to group name (based on HTML structure)
 const phaseToGroup = {
-  'construction': 'Active Projects',
+  construction: 'Active Projects',
   'pre-construction': 'Pre-Construction',
-  'complete': 'Completed',
+  complete: 'Completed',
   // Add more mappings if needed, e.g., 'close-out': 'Close-Out'
 }
 
@@ -385,23 +379,26 @@ const groupOrder = ['Active Projects', 'Pre-Construction', 'Completed']
 const groupProjects = (projectsList, query = '') => {
   const lowerQuery = query.toLowerCase()
   const filtered = query
-    ? projectsList.filter(p =>
-        p.name.toLowerCase().includes(lowerQuery) ||
-        (p.jobNumber || '').toLowerCase().includes(lowerQuery)
+    ? projectsList.filter(
+        (p) =>
+          p.name.toLowerCase().includes(lowerQuery) ||
+          (p.jobNumber || '').toLowerCase().includes(lowerQuery),
       )
     : projectsList
 
   const groupsMap = {}
-  filtered.forEach(p => {
+  filtered.forEach((p) => {
     const groupName = phaseToGroup[p.phase] || 'Other'
     if (!groupsMap[groupName]) groupsMap[groupName] = []
     groupsMap[groupName].push(p)
   })
 
-  const groups = Object.keys(groupsMap).map(name => ({
-    name,
-    items: groupsMap[name].sort((a, b) => a.name.localeCompare(b.name))  // Sort projects by name within group
-  })).filter(g => g.items.length > 0)  // Exclude empty groups
+  const groups = Object.keys(groupsMap)
+    .map((name) => ({
+      name,
+      items: groupsMap[name].sort((a, b) => a.name.localeCompare(b.name)), // Sort projects by name within group
+    }))
+    .filter((g) => g.items.length > 0) // Exclude empty groups
 
   // Sort groups by predefined order
   groups.sort((a, b) => groupOrder.indexOf(a.name) - groupOrder.indexOf(b.name))
@@ -424,6 +421,13 @@ const handleProjectSelect = (event) => {
 
 const toggleUserMenu = (event) => {
   userMenu.value.toggle(event)
+}
+
+const resetToDashboard = () => {
+  selectedProject.value = null
+  if (autoCompleteRef.value) {
+    autoCompleteRef.value.hide()
+  }
 }
 
 /**
