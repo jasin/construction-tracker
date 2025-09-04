@@ -7,7 +7,7 @@
           <h1 class="text-2xl font-bold text-gray-900">Tasks</h1>
           <p class="text-sm text-gray-500 mt-1">Manage and track project tasks</p>
         </div>
-        <Button @click="showTaskSlideOver = true" icon="pi pi-plus" label="New Task" size="small" />
+        <Button @click="showTaskDialog = true" icon="pi pi-plus" label="New Task" size="small" />
       </div>
     </div>
 
@@ -175,7 +175,7 @@
           {{ getEmptyStateMessage() }}
         </p>
         <Button
-          @click="showTaskSlideOver = true"
+          @click="showTaskDialog = true"
           icon="pi pi-plus"
           label="Create New Task"
           size="small"
@@ -252,8 +252,8 @@
     </div>
 
     <!-- Task Slide-Over -->
-    <TaskSlideOver
-      v-model:visible="showTaskSlideOver"
+    <TaskDialog
+      v-model:visible="showTaskDialog"
       :project-id="selectedProjectId"
       :task="editingTask"
       :available-tasks="allTasks"
@@ -271,9 +271,8 @@ import Select from 'primevue/select'
 import MultiSelect from 'primevue/multiselect'
 import DatePicker from 'primevue/datepicker'
 import ProgressSpinner from 'primevue/progressspinner'
-//import firebaseService from '@/services/firebase/firebaseService'
 import { getCurrentUserId } from '@/services/auth/authService'
-import TaskSlideOver from '@/components/forms/TaskSlideOver.vue'
+import TaskDialog from '@/components/forms/TaskDialog.vue'
 import TaskRepository from '@/services/firebase/Repositories/TaskRepository'
 import UserRepository from '@/services/firebase/Repositories/UserRepository'
 import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
@@ -282,7 +281,7 @@ import ProjectRepository from '@/services/firebase/Repositories/ProjectRepositor
 const loading = ref(true)
 const currentView = ref('my-tasks') // 'my-tasks', 'all-tasks', 'overdue'
 const showAdvancedFilters = ref(false)
-const showTaskSlideOver = ref(false)
+const showTaskDialog = ref(false)
 const editingTask = ref(null)
 const selectedProjectId = ref(null)
 
@@ -509,13 +508,13 @@ const clearFilters = () => {
 const editTask = (task) => {
   editingTask.value = task
   selectedProjectId.value = task.projectId
-  showTaskSlideOver.value = true
+  showTaskDialog.value = true
 }
 
 const handleTaskCreated = (newTask) => {
   allTasks.value.unshift(newTask)
   editingTask.value = null
-  showTaskSlideOver.value = false
+  showTaskDialog.value = false
 }
 
 const handleTaskUpdated = (updatedTask) => {
@@ -524,7 +523,7 @@ const handleTaskUpdated = (updatedTask) => {
     allTasks.value[index] = updatedTask
   }
   editingTask.value = null
-  showTaskSlideOver.value = false
+  showTaskDialog.value = false
 }
 
 // Data loading
