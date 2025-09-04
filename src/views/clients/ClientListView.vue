@@ -207,7 +207,7 @@
     </div>
 
     <!-- Client Slide-Over -->
-    <ClientSlideOver
+    <ClientDialog
       :visible="isModalVisible"
       :client="modalClient"
       @update:visible="closeModal"
@@ -223,7 +223,7 @@ import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import ProgressSpinner from 'primevue/progressspinner'
 import firebaseService from '@/services/firebase/firebaseService'
-import ClientSlideOver from '@/components/forms/ClientSlideOver.vue'
+import ClientDialog from '@/components/forms/ClientDialog.vue'
 
 // ==================== REACTIVE STATE ====================
 // These are Vue 3 "ref" - they create reactive data that Vue watches for changes
