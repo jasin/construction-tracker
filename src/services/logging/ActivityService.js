@@ -1,5 +1,17 @@
 // src/services/logging/ActivityService.js
-import { ref, push, set, get, query, orderByChild, equalTo, remove } from 'firebase/database'
+import {
+  ref as dbRef,
+  push,
+  set,
+  get,
+  query,
+  orderByChild,
+  equalTo,
+  remove,
+  onValue,
+  off,
+  startAt,
+} from 'firebase/database'
 import { database } from '@/configs/firebase'
 import { getCurrentUserId, getCurrentUserName } from '@/services/auth/authService'
 import { sanitizeForFirebase } from '@/utils/index'
@@ -72,7 +84,7 @@ class ActivityService {
    */
   async _logToFirebase(activityData) {
     const cleanActivity = sanitizeForFirebase(activityData)
-    const activityRef = ref(this.database, this.collectionName)
+    const activityRef = dbRef(this.database, this.collectionName)
     const newActivityRef = push(activityRef)
 
     await set(newActivityRef, cleanActivity)
@@ -115,7 +127,7 @@ class ActivityService {
    */
   async getActivitiesByProject(projectId, limit = 50) {
     try {
-      const activityRef = ref(this.database, this.collectionName)
+      const activityRef = dbRef(this.database, this.collectionName)
       const projectActivityQuery = query(activityRef, orderByChild('projectId'), equalTo(projectId))
       const snapshot = await get(projectActivityQuery)
 
@@ -142,7 +154,7 @@ class ActivityService {
    */
   async getActivitiesByUser(userId, limit = 50) {
     try {
-      const activityRef = ref(this.database, this.collectionName)
+      const activityRef = dbRef(this.database, this.collectionName)
       const userActivityQuery = query(activityRef, orderByChild('userId'), equalTo(userId))
       const snapshot = await get(userActivityQuery)
 
@@ -165,11 +177,23 @@ class ActivityService {
 
   /**
    * Get recent activities across all entities
+   * @param {Object} options - Query options
+   * @param {number} [options.limit=100] - Maximum number of activities to return
+   * @param {Date} [options.since] - Filter activities since this date
+   * @returns {Promise<Array>} Array of recent activities
    */
-  async getRecentActivities(limit = 100) {
+  async getRecentActivities(options = {}) {
+    const { limit = 100, since } = options
     try {
-      const activityRef = ref(this.database, this.collectionName)
-      const snapshot = await get(activityRef)
+      const activityRef = dbRef(this.database, this.collectionName)
+      let q = query(activityRef, orderByChild('timestamp'))
+
+      if (since) {
+        const cutoffTimestamp = since.toISOString()
+        q = query(q, startAt(cutoffTimestamp))
+      }
+
+      const snapshot = await get(q)
 
       if (!snapshot.exists()) return []
 
@@ -186,6 +210,55 @@ class ActivityService {
       console.error('Error getting recent activities:', error)
       throw error
     }
+  }
+
+  /**
+   * Subscribe to recent activities with realtime updates
+   * @param {Object} options - Subscription options
+   * @param {Date} [options.since] - Filter activities since this date
+   * @param {number} [options.limit=100] - Initial limit (note: realtime may exceed this)
+   * @param {Function} callback - Callback function to receive updated activities
+   * @returns {Function} Unsubscribe function
+   */
+  subscribeToRecentActivities(options = {}, callback) {
+    const { since, limit = 100 } = options
+    const activityRef = dbRef(this.database, this.collectionName)
+    let q = query(activityRef, orderByChild('timestamp'))
+
+    if (since) {
+      const cutoffTimestamp = since.toISOString()
+      q = query(q, startAt(cutoffTimestamp))
+    }
+
+    // Note: Realtime Database doesn't support limit with startAt directly for realtime,
+    // so we'll fetch initial with limit and listen for changes, filtering client-side if needed.
+    // For better scalability, consider using Firestore if limits are critical.
+
+    const listener = onValue(
+      q,
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          callback([])
+          return
+        }
+
+        let activities = Object.entries(snapshot.val())
+          .map(([id, data]) => ({ id, ...data }))
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+
+        if (limit > 0) {
+          activities = activities.slice(0, limit)
+        }
+
+        callback(activities)
+      },
+      (error) => {
+        console.error('Error in recent activities subscription:', error)
+        throw new Error(`Subscription error: ${error.message}`)
+      },
+    )
+
+    return () => off(q, 'value', listener)
   }
 
   /**
@@ -265,7 +338,7 @@ class ActivityService {
       cutoffDate.setDate(cutoffDate.getDate() - daysToKeep)
       const cutoffTimestamp = cutoffDate.toISOString()
 
-      const activityRef = ref(this.database, this.collectionName)
+      const activityRef = dbRef(this.database, this.collectionName)
       const snapshot = await get(activityRef)
 
       if (!snapshot.exists()) return 0
@@ -275,7 +348,7 @@ class ActivityService {
 
       Object.entries(activities).forEach(([id, activity]) => {
         if (activity.timestamp < cutoffTimestamp) {
-          deletePromises.push(remove(ref(this.database, `${this.collectionName}/${id}`)))
+          deletePromises.push(remove(dbRef(this.database, `${this.collectionName}/${id}`)))
         }
       })
 

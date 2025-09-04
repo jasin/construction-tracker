@@ -1,5 +1,5 @@
 // src/services/firebase/mixins/RealtimeMixin.js
-import { ref, query, orderByChild, equalTo, onValue, off } from 'firebase/database'
+import { ref, query, orderByChild, equalTo, onValue, off, startAt } from 'firebase/database'
 import firebaseCore from '../core/FirebaseCore'
 
 /**
@@ -142,6 +142,41 @@ export function RealtimeMixin(Base) {
           this.entityName,
           error,
         )
+        console.error(wrappedError)
+        throw wrappedError // Rethrow for upstream handling
+      }
+    }
+
+    /**
+     * Subscribe to recent entities based on timestamp.
+     * @param {Date} since - Filter entities since this date.
+     * @param {Function} callback - Callback to receive entities.
+     * @param {number} [limit=0] - Optional limit (client-side enforced).
+     * @returns {Object} Query reference for unsubscribing.
+     */
+    subscribeToRecent(since, callback, limit = 0) {
+      try {
+        return this.subscribeWithCustomQuery(
+          (entitiesRef) => {
+            let q = query(entitiesRef, orderByChild('timestamp'))
+            if (since) {
+              const cutoffTimestamp = since.toISOString()
+              q = query(q, startAt(cutoffTimestamp))
+            }
+            return q
+          },
+          (entities) => {
+            // Sort descending by timestamp
+            entities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+            // Apply client-side limit
+            if (limit > 0) {
+              entities = entities.slice(0, limit)
+            }
+            callback(entities)
+          },
+        )
+      } catch (error) {
+        const wrappedError = firebaseCore.createError('subscribeToRecent', this.entityName, error)
         console.error(wrappedError)
         throw wrappedError // Rethrow for upstream handling
       }
