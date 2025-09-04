@@ -1,5 +1,7 @@
 // src/services/firebase/repositories/AttachmentRepository.js
 import BaseRepository from '../core/BaseRepository'
+import { CrudMixin } from '../mixins/CrudMixin'
+import { RealtimeMixin } from '../mixins/RealtimeMixin'
 import ActivityService from '@/services/logging/ActivityService'
 import firebaseCore from '../core/FirebaseCore'
 import { ATTACHMENT_SCHEMA } from '../schemas'
@@ -8,9 +10,9 @@ import { ATTACHMENT_SCHEMA } from '../schemas'
  * Attachment Repository - handles all attachment-related Firebase operations
  * Manages file attachments across all entity types (projects, tasks, documents, clients, etc.)
  */
-class AttachmentRepository extends BaseRepository {
+class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   constructor() {
-    super('attachments', 'Attachment', ATTACHMENT_SCHEMA)
+    super('attachments')
   }
 
   /**

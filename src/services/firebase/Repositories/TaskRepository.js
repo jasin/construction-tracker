@@ -2,6 +2,8 @@
 import BaseRepository from '../core/BaseRepository'
 import ActivityService from '@/services/logging/ActivityService'
 import firebaseCore from '../core/FirebaseCore'
+import { CrudMixin } from '../mixins/CrudMixin'
+import { RealtimeMixin } from '../mixins/RealtimeMixin'
 import {
   ref,
   query,
@@ -19,9 +21,9 @@ import { TASK_SCHEMA } from '../schemas'
  * Task Repository - handles all task-related Firebase operations
  * Includes task management, comments, assignments, and progress tracking
  */
-class TaskRepository extends BaseRepository {
+class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   constructor() {
-    super('tasks', 'Task', TASK_SCHEMA)
+    super('tasks')
   }
 
   /**

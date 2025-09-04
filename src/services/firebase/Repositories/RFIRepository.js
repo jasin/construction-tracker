@@ -1,5 +1,7 @@
 // src/services/firebase/repositories/RFIRepository.js
 import BaseRepository from '@/services/firebase/core/BaseRepository'
+import { CrudMixin } from '../mixins/CrudMixin'
+import { RealtimeMixin } from '../mixins/RealtimeMixin'
 import ActivityService from '@/services/logging/ActivityService'
 import firebaseCore from '@/services/firebase/core/FirebaseCore'
 import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database'
@@ -9,9 +11,9 @@ import { RFI_SCHEMA } from '../schemas'
  * RFI Repository - handles all RFI-related Firebase operations
  * Includes RFI management, response workflows, and priority tracking
  */
-class RFIRepository extends BaseRepository {
+class RFIRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   constructor() {
-    super('rfis', 'RFI', RFI_SCHEMA)
+    super('rfis')
   }
 
   /**
@@ -40,12 +42,7 @@ class RFIRepository extends BaseRepository {
       const newRFI = await this.create(rfiDataWithDefaults, RFI_SCHEMA)
 
       // Log activity
-      await ActivityService.logEntityCreated(
-        newRFI.projectId,
-        'rfi',
-        newRFI.id,
-        newRFI.title
-      )
+      await ActivityService.logEntityCreated(newRFI.projectId, 'rfi', newRFI.id, newRFI.title)
 
       return newRFI
     } catch (error) {
@@ -63,30 +60,30 @@ class RFIRepository extends BaseRepository {
 
       // Apply filters
       if (filters.status && filters.status.length > 0) {
-        rfis = rfis.filter(rfi => filters.status.includes(rfi.status))
+        rfis = rfis.filter((rfi) => filters.status.includes(rfi.status))
       }
 
       if (filters.priority && filters.priority.length > 0) {
-        rfis = rfis.filter(rfi => filters.priority.includes(rfi.priority))
+        rfis = rfis.filter((rfi) => filters.priority.includes(rfi.priority))
       }
 
       if (filters.assignedTo) {
-        rfis = rfis.filter(rfi => rfi.assignedTo === filters.assignedTo)
+        rfis = rfis.filter((rfi) => rfi.assignedTo === filters.assignedTo)
       }
 
       if (filters.submittedBy) {
-        rfis = rfis.filter(rfi => rfi.submittedBy === filters.submittedBy)
+        rfis = rfis.filter((rfi) => rfi.submittedBy === filters.submittedBy)
       }
 
       if (filters.dueDateFrom) {
-        rfis = rfis.filter(rfi =>
-          rfi.dueDate && new Date(rfi.dueDate) >= new Date(filters.dueDateFrom)
+        rfis = rfis.filter(
+          (rfi) => rfi.dueDate && new Date(rfi.dueDate) >= new Date(filters.dueDateFrom),
         )
       }
 
       if (filters.dueDateTo) {
-        rfis = rfis.filter(rfi =>
-          rfi.dueDate && new Date(rfi.dueDate) <= new Date(filters.dueDateTo)
+        rfis = rfis.filter(
+          (rfi) => rfi.dueDate && new Date(rfi.dueDate) <= new Date(filters.dueDateTo),
         )
       }
 
@@ -106,7 +103,7 @@ class RFIRepository extends BaseRepository {
   async getRFIsByStatus(status, projectId = null) {
     try {
       let rfis = projectId ? await this.getRFIsByProject(projectId) : await this.getAll()
-      return rfis.filter(rfi => rfi.status === status)
+      return rfis.filter((rfi) => rfi.status === status)
     } catch (error) {
       console.error('Error getting RFIs by status:', error)
       throw error
@@ -122,7 +119,7 @@ class RFIRepository extends BaseRepository {
       const now = new Date()
 
       return rfis
-        .filter(rfi => {
+        .filter((rfi) => {
           return (
             rfi.dueDate &&
             new Date(rfi.dueDate) < now &&
@@ -142,7 +139,7 @@ class RFIRepository extends BaseRepository {
   async getRFIsNeedingResponse(projectId = null) {
     try {
       let rfis = projectId ? await this.getRFIsByProject(projectId) : await this.getAll()
-      return rfis.filter(rfi => rfi.status === 'submitted' && rfi.responseRequired)
+      return rfis.filter((rfi) => rfi.status === 'submitted' && rfi.responseRequired)
     } catch (error) {
       console.error('Error getting RFIs needing response:', error)
       throw error
@@ -157,7 +154,7 @@ class RFIRepository extends BaseRepository {
       let rfis = projectId ? await this.getRFIsByProject(projectId) : await this.getAll()
       const term = searchTerm.toLowerCase().trim()
 
-      return rfis.filter(rfi => {
+      return rfis.filter((rfi) => {
         return (
           rfi.title?.toLowerCase().includes(term) ||
           rfi.description?.toLowerCase().includes(term) ||
@@ -192,7 +189,7 @@ class RFIRepository extends BaseRepository {
           rfiId,
           originalRFI.title,
           originalRFI.status,
-          updates.status
+          updates.status,
         )
       }
 
@@ -205,8 +202,8 @@ class RFIRepository extends BaseRepository {
           `Assigned RFI "${originalRFI.title}" to ${updates.assignedToName || 'user'}`,
           {
             previousAssignee: originalRFI.assignedTo,
-            newAssignee: updates.assignedTo
-          }
+            newAssignee: updates.assignedTo,
+          },
         )
       }
 
@@ -219,8 +216,8 @@ class RFIRepository extends BaseRepository {
           `Changed RFI "${originalRFI.title}" priority from ${originalRFI.priority} to ${updates.priority}`,
           {
             oldPriority: originalRFI.priority,
-            newPriority: updates.priority
-          }
+            newPriority: updates.priority,
+          },
         )
       }
 
@@ -241,7 +238,7 @@ class RFIRepository extends BaseRepository {
         respondedAt: new Date().toISOString(),
         respondedBy: respondedBy || firebaseCore.getCurrentUserId(),
         respondedByName: firebaseCore.getCurrentUserName(),
-        status: 'responded'
+        status: 'responded',
       }
 
       const result = await this.update(rfiId, updates, RFI_SCHEMA)
@@ -255,7 +252,7 @@ class RFIRepository extends BaseRepository {
           'rfi',
           rfiId,
           `Responded to RFI: ${rfi.title}`,
-          { respondedBy: updates.respondedByName }
+          { respondedBy: updates.respondedByName },
         )
       }
 
@@ -276,7 +273,7 @@ class RFIRepository extends BaseRepository {
         closedAt: new Date().toISOString(),
         closedBy: firebaseCore.getCurrentUserId(),
         closedByName: firebaseCore.getCurrentUserName(),
-        closeNotes: closeNotes
+        closeNotes: closeNotes,
       }
 
       const result = await this.update(rfiId, updates, RFI_SCHEMA)
@@ -290,7 +287,7 @@ class RFIRepository extends BaseRepository {
           'rfi',
           rfiId,
           `Closed RFI: ${rfi.title}`,
-          { closedBy: updates.closedByName, closeNotes }
+          { closedBy: updates.closedByName, closeNotes },
         )
       }
 
@@ -315,12 +312,7 @@ class RFIRepository extends BaseRepository {
 
       // Log activity
       if (rfi.projectId) {
-        await ActivityService.logEntityDeleted(
-          rfi.projectId,
-          'rfi',
-          rfiId,
-          rfi.title
-        )
+        await ActivityService.logEntityDeleted(rfi.projectId, 'rfi', rfiId, rfi.title)
       }
 
       return { success: true, id: rfiId }
@@ -344,34 +336,33 @@ class RFIRepository extends BaseRepository {
       const stats = {
         total: rfis.length,
         byStatus: {
-          draft: rfis.filter(r => r.status === 'draft').length,
-          submitted: rfis.filter(r => r.status === 'submitted').length,
-          'under_review': rfis.filter(r => r.status === 'under_review').length,
-          responded: rfis.filter(r => r.status === 'responded').length,
-          closed: rfis.filter(r => r.status === 'closed').length
+          draft: rfis.filter((r) => r.status === 'draft').length,
+          submitted: rfis.filter((r) => r.status === 'submitted').length,
+          under_review: rfis.filter((r) => r.status === 'under_review').length,
+          responded: rfis.filter((r) => r.status === 'responded').length,
+          closed: rfis.filter((r) => r.status === 'closed').length,
         },
         byPriority: {
-          low: rfis.filter(r => r.priority === 'low').length,
-          medium: rfis.filter(r => r.priority === 'medium').length,
-          high: rfis.filter(r => r.priority === 'high').length,
-          urgent: rfis.filter(r => r.priority === 'urgent').length
+          low: rfis.filter((r) => r.priority === 'low').length,
+          medium: rfis.filter((r) => r.priority === 'medium').length,
+          high: rfis.filter((r) => r.priority === 'high').length,
+          urgent: rfis.filter((r) => r.priority === 'urgent').length,
         },
-        overdue: rfis.filter(rfi =>
-          rfi.dueDate &&
-          new Date(rfi.dueDate) < now &&
-          !['responded', 'closed'].includes(rfi.status)
+        overdue: rfis.filter(
+          (rfi) =>
+            rfi.dueDate &&
+            new Date(rfi.dueDate) < now &&
+            !['responded', 'closed'].includes(rfi.status),
         ).length,
-        needingResponse: rfis.filter(r =>
-          r.status === 'submitted' && r.responseRequired
-        ).length,
+        needingResponse: rfis.filter((r) => r.status === 'submitted' && r.responseRequired).length,
         averageResponseTime: 0,
         bySubmitter: {},
         byAssignee: {},
-        recentActivity: 0 // Last 7 days
+        recentActivity: 0, // Last 7 days
       }
 
       // Calculate response times
-      const respondedRFIs = rfis.filter(r => r.respondedAt && r.submittedAt)
+      const respondedRFIs = rfis.filter((r) => r.respondedAt && r.submittedAt)
       if (respondedRFIs.length > 0) {
         const totalResponseTime = respondedRFIs.reduce((sum, rfi) => {
           const submitted = new Date(rfi.submittedAt)
@@ -382,13 +373,13 @@ class RFIRepository extends BaseRepository {
       }
 
       // Count by submitter
-      rfis.forEach(rfi => {
+      rfis.forEach((rfi) => {
         const submitter = rfi.submittedByName || 'Unknown'
         stats.bySubmitter[submitter] = (stats.bySubmitter[submitter] || 0) + 1
       })
 
       // Count by assignee
-      rfis.forEach(rfi => {
+      rfis.forEach((rfi) => {
         if (rfi.assignedToName) {
           const assignee = rfi.assignedToName
           stats.byAssignee[assignee] = (stats.byAssignee[assignee] || 0) + 1
@@ -399,8 +390,8 @@ class RFIRepository extends BaseRepository {
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
-      stats.recentActivity = rfis.filter(rfi =>
-        rfi.createdAt && new Date(rfi.createdAt) > sevenDaysAgo
+      stats.recentActivity = rfis.filter(
+        (rfi) => rfi.createdAt && new Date(rfi.createdAt) > sevenDaysAgo,
       ).length
 
       return stats
@@ -422,8 +413,8 @@ class RFIRepository extends BaseRepository {
         ...(status === 'closed' && {
           closedAt: new Date().toISOString(),
           closedBy: firebaseCore.getCurrentUserId(),
-          closedByName: firebaseCore.getCurrentUserName()
-        })
+          closedByName: firebaseCore.getCurrentUserName(),
+        }),
       }
 
       const results = await this.bulkUpdate(rfiIds, updates)
@@ -434,7 +425,7 @@ class RFIRepository extends BaseRepository {
         'rfi',
         rfiIds,
         `Bulk updated ${rfiIds.length} RFIs to ${status} status`,
-        { newStatus: status }
+        { newStatus: status },
       )
 
       return results
@@ -452,7 +443,7 @@ class RFIRepository extends BaseRepository {
       const updates = {
         assignedTo,
         assignedToName,
-        assignedAt: new Date().toISOString()
+        assignedAt: new Date().toISOString(),
       }
 
       const results = await this.bulkUpdate(rfiIds, updates)
@@ -463,7 +454,7 @@ class RFIRepository extends BaseRepository {
         'rfi',
         rfiIds,
         `Bulk assigned ${rfiIds.length} RFIs to ${assignedToName}`,
-        { assignedTo, assignedToName }
+        { assignedTo, assignedToName },
       )
 
       return results
@@ -541,7 +532,7 @@ class RFIRepository extends BaseRepository {
    */
   subscribeToRFIsByStatus(status, callback) {
     const filterByStatus = (rfis) => {
-      const filtered = rfis.filter(rfi => rfi.status === status)
+      const filtered = rfis.filter((rfi) => rfi.status === status)
       callback(filtered)
     }
 
@@ -613,8 +604,12 @@ class RFIRepository extends BaseRepository {
       validation.isValid = false
     }
 
-    if (rfiData.status && !['draft', 'submitted', 'under_review', 'responded', 'closed'].includes(rfiData.status)) {
-      validation.errors.status = 'Invalid status. Must be: draft, submitted, under_review, responded, or closed'
+    if (
+      rfiData.status &&
+      !['draft', 'submitted', 'under_review', 'responded', 'closed'].includes(rfiData.status)
+    ) {
+      validation.errors.status =
+        'Invalid status. Must be: draft, submitted, under_review, responded, or closed'
       validation.isValid = false
     }
 

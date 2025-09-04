@@ -1,5 +1,7 @@
 // src/services/firebase/repositories/ChangeOrderRepository.js
 import BaseRepository from '@/services/firebase/core/BaseRepository'
+import { CrudMixin } from '../mixins/CrudMixin'
+import { RealtimeMixin } from '../mixins/RealtimeMixin'
 import ActivityService from '@/services/logging/ActivityService'
 import firebaseCore from '@/services/firebase/core/FirebaseCore'
 import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database'
@@ -9,9 +11,9 @@ import { CHANGE_ORDER_SCHEMA } from '../schemas'
  * Change Order Repository - handles all change order-related Firebase operations
  * Includes change order management, approval workflows, and cost/time impact tracking
  */
-class ChangeOrderRepository extends BaseRepository {
+class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   constructor() {
-    super('changeOrders', 'Change Order', CHANGE_ORDER_SCHEMA)
+    super('changeOrders')
   }
 
   /**
@@ -42,12 +44,7 @@ class ChangeOrderRepository extends BaseRepository {
       const newCO = await this.create(coDataWithDefaults, CHANGE_ORDER_SCHEMA)
 
       // Log activity
-      await ActivityService.logEntityCreated(
-        newCO.projectId,
-        'changeOrder',
-        newCO.id,
-        newCO.title
-      )
+      await ActivityService.logEntityCreated(newCO.projectId, 'changeOrder', newCO.id, newCO.title)
 
       return newCO
     } catch (error) {
@@ -65,32 +62,32 @@ class ChangeOrderRepository extends BaseRepository {
 
       // Apply filters
       if (filters.status && filters.status.length > 0) {
-        changeOrders = changeOrders.filter(co => filters.status.includes(co.status))
+        changeOrders = changeOrders.filter((co) => filters.status.includes(co.status))
       }
 
       if (filters.type && filters.type.length > 0) {
-        changeOrders = changeOrders.filter(co => filters.type.includes(co.type))
+        changeOrders = changeOrders.filter((co) => filters.type.includes(co.type))
       }
 
       if (filters.requestedBy) {
-        changeOrders = changeOrders.filter(co => co.requestedBy === filters.requestedBy)
+        changeOrders = changeOrders.filter((co) => co.requestedBy === filters.requestedBy)
       }
 
       if (filters.billable !== undefined) {
-        changeOrders = changeOrders.filter(co => co.billable === filters.billable)
+        changeOrders = changeOrders.filter((co) => co.billable === filters.billable)
       }
 
       if (filters.minCostImpact !== undefined) {
-        changeOrders = changeOrders.filter(co => (co.costImpact || 0) >= filters.minCostImpact)
+        changeOrders = changeOrders.filter((co) => (co.costImpact || 0) >= filters.minCostImpact)
       }
 
       if (filters.maxCostImpact !== undefined) {
-        changeOrders = changeOrders.filter(co => (co.costImpact || 0) <= filters.maxCostImpact)
+        changeOrders = changeOrders.filter((co) => (co.costImpact || 0) <= filters.maxCostImpact)
       }
 
       if (filters.requestedAfter) {
-        changeOrders = changeOrders.filter(co =>
-          co.requestedAt && new Date(co.requestedAt) >= new Date(filters.requestedAfter)
+        changeOrders = changeOrders.filter(
+          (co) => co.requestedAt && new Date(co.requestedAt) >= new Date(filters.requestedAfter),
         )
       }
 
@@ -98,7 +95,7 @@ class ChangeOrderRepository extends BaseRepository {
       changeOrders = this.sortChangeOrders(
         changeOrders,
         filters.sortBy || 'requestedAt',
-        filters.sortDirection || 'desc'
+        filters.sortDirection || 'desc',
       )
 
       return changeOrders
@@ -113,8 +110,10 @@ class ChangeOrderRepository extends BaseRepository {
    */
   async getChangeOrdersByStatus(status, projectId = null) {
     try {
-      let changeOrders = projectId ? await this.getChangeOrdersByProject(projectId) : await this.getAll()
-      return changeOrders.filter(co => co.status === status)
+      let changeOrders = projectId
+        ? await this.getChangeOrdersByProject(projectId)
+        : await this.getAll()
+      return changeOrders.filter((co) => co.status === status)
     } catch (error) {
       console.error('Error getting change orders by status:', error)
       throw error
@@ -150,10 +149,12 @@ class ChangeOrderRepository extends BaseRepository {
    */
   async searchChangeOrders(searchTerm, projectId = null) {
     try {
-      let changeOrders = projectId ? await this.getChangeOrdersByProject(projectId) : await this.getAll()
+      let changeOrders = projectId
+        ? await this.getChangeOrdersByProject(projectId)
+        : await this.getAll()
       const term = searchTerm.toLowerCase().trim()
 
-      return changeOrders.filter(co => {
+      return changeOrders.filter((co) => {
         return (
           co.title?.toLowerCase().includes(term) ||
           co.description?.toLowerCase().includes(term) ||
@@ -188,7 +189,7 @@ class ChangeOrderRepository extends BaseRepository {
           changeOrderId,
           originalCO.title,
           originalCO.status,
-          updates.status
+          updates.status,
         )
       }
 
@@ -201,8 +202,8 @@ class ChangeOrderRepository extends BaseRepository {
           `Updated change order "${originalCO.title}" cost impact from ${originalCO.costImpact || 0} to ${updates.costImpact}`,
           {
             oldCostImpact: originalCO.costImpact || 0,
-            newCostImpact: updates.costImpact
-          }
+            newCostImpact: updates.costImpact,
+          },
         )
       }
 
@@ -215,8 +216,8 @@ class ChangeOrderRepository extends BaseRepository {
           `Updated change order "${originalCO.title}" time impact from ${originalCO.timeImpact || 0} days to ${updates.timeImpact} days`,
           {
             oldTimeImpact: originalCO.timeImpact || 0,
-            newTimeImpact: updates.timeImpact
-          }
+            newTimeImpact: updates.timeImpact,
+          },
         )
       }
 
@@ -237,7 +238,7 @@ class ChangeOrderRepository extends BaseRepository {
         approvedAt: new Date().toISOString(),
         approvedBy: approvedBy || firebaseCore.getCurrentUserId(),
         approvedByName: firebaseCore.getCurrentUserName(),
-        approvalNotes: approvalNotes
+        approvalNotes: approvalNotes,
       }
 
       const result = await this.update(changeOrderId, updates, CHANGE_ORDER_SCHEMA)
@@ -255,8 +256,8 @@ class ChangeOrderRepository extends BaseRepository {
             approvedBy: updates.approvedByName,
             costImpact: co.costImpact,
             timeImpact: co.timeImpact,
-            approvalNotes
-          }
+            approvalNotes,
+          },
         )
       }
 
@@ -277,7 +278,7 @@ class ChangeOrderRepository extends BaseRepository {
         rejectedAt: new Date().toISOString(),
         rejectedBy: rejectedBy || firebaseCore.getCurrentUserId(),
         rejectedByName: firebaseCore.getCurrentUserName(),
-        rejectionReason: rejectionReason
+        rejectionReason: rejectionReason,
       }
 
       const result = await this.update(changeOrderId, updates, CHANGE_ORDER_SCHEMA)
@@ -293,8 +294,8 @@ class ChangeOrderRepository extends BaseRepository {
           `Rejected change order: ${co.title}`,
           {
             rejectedBy: updates.rejectedByName,
-            rejectionReason
-          }
+            rejectionReason,
+          },
         )
       }
 
@@ -315,7 +316,7 @@ class ChangeOrderRepository extends BaseRepository {
         executedAt: new Date().toISOString(),
         executedBy: executedBy || firebaseCore.getCurrentUserId(),
         executedByName: firebaseCore.getCurrentUserName(),
-        executionNotes: executionNotes
+        executionNotes: executionNotes,
       }
 
       const result = await this.update(changeOrderId, updates, CHANGE_ORDER_SCHEMA)
@@ -331,8 +332,8 @@ class ChangeOrderRepository extends BaseRepository {
           `Executed change order: ${co.title}`,
           {
             executedBy: updates.executedByName,
-            executionNotes
-          }
+            executionNotes,
+          },
         )
       }
 
@@ -357,12 +358,7 @@ class ChangeOrderRepository extends BaseRepository {
 
       // Log activity
       if (co.projectId) {
-        await ActivityService.logEntityDeleted(
-          co.projectId,
-          'changeOrder',
-          changeOrderId,
-          co.title
-        )
+        await ActivityService.logEntityDeleted(co.projectId, 'changeOrder', changeOrderId, co.title)
       }
 
       return { success: true, id: changeOrderId }
@@ -393,10 +389,10 @@ class ChangeOrderRepository extends BaseRepository {
         creditsCost: 0,
         billableAmount: 0,
         nonBillableAmount: 0,
-        changeOrderCount: allEffectiveCOs.length
+        changeOrderCount: allEffectiveCOs.length,
       }
 
-      allEffectiveCOs.forEach(co => {
+      allEffectiveCOs.forEach((co) => {
         const costImpact = co.costImpact || 0
         const timeImpact = co.timeImpact || 0
 
@@ -441,23 +437,25 @@ class ChangeOrderRepository extends BaseRepository {
    */
   async getChangeOrderStatistics(projectId = null) {
     try {
-      let changeOrders = projectId ? await this.getChangeOrdersByProject(projectId) : await this.getAll()
+      let changeOrders = projectId
+        ? await this.getChangeOrdersByProject(projectId)
+        : await this.getAll()
 
       const stats = {
         total: changeOrders.length,
         byStatus: {
-          proposed: changeOrders.filter(co => co.status === 'proposed').length,
-          submitted: changeOrders.filter(co => co.status === 'submitted').length,
-          'under_review': changeOrders.filter(co => co.status === 'under_review').length,
-          approved: changeOrders.filter(co => co.status === 'approved').length,
-          rejected: changeOrders.filter(co => co.status === 'rejected').length,
-          executed: changeOrders.filter(co => co.status === 'executed').length
+          proposed: changeOrders.filter((co) => co.status === 'proposed').length,
+          submitted: changeOrders.filter((co) => co.status === 'submitted').length,
+          under_review: changeOrders.filter((co) => co.status === 'under_review').length,
+          approved: changeOrders.filter((co) => co.status === 'approved').length,
+          rejected: changeOrders.filter((co) => co.status === 'rejected').length,
+          executed: changeOrders.filter((co) => co.status === 'executed').length,
         },
         byType: {
-          addition: changeOrders.filter(co => co.type === 'addition').length,
-          deletion: changeOrders.filter(co => co.type === 'deletion').length,
-          modification: changeOrders.filter(co => co.type === 'modification').length,
-          credit: changeOrders.filter(co => co.type === 'credit').length
+          addition: changeOrders.filter((co) => co.type === 'addition').length,
+          deletion: changeOrders.filter((co) => co.type === 'deletion').length,
+          modification: changeOrders.filter((co) => co.type === 'modification').length,
+          credit: changeOrders.filter((co) => co.type === 'credit').length,
         },
         totalCostImpact: changeOrders.reduce((sum, co) => sum + (co.costImpact || 0), 0),
         totalTimeImpact: changeOrders.reduce((sum, co) => sum + (co.timeImpact || 0), 0),
@@ -467,8 +465,8 @@ class ChangeOrderRepository extends BaseRepository {
         nonBillableAmount: 0,
         averageApprovalTime: 0,
         byRequester: {},
-        pendingApproval: changeOrders.filter(co => co.status === 'submitted').length,
-        recentActivity: 0 // Last 7 days
+        pendingApproval: changeOrders.filter((co) => co.status === 'submitted').length,
+        recentActivity: 0, // Last 7 days
       }
 
       // Calculate averages
@@ -478,7 +476,7 @@ class ChangeOrderRepository extends BaseRepository {
       }
 
       // Calculate billable amounts
-      changeOrders.forEach(co => {
+      changeOrders.forEach((co) => {
         if (co.billable) {
           stats.billableAmount += co.costImpact || 0
         } else {
@@ -487,7 +485,7 @@ class ChangeOrderRepository extends BaseRepository {
       })
 
       // Calculate approval times
-      const approvedCOs = changeOrders.filter(co => co.approvedAt && co.submittedAt)
+      const approvedCOs = changeOrders.filter((co) => co.approvedAt && co.submittedAt)
       if (approvedCOs.length > 0) {
         const totalApprovalTime = approvedCOs.reduce((sum, co) => {
           const submitted = new Date(co.submittedAt)
@@ -498,7 +496,7 @@ class ChangeOrderRepository extends BaseRepository {
       }
 
       // Count by requester
-      changeOrders.forEach(co => {
+      changeOrders.forEach((co) => {
         const requester = co.requestedByName || 'Unknown'
         stats.byRequester[requester] = (stats.byRequester[requester] || 0) + 1
       })
@@ -507,8 +505,8 @@ class ChangeOrderRepository extends BaseRepository {
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
-      stats.recentActivity = changeOrders.filter(co =>
-        co.createdAt && new Date(co.createdAt) > sevenDaysAgo
+      stats.recentActivity = changeOrders.filter(
+        (co) => co.createdAt && new Date(co.createdAt) > sevenDaysAgo,
       ).length
 
       return stats
@@ -530,13 +528,13 @@ class ChangeOrderRepository extends BaseRepository {
         ...(status === 'approved' && {
           approvedAt: new Date().toISOString(),
           approvedBy: firebaseCore.getCurrentUserId(),
-          approvedByName: firebaseCore.getCurrentUserName()
+          approvedByName: firebaseCore.getCurrentUserName(),
         }),
         ...(status === 'rejected' && {
           rejectedAt: new Date().toISOString(),
           rejectedBy: firebaseCore.getCurrentUserId(),
-          rejectedByName: firebaseCore.getCurrentUserName()
-        })
+          rejectedByName: firebaseCore.getCurrentUserName(),
+        }),
       }
 
       const results = await this.bulkUpdate(changeOrderIds, updates)
@@ -547,7 +545,7 @@ class ChangeOrderRepository extends BaseRepository {
         'changeOrder',
         changeOrderIds,
         `Bulk updated ${changeOrderIds.length} change orders to ${status} status`,
-        { newStatus: status }
+        { newStatus: status },
       )
 
       return results
@@ -608,7 +606,7 @@ class ChangeOrderRepository extends BaseRepository {
         under_review: 2,
         approved: 3,
         executed: 4,
-        rejected: 5
+        rejected: 5,
       }
       const aStatusOrder = statusOrder[a.status] ?? 3
       const bStatusOrder = statusOrder[b.status] ?? 3
@@ -631,7 +629,7 @@ class ChangeOrderRepository extends BaseRepository {
    */
   subscribeToChangeOrdersByStatus(status, callback) {
     const filterByStatus = (changeOrders) => {
-      const filtered = changeOrders.filter(co => co.status === status)
+      const filtered = changeOrders.filter((co) => co.status === status)
       callback(filtered)
     }
 
@@ -661,7 +659,7 @@ class ChangeOrderRepository extends BaseRepository {
             under_review: 2,
             approved: 3,
             executed: 4,
-            rejected: 5
+            rejected: 5,
           }
           aVal = statusOrder[a.status] ?? 3
           bVal = statusOrder[b.status] ?? 3
@@ -709,22 +707,37 @@ class ChangeOrderRepository extends BaseRepository {
     const validation = super.validateData(changeOrderData, ['title', 'projectId'])
 
     // Add change order-specific validations
-    if (changeOrderData.type && !['addition', 'deletion', 'modification', 'credit'].includes(changeOrderData.type)) {
+    if (
+      changeOrderData.type &&
+      !['addition', 'deletion', 'modification', 'credit'].includes(changeOrderData.type)
+    ) {
       validation.errors.type = 'Invalid type. Must be: addition, deletion, modification, or credit'
       validation.isValid = false
     }
 
-    if (changeOrderData.status && !['proposed', 'submitted', 'under_review', 'approved', 'rejected', 'executed'].includes(changeOrderData.status)) {
-      validation.errors.status = 'Invalid status. Must be: proposed, submitted, under_review, approved, rejected, or executed'
+    if (
+      changeOrderData.status &&
+      !['proposed', 'submitted', 'under_review', 'approved', 'rejected', 'executed'].includes(
+        changeOrderData.status,
+      )
+    ) {
+      validation.errors.status =
+        'Invalid status. Must be: proposed, submitted, under_review, approved, rejected, or executed'
       validation.isValid = false
     }
 
-    if (changeOrderData.costImpact !== undefined && typeof changeOrderData.costImpact !== 'number') {
+    if (
+      changeOrderData.costImpact !== undefined &&
+      typeof changeOrderData.costImpact !== 'number'
+    ) {
       validation.errors.costImpact = 'Cost impact must be a number'
       validation.isValid = false
     }
 
-    if (changeOrderData.timeImpact !== undefined && typeof changeOrderData.timeImpact !== 'number') {
+    if (
+      changeOrderData.timeImpact !== undefined &&
+      typeof changeOrderData.timeImpact !== 'number'
+    ) {
       validation.errors.timeImpact = 'Time impact must be a number (days)'
       validation.isValid = false
     }
@@ -766,7 +779,7 @@ class ChangeOrderRepository extends BaseRepository {
       type: changeOrder.type || 'modification',
       billable: changeOrder.billable !== false,
       hasFinancialImpact: Math.abs(changeOrder.costImpact || 0) > 0,
-      hasScheduleImpact: Math.abs(changeOrder.timeImpact || 0) > 0
+      hasScheduleImpact: Math.abs(changeOrder.timeImpact || 0) > 0,
     }
   }
 }

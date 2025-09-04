@@ -1,5 +1,7 @@
 // src/services/firebase/repositories/DocumentRepository.js
 import BaseRepository from '@/services/firebase/core/BaseRepository'
+import { CrudMixin } from '../mixins/CrudMixin'
+import { RealtimeMixin } from '../mixins/RealtimeMixin'
 import ActivityService from '@/services/logging/ActivityService'
 import firebaseCore from '@/services/firebase/core/FirebaseCore'
 import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database'
@@ -9,9 +11,9 @@ import { DOCUMENT_SCHEMA } from '../schemas'
  * Document Repository - handles all document-related Firebase operations
  * Includes document management, versioning, approval workflows, and statistics
  */
-class DocumentRepository extends BaseRepository {
+class DocumentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   constructor() {
-    super('documents', 'Document', DOCUMENT_SCHEMA)
+    super('documents')
   }
 
   /**

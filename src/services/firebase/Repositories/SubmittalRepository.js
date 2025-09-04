@@ -1,5 +1,7 @@
 // src/services/firebase/repositories/SubmittalRepository.js
 import BaseRepository from '@/services/firebase/core/BaseRepository'
+import { CrudMixin } from '../mixins/CrudMixin'
+import { RealtimeMixin } from '../mixins/RealtimeMixin'
 import ActivityService from '@/services/logging/ActivityService'
 import firebaseCore from '@/services/firebase/core/FirebaseCore'
 import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database'
@@ -9,9 +11,9 @@ import { SUBMITTAL_SCHEMA } from '../schemas'
  * Submittal Repository - handles all submittal-related Firebase operations
  * Includes submittal management, review workflows, and approval tracking
  */
-class SubmittalRepository extends BaseRepository {
+class SubmittalRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   constructor() {
-    super('submittals', 'Submittal', SUBMITTAL_SCHEMA)
+    super('submittals')
   }
 
   /**
@@ -45,7 +47,7 @@ class SubmittalRepository extends BaseRepository {
         newSubmittal.projectId,
         'submittal',
         newSubmittal.id,
-        newSubmittal.title
+        newSubmittal.title,
       )
 
       return newSubmittal
@@ -64,41 +66,45 @@ class SubmittalRepository extends BaseRepository {
 
       // Apply filters
       if (filters.status && filters.status.length > 0) {
-        submittals = submittals.filter(submittal => filters.status.includes(submittal.status))
+        submittals = submittals.filter((submittal) => filters.status.includes(submittal.status))
       }
 
       if (filters.type && filters.type.length > 0) {
-        submittals = submittals.filter(submittal => filters.type.includes(submittal.type))
+        submittals = submittals.filter((submittal) => filters.type.includes(submittal.type))
       }
 
       if (filters.submittedBy) {
-        submittals = submittals.filter(submittal => submittal.submittedBy === filters.submittedBy)
+        submittals = submittals.filter((submittal) => submittal.submittedBy === filters.submittedBy)
       }
 
       if (filters.reviewedBy) {
-        submittals = submittals.filter(submittal => submittal.reviewedBy === filters.reviewedBy)
+        submittals = submittals.filter((submittal) => submittal.reviewedBy === filters.reviewedBy)
       }
 
       if (filters.specSection) {
-        submittals = submittals.filter(submittal =>
-          submittal.specSection?.toLowerCase().includes(filters.specSection.toLowerCase())
+        submittals = submittals.filter((submittal) =>
+          submittal.specSection?.toLowerCase().includes(filters.specSection.toLowerCase()),
         )
       }
 
       if (filters.dueDateFrom) {
-        submittals = submittals.filter(submittal =>
-          submittal.requiredDate && new Date(submittal.requiredDate) >= new Date(filters.dueDateFrom)
+        submittals = submittals.filter(
+          (submittal) =>
+            submittal.requiredDate &&
+            new Date(submittal.requiredDate) >= new Date(filters.dueDateFrom),
         )
       }
 
       if (filters.dueDateTo) {
-        submittals = submittals.filter(submittal =>
-          submittal.requiredDate && new Date(submittal.requiredDate) <= new Date(filters.dueDateTo)
+        submittals = submittals.filter(
+          (submittal) =>
+            submittal.requiredDate &&
+            new Date(submittal.requiredDate) <= new Date(filters.dueDateTo),
         )
       }
 
       if (filters.needsReview !== undefined) {
-        submittals = submittals.filter(submittal => {
+        submittals = submittals.filter((submittal) => {
           const needsReview = ['submitted', 'under_review'].includes(submittal.status)
           return filters.needsReview ? needsReview : !needsReview
         })
@@ -108,7 +114,7 @@ class SubmittalRepository extends BaseRepository {
       submittals = this.sortSubmittals(
         submittals,
         filters.sortBy || 'requiredDate',
-        filters.sortDirection || 'asc'
+        filters.sortDirection || 'asc',
       )
 
       return submittals
@@ -123,8 +129,10 @@ class SubmittalRepository extends BaseRepository {
    */
   async getSubmittalsByStatus(status, projectId = null) {
     try {
-      let submittals = projectId ? await this.getSubmittalsByProject(projectId) : await this.getAll()
-      return submittals.filter(submittal => submittal.status === status)
+      let submittals = projectId
+        ? await this.getSubmittalsByProject(projectId)
+        : await this.getAll()
+      return submittals.filter((submittal) => submittal.status === status)
     } catch (error) {
       console.error('Error getting submittals by status:', error)
       throw error
@@ -136,8 +144,12 @@ class SubmittalRepository extends BaseRepository {
    */
   async getSubmittalsNeedingReview(projectId = null) {
     try {
-      let submittals = projectId ? await this.getSubmittalsByProject(projectId) : await this.getAll()
-      return submittals.filter(submittal => ['submitted', 'under_review'].includes(submittal.status))
+      let submittals = projectId
+        ? await this.getSubmittalsByProject(projectId)
+        : await this.getAll()
+      return submittals.filter((submittal) =>
+        ['submitted', 'under_review'].includes(submittal.status),
+      )
     } catch (error) {
       console.error('Error getting submittals needing review:', error)
       throw error
@@ -149,11 +161,13 @@ class SubmittalRepository extends BaseRepository {
    */
   async getOverdueSubmittals(projectId = null) {
     try {
-      let submittals = projectId ? await this.getSubmittalsByProject(projectId) : await this.getAll()
+      let submittals = projectId
+        ? await this.getSubmittalsByProject(projectId)
+        : await this.getAll()
       const now = new Date()
 
       return submittals
-        .filter(submittal => {
+        .filter((submittal) => {
           return (
             submittal.requiredDate &&
             new Date(submittal.requiredDate) < now &&
@@ -172,9 +186,11 @@ class SubmittalRepository extends BaseRepository {
    */
   async getSubmittalsBySpecSection(specSection, projectId = null) {
     try {
-      let submittals = projectId ? await this.getSubmittalsByProject(projectId) : await this.getAll()
-      return submittals.filter(submittal =>
-        submittal.specSection?.toLowerCase() === specSection.toLowerCase()
+      let submittals = projectId
+        ? await this.getSubmittalsByProject(projectId)
+        : await this.getAll()
+      return submittals.filter(
+        (submittal) => submittal.specSection?.toLowerCase() === specSection.toLowerCase(),
       )
     } catch (error) {
       console.error('Error getting submittals by spec section:', error)
@@ -187,10 +203,12 @@ class SubmittalRepository extends BaseRepository {
    */
   async searchSubmittals(searchTerm, projectId = null) {
     try {
-      let submittals = projectId ? await this.getSubmittalsByProject(projectId) : await this.getAll()
+      let submittals = projectId
+        ? await this.getSubmittalsByProject(projectId)
+        : await this.getAll()
       const term = searchTerm.toLowerCase().trim()
 
-      return submittals.filter(submittal => {
+      return submittals.filter((submittal) => {
         return (
           submittal.title?.toLowerCase().includes(term) ||
           submittal.description?.toLowerCase().includes(term) ||
@@ -226,7 +244,7 @@ class SubmittalRepository extends BaseRepository {
           submittalId,
           originalSubmittal.title,
           originalSubmittal.status,
-          updates.status
+          updates.status,
         )
       }
 
@@ -239,8 +257,8 @@ class SubmittalRepository extends BaseRepository {
           `Assigned submittal "${originalSubmittal.title}" to ${updates.reviewedByName || 'reviewer'}`,
           {
             previousReviewer: originalSubmittal.reviewedBy,
-            newReviewer: updates.reviewedBy
-          }
+            newReviewer: updates.reviewedBy,
+          },
         )
       }
 
@@ -260,7 +278,7 @@ class SubmittalRepository extends BaseRepository {
         status: 'submitted',
         submittedAt: new Date().toISOString(),
         submittedBy: submittedBy || firebaseCore.getCurrentUserId(),
-        submittedByName: firebaseCore.getCurrentUserName()
+        submittedByName: firebaseCore.getCurrentUserName(),
       }
 
       const result = await this.update(submittalId, updates, SUBMITTAL_SCHEMA)
@@ -274,7 +292,7 @@ class SubmittalRepository extends BaseRepository {
           'submittal',
           submittalId,
           `Submitted submittal for review: ${submittal.title}`,
-          { submittedBy: updates.submittedByName }
+          { submittedBy: updates.submittedByName },
         )
       }
 
@@ -299,7 +317,7 @@ class SubmittalRepository extends BaseRepository {
         reviewedAt: new Date().toISOString(),
         reviewedBy: reviewedBy || firebaseCore.getCurrentUserId(),
         reviewedByName: firebaseCore.getCurrentUserName(),
-        reviewComments: comments
+        reviewComments: comments,
       }
 
       const result = await this.update(submittalId, updates, SUBMITTAL_SCHEMA)
@@ -317,8 +335,8 @@ class SubmittalRepository extends BaseRepository {
           {
             reviewedBy: updates.reviewedByName,
             comments,
-            reviewStatus: status
-          }
+            reviewStatus: status,
+          },
         )
       }
 
@@ -351,7 +369,7 @@ class SubmittalRepository extends BaseRepository {
         reviewedByName: null,
         reviewComments: null,
         originalSubmittalId: originalSubmittalId,
-        parentRevision: originalSubmittal.revisionNumber || 1
+        parentRevision: originalSubmittal.revisionNumber || 1,
       }
 
       // Remove ID and timestamps to create new entry
@@ -371,8 +389,8 @@ class SubmittalRepository extends BaseRepository {
         {
           originalSubmittalId,
           originalRevision: originalSubmittal.revisionNumber,
-          newRevision: newRevision.revisionNumber
-        }
+          newRevision: newRevision.revisionNumber,
+        },
       )
 
       return newRevision
@@ -390,9 +408,10 @@ class SubmittalRepository extends BaseRepository {
       const allSubmittals = await this.getAll()
 
       // Find all revisions of this submittal
-      const revisions = allSubmittals.filter(submittal =>
-        submittal.originalSubmittalId === originalSubmittalId ||
-        submittal.id === originalSubmittalId
+      const revisions = allSubmittals.filter(
+        (submittal) =>
+          submittal.originalSubmittalId === originalSubmittalId ||
+          submittal.id === originalSubmittalId,
       )
 
       return revisions.sort((a, b) => (b.revisionNumber || 1) - (a.revisionNumber || 1))
@@ -420,7 +439,7 @@ class SubmittalRepository extends BaseRepository {
           submittal.projectId,
           'submittal',
           submittalId,
-          submittal.title
+          submittal.title,
         )
       }
 
@@ -438,63 +457,67 @@ class SubmittalRepository extends BaseRepository {
    */
   async getSubmittalStatistics(projectId = null) {
     try {
-      let submittals = projectId ? await this.getSubmittalsByProject(projectId) : await this.getAll()
+      let submittals = projectId
+        ? await this.getSubmittalsByProject(projectId)
+        : await this.getAll()
 
       const now = new Date()
 
       const stats = {
         total: submittals.length,
         byStatus: {
-          not_submitted: submittals.filter(s => s.status === 'not_submitted').length,
-          submitted: submittals.filter(s => s.status === 'submitted').length,
-          under_review: submittals.filter(s => s.status === 'under_review').length,
-          approved: submittals.filter(s => s.status === 'approved').length,
-          approved_with_comments: submittals.filter(s => s.status === 'approved_with_comments').length,
-          rejected: submittals.filter(s => s.status === 'rejected').length,
-          resubmit: submittals.filter(s => s.status === 'resubmit').length
+          not_submitted: submittals.filter((s) => s.status === 'not_submitted').length,
+          submitted: submittals.filter((s) => s.status === 'submitted').length,
+          under_review: submittals.filter((s) => s.status === 'under_review').length,
+          approved: submittals.filter((s) => s.status === 'approved').length,
+          approved_with_comments: submittals.filter((s) => s.status === 'approved_with_comments')
+            .length,
+          rejected: submittals.filter((s) => s.status === 'rejected').length,
+          resubmit: submittals.filter((s) => s.status === 'resubmit').length,
         },
         byType: {
-          product_data: submittals.filter(s => s.type === 'product_data').length,
-          shop_drawings: submittals.filter(s => s.type === 'shop_drawings').length,
-          samples: submittals.filter(s => s.type === 'samples').length,
-          test_reports: submittals.filter(s => s.type === 'test_reports').length,
-          certificates: submittals.filter(s => s.type === 'certificates').length
+          product_data: submittals.filter((s) => s.type === 'product_data').length,
+          shop_drawings: submittals.filter((s) => s.type === 'shop_drawings').length,
+          samples: submittals.filter((s) => s.type === 'samples').length,
+          test_reports: submittals.filter((s) => s.type === 'test_reports').length,
+          certificates: submittals.filter((s) => s.type === 'certificates').length,
         },
-        overdue: submittals.filter(submittal =>
-          submittal.requiredDate &&
-          new Date(submittal.requiredDate) < now &&
-          !['approved', 'approved_with_comments'].includes(submittal.status)
+        overdue: submittals.filter(
+          (submittal) =>
+            submittal.requiredDate &&
+            new Date(submittal.requiredDate) < now &&
+            !['approved', 'approved_with_comments'].includes(submittal.status),
         ).length,
-        needingReview: submittals.filter(s =>
-          ['submitted', 'under_review'].includes(s.status)
-        ).length,
+        needingReview: submittals.filter((s) => ['submitted', 'under_review'].includes(s.status))
+          .length,
         averageReviewTime: 0,
         bySubmitter: {},
         byReviewer: {},
         bySpecSection: {},
         recentActivity: 0, // Last 7 days
-        revisionCount: submittals.filter(s => (s.revisionNumber || 1) > 1).length
+        revisionCount: submittals.filter((s) => (s.revisionNumber || 1) > 1).length,
       }
 
       // Calculate review times
-      const reviewedSubmittals = submittals.filter(s => s.reviewedAt && s.submittedAt)
+      const reviewedSubmittals = submittals.filter((s) => s.reviewedAt && s.submittedAt)
       if (reviewedSubmittals.length > 0) {
         const totalReviewTime = reviewedSubmittals.reduce((sum, submittal) => {
           const submitted = new Date(submittal.submittedAt)
           const reviewed = new Date(submittal.reviewedAt)
           return sum + (reviewed - submitted)
         }, 0)
-        stats.averageReviewTime = totalReviewTime / reviewedSubmittals.length / (1000 * 60 * 60 * 24) // Days
+        stats.averageReviewTime =
+          totalReviewTime / reviewedSubmittals.length / (1000 * 60 * 60 * 24) // Days
       }
 
       // Count by submitter
-      submittals.forEach(submittal => {
+      submittals.forEach((submittal) => {
         const submitter = submittal.submittedByName || 'Unknown'
         stats.bySubmitter[submitter] = (stats.bySubmitter[submitter] || 0) + 1
       })
 
       // Count by reviewer
-      submittals.forEach(submittal => {
+      submittals.forEach((submittal) => {
         if (submittal.reviewedByName) {
           const reviewer = submittal.reviewedByName
           stats.byReviewer[reviewer] = (stats.byReviewer[reviewer] || 0) + 1
@@ -502,7 +525,7 @@ class SubmittalRepository extends BaseRepository {
       })
 
       // Count by spec section
-      submittals.forEach(submittal => {
+      submittals.forEach((submittal) => {
         if (submittal.specSection) {
           const section = submittal.specSection
           stats.bySpecSection[section] = (stats.bySpecSection[section] || 0) + 1
@@ -513,8 +536,8 @@ class SubmittalRepository extends BaseRepository {
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
-      stats.recentActivity = submittals.filter(submittal =>
-        submittal.createdAt && new Date(submittal.createdAt) > sevenDaysAgo
+      stats.recentActivity = submittals.filter(
+        (submittal) => submittal.createdAt && new Date(submittal.createdAt) > sevenDaysAgo,
       ).length
 
       return stats
@@ -536,7 +559,7 @@ class SubmittalRepository extends BaseRepository {
         reviewedAt: new Date().toISOString(),
         reviewedBy: firebaseCore.getCurrentUserId(),
         reviewedByName: firebaseCore.getCurrentUserName(),
-        reviewComments: comments
+        reviewComments: comments,
       }
 
       const results = await this.bulkUpdate(submittalIds, updates)
@@ -547,7 +570,7 @@ class SubmittalRepository extends BaseRepository {
         'submittal',
         submittalIds,
         `Bulk updated ${submittalIds.length} submittals to ${status} status`,
-        { newStatus: status, comments }
+        { newStatus: status, comments },
       )
 
       return results
@@ -565,7 +588,7 @@ class SubmittalRepository extends BaseRepository {
       const updates = {
         reviewedBy,
         reviewedByName,
-        assignedAt: new Date().toISOString()
+        assignedAt: new Date().toISOString(),
       }
 
       const results = await this.bulkUpdate(submittalIds, updates)
@@ -576,7 +599,7 @@ class SubmittalRepository extends BaseRepository {
         'submittal',
         submittalIds,
         `Bulk assigned ${submittalIds.length} submittals to ${reviewedByName}`,
-        { reviewedBy, reviewedByName }
+        { reviewedBy, reviewedByName },
       )
 
       return results
@@ -606,7 +629,11 @@ class SubmittalRepository extends BaseRepository {
   subscribeToSubmittalsByProject(projectId, callback) {
     try {
       const submittalsRef = ref(firebaseCore.database, this.collectionName)
-      const projectSubmittalsQuery = query(submittalsRef, orderByChild('projectId'), equalTo(projectId))
+      const projectSubmittalsQuery = query(
+        submittalsRef,
+        orderByChild('projectId'),
+        equalTo(projectId),
+      )
 
       onValue(projectSubmittalsQuery, (snapshot) => {
         const submittals = snapshot.exists()
@@ -638,7 +665,7 @@ class SubmittalRepository extends BaseRepository {
         not_submitted: 3,
         approved_with_comments: 4,
         approved: 5,
-        rejected: 6
+        rejected: 6,
       }
       const aStatusOrder = statusOrder[a.status] ?? 3
       const bStatusOrder = statusOrder[b.status] ?? 3
@@ -665,7 +692,7 @@ class SubmittalRepository extends BaseRepository {
    */
   subscribeToSubmittalsByStatus(status, callback) {
     const filterByStatus = (submittals) => {
-      const filtered = submittals.filter(submittal => submittal.status === status)
+      const filtered = submittals.filter((submittal) => submittal.status === status)
       callback(filtered)
     }
 
@@ -696,7 +723,7 @@ class SubmittalRepository extends BaseRepository {
             approved: 3,
             approved_with_comments: 4,
             rejected: 5,
-            resubmit: 6
+            resubmit: 6,
           }
           aVal = statusOrder[a.status] ?? 3
           bVal = statusOrder[b.status] ?? 3
@@ -709,7 +736,7 @@ class SubmittalRepository extends BaseRepository {
             shop_drawings: 1,
             samples: 2,
             test_reports: 3,
-            certificates: 4
+            certificates: 4,
           }
           aVal = typeOrder[a.type] ?? 0
           bVal = typeOrder[b.type] ?? 0
@@ -725,8 +752,12 @@ class SubmittalRepository extends BaseRepository {
         case 'submittedAt':
         case 'reviewedAt':
         case 'createdAt':
-          aVal = a[sortBy] ? new Date(a[sortBy]) : new Date(direction === 'asc' ? '2099-12-31' : '1900-01-01')
-          bVal = b[sortBy] ? new Date(b[sortBy]) : new Date(direction === 'asc' ? '2099-12-31' : '1900-01-01')
+          aVal = a[sortBy]
+            ? new Date(a[sortBy])
+            : new Date(direction === 'asc' ? '2099-12-31' : '1900-01-01')
+          bVal = b[sortBy]
+            ? new Date(b[sortBy])
+            : new Date(direction === 'asc' ? '2099-12-31' : '1900-01-01')
           break
 
         default:
@@ -748,17 +779,38 @@ class SubmittalRepository extends BaseRepository {
     const validation = super.validateData(submittalData, ['title', 'projectId'])
 
     // Add submittal-specific validations
-    if (submittalData.type && !['product_data', 'shop_drawings', 'samples', 'test_reports', 'certificates'].includes(submittalData.type)) {
-      validation.errors.type = 'Invalid type. Must be: product_data, shop_drawings, samples, test_reports, or certificates'
+    if (
+      submittalData.type &&
+      !['product_data', 'shop_drawings', 'samples', 'test_reports', 'certificates'].includes(
+        submittalData.type,
+      )
+    ) {
+      validation.errors.type =
+        'Invalid type. Must be: product_data, shop_drawings, samples, test_reports, or certificates'
       validation.isValid = false
     }
 
-    if (submittalData.status && !['not_submitted', 'submitted', 'under_review', 'approved', 'approved_with_comments', 'rejected', 'resubmit'].includes(submittalData.status)) {
-      validation.errors.status = 'Invalid status. Must be: not_submitted, submitted, under_review, approved, approved_with_comments, rejected, or resubmit'
+    if (
+      submittalData.status &&
+      ![
+        'not_submitted',
+        'submitted',
+        'under_review',
+        'approved',
+        'approved_with_comments',
+        'rejected',
+        'resubmit',
+      ].includes(submittalData.status)
+    ) {
+      validation.errors.status =
+        'Invalid status. Must be: not_submitted, submitted, under_review, approved, approved_with_comments, rejected, or resubmit'
       validation.isValid = false
     }
 
-    if (submittalData.revisionNumber && (submittalData.revisionNumber < 1 || !Number.isInteger(submittalData.revisionNumber))) {
+    if (
+      submittalData.revisionNumber &&
+      (submittalData.revisionNumber < 1 || !Number.isInteger(submittalData.revisionNumber))
+    ) {
       validation.errors.revisionNumber = 'Revision number must be a positive integer'
       validation.isValid = false
     }
@@ -775,7 +827,10 @@ class SubmittalRepository extends BaseRepository {
    * Check if submittal is overdue
    */
   isSubmittalOverdue(submittal) {
-    if (!submittal.requiredDate || ['approved', 'approved_with_comments'].includes(submittal.status)) {
+    if (
+      !submittal.requiredDate ||
+      ['approved', 'approved_with_comments'].includes(submittal.status)
+    ) {
       return false
     }
     return new Date(submittal.requiredDate) < new Date()
@@ -812,7 +867,13 @@ class SubmittalRepository extends BaseRepository {
    */
   getWorkflowStatus(submittal) {
     const status = {
-      isSubmitted: ['submitted', 'under_review', 'approved', 'approved_with_comments', 'rejected'].includes(submittal.status),
+      isSubmitted: [
+        'submitted',
+        'under_review',
+        'approved',
+        'approved_with_comments',
+        'rejected',
+      ].includes(submittal.status),
       isUnderReview: submittal.status === 'under_review',
       isApproved: ['approved', 'approved_with_comments'].includes(submittal.status),
       isRejected: submittal.status === 'rejected',
@@ -820,7 +881,7 @@ class SubmittalRepository extends BaseRepository {
       isOverdue: this.isSubmittalOverdue(submittal),
       hasComments: submittal.reviewComments && submittal.reviewComments.trim().length > 0,
       currentRevision: submittal.revisionNumber || 1,
-      canSubmit: submittal.status === 'not_submitted' || submittal.status === 'resubmit'
+      canSubmit: submittal.status === 'not_submitted' || submittal.status === 'resubmit',
     }
 
     return status
@@ -835,13 +896,17 @@ class SubmittalRepository extends BaseRepository {
 
       const summary = {
         total: submittals.length,
-        submitted: submittals.filter(s => s.status === 'submitted').length,
-        underReview: submittals.filter(s => s.status === 'under_review').length,
-        approved: submittals.filter(s => ['approved', 'approved_with_comments'].includes(s.status)).length,
-        rejected: submittals.filter(s => s.status === 'rejected').length,
-        overdue: submittals.filter(s => this.isSubmittalOverdue(s)).length,
-        needingAction: submittals.filter(s => ['submitted', 'under_review', 'resubmit'].includes(s.status)).length,
-        completionRate: 0
+        submitted: submittals.filter((s) => s.status === 'submitted').length,
+        underReview: submittals.filter((s) => s.status === 'under_review').length,
+        approved: submittals.filter((s) =>
+          ['approved', 'approved_with_comments'].includes(s.status),
+        ).length,
+        rejected: submittals.filter((s) => s.status === 'rejected').length,
+        overdue: submittals.filter((s) => this.isSubmittalOverdue(s)).length,
+        needingAction: submittals.filter((s) =>
+          ['submitted', 'under_review', 'resubmit'].includes(s.status),
+        ).length,
+        completionRate: 0,
       }
 
       if (summary.total > 0) {

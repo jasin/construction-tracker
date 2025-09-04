@@ -1,4 +1,5 @@
 // src/services/firebase/Repositories/ProjectRepository.js
+import { validateRequired } from '@/utils/index'
 import BaseRepository from '../core/BaseRepository' // ES module import for base class
 import { CrudMixin } from '../mixins/CrudMixin' // ES module import for CRUD mixin
 import { RealtimeMixin } from '../mixins/RealtimeMixin' // ES module import for real-time mixin
@@ -26,7 +27,7 @@ class ProjectRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   async createProject(projectData) {
     try {
       // Added: Validate required fields before create (assuming validateRequired from utils or implement here)
-      const validation = this.validateRequired(projectData, ['name', 'jobNumber'])
+      const validation = validateRequired(projectData, ['name', 'jobNumber'])
       if (!validation.isValid) {
         throw new Error(`Validation failed: ${JSON.stringify(validation.errors)}`)
       }
@@ -123,7 +124,7 @@ class ProjectRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   async updateProject(projectId, updates) {
     try {
       // Added: Validate updates before proceeding (implement validateUpdates if needed)
-      const validation = this.validateRequired(updates, []) // Example; adjust for optional fields
+      const validation = validateRequired(updates, []) // Example; adjust for optional fields
       if (!validation.isValid) {
         throw new Error(`Validation failed: ${JSON.stringify(validation.errors)}`)
       }
@@ -531,7 +532,7 @@ class ProjectRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    * @returns {Object} Validation result with isValid and errors.
    */
   validateProjectData(projectData) {
-    const validation = this.validateRequired(projectData, ['name', 'jobNumber']) // Assuming validateRequired is in utils; implement if needed
+    const validation = validateRequired(projectData, ['name', 'jobNumber']) // Assuming validateRequired is in utils; implement if needed
 
     // Add project-specific validations
     if (projectData.startDate && projectData.endDate) {
