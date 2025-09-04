@@ -12,11 +12,7 @@
       <!-- RFI Number -->
       <div v-if="isEditing">
         <label class="block text-sm font-medium text-gray-700 mb-1">RFI Number</label>
-        <InputText
-          :model-value="form.number"
-          disabled
-          class="w-full bg-gray-50"
-        />
+        <InputText :model-value="form.number" disabled class="w-full bg-gray-50" />
       </div>
 
       <!-- Title -->
@@ -144,11 +140,7 @@
           severity="secondary"
           :disabled="loading"
         />
-        <Button
-          type="submit"
-          :label="isEditing ? 'Update RFI' : 'Create RFI'"
-          :loading="loading"
-        />
+        <Button type="submit" :label="isEditing ? 'Update RFI' : 'Create RFI'" :loading="loading" />
       </div>
     </form>
   </Dialog>
@@ -156,15 +148,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import {
-  Dialog,
-  InputText,
-  Textarea,
-  Select,
-  DatePicker,
-  Button,
-  Message
-} from 'primevue'
+import { Dialog, InputText, Textarea, Select, DatePicker, Button, Message } from 'primevue'
 import RFIRepository from '@/services/firebase/Repositories/RFIRepository'
 import UserRepository from '@/services/firebase/Repositories/UserRepository'
 
@@ -174,8 +158,8 @@ const props = defineProps({
   projectId: String,
   rfi: {
     type: Object,
-    default: null
-  }
+    default: null,
+  },
 })
 
 // Emits
@@ -197,7 +181,7 @@ const form = ref({
   dueDate: null,
   trade: '',
   location: '',
-  response: ''
+  response: '',
 })
 
 // Computed
@@ -208,17 +192,17 @@ const canAddResponse = computed(() => {
 })
 
 const userOptions = computed(() =>
-  users.value.map(user => ({
+  users.value.map((user) => ({
     label: user.name || user.email,
-    value: user.id
-  }))
+    value: user.id,
+  })),
 )
 
 const priorityOptions = [
   { label: 'Low', value: 'low' },
   { label: 'Medium', value: 'medium' },
   { label: 'High', value: 'high' },
-  { label: 'Urgent', value: 'urgent' }
+  { label: 'Urgent', value: 'urgent' },
 ]
 
 const statusOptions = [
@@ -226,7 +210,7 @@ const statusOptions = [
   { label: 'Submitted', value: 'submitted' },
   { label: 'Under Review', value: 'under_review' },
   { label: 'Responded', value: 'responded' },
-  { label: 'Closed', value: 'closed' }
+  { label: 'Closed', value: 'closed' },
 ]
 
 // Methods
@@ -240,7 +224,7 @@ const resetForm = () => {
     dueDate: null,
     trade: '',
     location: '',
-    response: ''
+    response: '',
   }
   errors.value = {}
   generalError.value = ''
@@ -258,7 +242,7 @@ const populateForm = () => {
       trade: props.rfi.trade || '',
       location: props.rfi.location || '',
       response: props.rfi.response || '',
-      number: props.rfi.number || ''
+      number: props.rfi.number || '',
     }
   }
 }
@@ -291,7 +275,7 @@ const handleSubmit = async () => {
       assignedTo: form.value.assignedTo,
       dueDate: form.value.dueDate ? form.value.dueDate.toISOString() : null,
       trade: form.value.trade.trim() || null,
-      location: form.value.location.trim() || null
+      location: form.value.location.trim() || null,
     }
 
     let savedRFI
@@ -300,7 +284,7 @@ const handleSubmit = async () => {
       // Update existing RFI
       const updates = {
         ...rfiData,
-        status: form.value.status
+        status: form.value.status,
       }
 
       // If adding a response
@@ -315,14 +299,13 @@ const handleSubmit = async () => {
       // Create new RFI
       savedRFI = await RFIRepository.createRFI({
         ...rfiData,
-        projectId: props.projectId
+        projectId: props.projectId,
       })
     }
 
     emit('rfi-saved', savedRFI)
     emit('update:visible', false)
     resetForm()
-
   } catch (error) {
     console.error('Error saving RFI:', error)
     generalError.value = error.message || 'Failed to save RFI'
@@ -340,15 +323,18 @@ const loadUsers = async () => {
 }
 
 // Watchers
-watch(() => props.visible, (newVisible) => {
-  if (newVisible) {
-    if (props.rfi) {
-      populateForm()
-    } else {
-      resetForm()
+watch(
+  () => props.visible,
+  (newVisible) => {
+    if (newVisible) {
+      if (props.rfi) {
+        populateForm()
+      } else {
+        resetForm()
+      }
     }
-  }
-})
+  },
+)
 
 // Lifecycle
 onMounted(() => {
