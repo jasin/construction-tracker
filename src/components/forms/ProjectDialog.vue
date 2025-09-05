@@ -7,7 +7,7 @@
     @hide="closeModal"
   >
     <div class="flex-1 overflow-y-auto p-4">
-      <form @submit.prevent="handleSubmit" class="space-y-4">
+      <form @submit.prevent="saveProject" class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Project Name *</label>
           <InputText
@@ -34,16 +34,15 @@
 
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Client *</label>
-          <Select
-            v-model="form.clientId"
-            :options="clientOptions"
-            option-label="label"
-            option-value="value"
-            placeholder="Select a client"
+          <AutoComplete
+            v-model="selectedClient"
+            :suggestions="filteredClients"
+            @complete="searchClients"
+            option-label="name"
+            placeholder="Search clients..."
             class="w-full text-sm"
             :class="{ 'border-red-500': errors.clientId }"
-            filter
-            show-clear
+            dropdown
           />
           <span v-if="errors.clientId" class="text-red-500 text-xs mt-1">{{
             errors.clientId
@@ -182,7 +181,7 @@
           @click="closeModal"
           :disabled="loading"
         />
-        <Button label="Save" size="small" @click="handleSubmit" :loading="loading" />
+        <Button label="Save" size="small" @click="saveProject" :loading="loading" />
       </div>
     </template>
   </Dialog>
@@ -201,6 +200,7 @@ import InputNumber from 'primevue/inputnumber'
 import Checkbox from 'primevue/checkbox'
 import DatePicker from 'primevue/datepicker'
 import Button from 'primevue/button'
+import AutoComplete from 'primevue/autocomplete'
 import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
 import ClientRepository from '@/services/firebase/Repositories/ClientRepository'
 import ClientDialog from './ClientDialog.vue'
@@ -215,6 +215,10 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  initialClientId: {
+    type: String,
+    default: null,
+  },
 })
 
 // Emits
@@ -227,20 +231,13 @@ const success = ref('')
 const errors = ref({})
 const clients = ref([])
 const showCreateClient = ref(false)
+const filteredClients = ref([])
+const selectedClient = ref(null)
 
 // Computed
 const isOpen = computed({
   get: () => props.visible,
   set: (value) => emit('update:visible', value),
-})
-
-const clientOptions = computed(() => {
-  return clients.value
-    .filter((client) => client.name)
-    .map((client) => ({
-      label: `${client.name}${client.company ? ` (${client.company})` : ''}`,
-      value: client.id,
-    }))
 })
 
 // Form data
@@ -268,35 +265,75 @@ const phaseOptions = [
   { label: 'Complete', value: 'complete' },
 ]
 
-// Load project data into form
-const loadProjectData = () => {
-  if (props.project && props.project.id) {
-    form.value = {
-      name: props.project.name || '',
-      jobNumber: props.project.jobNumber || '',
-      clientId: props.project.clientId || '',
-      architect: props.project.architect || '',
-      projectManager: props.project.projectManager || '',
-      superintendent: props.project.superintendent || '',
-      phase: props.project.phase || 'pre-construction',
-      cost: props.project.cost || null,
-      contractSigned: props.project.contractSigned || false,
-      startDate: props.project.startDate ? new Date(props.project.startDate) : null,
-      endDate: props.project.endDate ? new Date(props.project.endDate) : null,
-      address: props.project.address || '',
-      description: props.project.description || '',
-    }
+/**
+ * Loads all clients from repository.
+ * @async
+ */
+const loadClients = async () => {
+  try {
+    clients.value = await ClientRepository.getAllClients()
+    console.log('Loaded clients for project form:', clients.value)
+  } catch (err) {
+    console.error('Error loading clients:', err.message)
+    throw new Error(`Clients load failed: ${err.message}`)
   }
 }
 
-// Load Client data
-const loadClients = async () => {
+/**
+ * Handles fuzzy search for clients.
+ * @param {Object} event - AutoComplete event with query.
+ */
+const searchClients = (event) => {
+  const query = event.query.toLowerCase()
+  filteredClients.value = clients.value.filter((client) =>
+    client.name.toLowerCase().includes(query),
+  )
+}
+
+/**
+ * Loads or resets form data based on props.
+ * For new projects, pre-selects client if initialClientId provided.
+ */
+const loadProjectData = () => {
   try {
-    const clientData = await ClientRepository.getAllClients()
-    clients.value = clientData
-    console.log('Loaded clients for project form:', clientData)
+    if (props.project && props.project.id) {
+      form.value = {
+        name: props.project.name || '',
+        jobNumber: props.project.jobNumber || '',
+        clientId: props.project.clientId || '',
+        architect: props.project.architect || '',
+        projectManager: props.project.projectManager || '',
+        superintendent: props.project.superintendent || '',
+        phase: props.project.phase || 'pre-construction',
+        cost: props.project.cost || null,
+        contractSigned: props.project.contractSigned || false,
+        startDate: props.project.startDate ? new Date(props.project.startDate) : null,
+        endDate: props.project.endDate ? new Date(props.project.endDate) : null,
+        address: props.project.address || '',
+        description: props.project.description || '',
+      }
+      selectedClient.value = clients.value.find((c) => c.id === form.value.clientId) || null
+    } else {
+      form.value = {
+        name: '',
+        jobNumber: '',
+        clientId: props.initialClientId || '',
+        architect: '',
+        projectManager: '',
+        superintendent: '',
+        phase: 'pre-construction',
+        cost: null,
+        contractSigned: false,
+        startDate: null,
+        endDate: null,
+        address: '',
+        description: '',
+      }
+      selectedClient.value = clients.value.find((c) => c.id === props.initialClientId) || null
+    }
   } catch (err) {
-    console.error('Error loading clients:', err.message)
+    console.error('Error loading project data:', err.message)
+    throw new Error(`Project data load failed: ${err.message}`)
   }
 }
 
@@ -319,8 +356,12 @@ const validateForm = () => {
   return Object.keys(errors.value).length === 0
 }
 
-// Handle form submission
-const handleSubmit = async () => {
+/**
+ * Saves the project (create or update).
+ * Emits project-saved event with data (including clientId from selectedClient).
+ * @async
+ */
+const saveProject = async () => {
   if (!validateForm()) {
     return
   }
@@ -333,7 +374,7 @@ const handleSubmit = async () => {
     const projectData = {
       name: form.value.name.trim(),
       jobNumber: form.value.jobNumber.trim(),
-      clientId: form.value.clientId?.trim() || '',
+      clientId: selectedClient.value?.id || form.value.clientId?.trim() || '',
       architect: form.value.architect?.trim() || '',
       projectManager: form.value.projectManager?.trim() || '',
       superintendent: form.value.superintendent?.trim() || '',
@@ -365,8 +406,9 @@ const handleSubmit = async () => {
       closeModal()
     }, 1500)
   } catch (err) {
-    console.error('Error updating project:', err)
-    error.value = err.message || 'Failed to update project'
+    console.error('Error saving project:', err.message)
+    error.value = err.message || 'Failed to save project'
+    throw new Error(`Project save failed: ${err.message}`)
   } finally {
     loading.value = false
   }
@@ -380,7 +422,8 @@ const handleClientCreated = (newClient) => {
   // Add to client list
   clients.value.unshift(newClient)
 
-  // Select new client in form
+  // Select new client
+  selectedClient.value = newClient
   form.value.clientId = newClient.id
 
   // Close the client modal
@@ -393,6 +436,11 @@ const closeModal = () => {
   error.value = ''
   success.value = ''
 }
+
+// Watch selectedClient to sync clientId
+watch(selectedClient, (newVal) => {
+  form.value.clientId = newVal?.id || ''
+})
 
 // Watch for visibility changes
 watch(
