@@ -89,20 +89,20 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import Card from 'primevue/card'
 import ProgressSpinner from 'primevue/progressspinner'
 import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
 import ActivityService from '@/services/logging/ActivityService'
+import { handleError } from '../../utils/errorHandler'
 
-const router = useRouter()
 const toast = useToast()
 
 const loading = ref(true)
 const projects = ref([])
 const activities = ref([])
-let activitySubscription = null
+let activityUnsubscribe = null
+let projectUnsubscribe = null
 
 /**
  * Computes grouped activities by projectId.
@@ -171,14 +171,13 @@ const loadData = async () => {
     projects.value = projData
     activities.value = actData
   } catch (error) {
-    console.error('Failed to load dashboard data:', error)
+    handleError(error, 'DashboardView.loadData')
     toast.add({
       severity: 'error',
       summary: 'Error',
       detail: 'Failed to load data. Please try again.',
       life: 5000,
     })
-    throw new Error(`Dashboard data load failed: ${error.message}`)
   } finally {
     loading.value = false
   }
@@ -189,12 +188,21 @@ const loadData = async () => {
  */
 const setupSubscription = () => {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-  activitySubscription = ActivityService.subscribeToRecentActivities(
+  activityUnsubscribe = ActivityService.subscribeToRecentActivities(
     { since: sevenDaysAgo },
     (updatedActivities) => {
       activities.value = updatedActivities
     },
   )
+}
+
+/**
+ * Sets up realtime subscription to projects.
+ */
+const setupProjectSubscription = () => {
+  projectUnsubscribe = ProjectRepository.subscribeToAll((updatedProjects) => {
+    projects.value = updatedProjects
+  })
 }
 
 /**
@@ -250,16 +258,16 @@ const getActivityIcon = (action) => {
 onMounted(async () => {
   await loadData()
   setupSubscription()
+  setupProjectSubscription()
 })
 
 onUnmounted(() => {
-  if (activitySubscription) {
-    try {
-      activitySubscription()
-    } catch (error) {
-      console.error('Failed to unsubscribe from activities:', error)
-      throw new Error(`Activity unsubscribe failed: ${error.message}`)
-    }
+  if (activityUnsubscribe) {
+    activityUnsubscribe()
+  }
+
+  if (projectUnsubscribe) {
+    projectUnsubscribe()
   }
 })
 </script>
