@@ -328,6 +328,17 @@ class ProjectRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   }
 
   /**
+   * Subscribe to all projects in realtime.
+   * @param {Function} callback - Callback to receive projects array.
+   * @param {Function|null} sortFn - Optional sorting function.
+   * @param {Function} [errorCallback] - Optional callback for errors.
+   * @returns {Function} Unsubscribe function.
+   */
+  subscribeToAll(callback, sortFn = null, errorCallback = () => {}) {
+    return super.subscribeToAll(callback, sortFn, errorCallback)
+  }
+
+  /**
    * Real-time subscriptions with business logic.
    * @param {Function} callback - Callback for projects.
    * @returns {Object} Unsubscribe reference.
@@ -361,7 +372,7 @@ class ProjectRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       return (a.name || '').localeCompare(b.name || '')
     }
 
-    return super.subscribeToAll(callback, sortByPriority) // Changed: Use super.subscribeToAll from RealtimeMixin
+    return this.subscribeToAll(callback, sortByPriority) // Changed: Use super.subscribeToAll from RealtimeMixin
   }
 
   /**

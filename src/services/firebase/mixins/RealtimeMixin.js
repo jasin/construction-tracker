@@ -1,185 +1,127 @@
 // src/services/firebase/mixins/RealtimeMixin.js
-import { ref, query, orderByChild, equalTo, onValue, off, startAt } from 'firebase/database'
-import firebaseCore from '../core/FirebaseCore'
+import { ref, onValue, off } from 'firebase/database' // ES module imports for RTDB
+import { handleError } from '@/utils/errorHandler' // Centralized error handling
 
 /**
- * Functional mixin providing real-time subscription capabilities for Firebase entities.
- * Applies methods to the provided Base class.
- * @param {typeof BaseRepository} Base - The base class to extend with real-time methods.
- * @returns {typeof BaseRepository} Extended class with real-time functionality.
+ * Mixin providing realtime subscription capabilities for Firebase repositories (RTDB).
+ * Allows subscribing to path changes with automatic error handling via callbacks.
+ * @mixin
  */
-export function RealtimeMixin(Base) {
-  return class extends Base {
+export function RealtimeMixin(base) {
+  return class extends base {
     /**
-     * Subscribe to all entities in the collection.
-     * @param {Function} callback - Callback to receive entities.
-     * @param {Function|null} sortFn - Optional sorting function.
-     * @returns {Object} Query reference for unsubscribing.
+     * Internal map of active subscriptions.
+     * Key: subscription name, Value: { ref: firebase.database.Reference, listener: Function }.
      */
-    subscribeToAll(callback, sortFn = null) {
-      try {
-        const entitiesRef = ref(firebaseCore.database, this.collectionName)
+    subscriptions = {}
 
-        onValue(entitiesRef, (snapshot) => {
-          const entities = snapshot.exists()
-            ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
-            : []
+    /**
+     * Subscribe to realtime updates for a path (RTDB).
+     * @param {string} key - Unique key for the subscription (e.g., 'ProjectDocuments').
+     * @param {firebase.database.Reference} pathRef - RTDB reference to subscribe to.
+     * @param {Function} callback - Callback to handle data updates (object or array with id).
+     * @param {Function} [errorCallback] - Optional callback for errors.
+     * @returns {Function} Unsubscribe function.
+     */
+    subscribe(key, pathRef, callback, errorCallback = () => {}) {
+      if (!key) {
+        handleError(new Error('Subscribe called with falsy key'), 'RealtimeMixin.subscribe')
+        return () => {} // Return noop unsubscribe
+      }
+      if (!pathRef) {
+        handleError(
+          new Error('Subscribe called with falsy ref'),
+          `RealtimeMixin.subscribe for key: ${key}`,
+        )
+        return () => {} // Return noop unsubscribe
+      }
 
-          // Apply sorting if provided
-          if (sortFn && typeof sortFn === 'function') {
-            entities.sort(sortFn)
-          }
+      if (this.subscriptions[key]) {
+        this.unsubscribe(key) // Clean existing subscription if any
+      }
 
+      const listener = (snapshot) => {
+        const data = snapshot.val()
+        if (data) {
+          // Map object to array with id if collection-like
+          const entities = Object.entries(data).map(([id, entityData]) => ({ id, ...entityData }))
           callback(entities)
-        })
-
-        return entitiesRef
-      } catch (error) {
-        const wrappedError = firebaseCore.createError('subscribeToAll', this.entityName, error)
-        console.error(wrappedError)
-        throw wrappedError // Rethrow for upstream handling
-      }
-    }
-
-    /**
-     * Subscribe to a single entity by ID.
-     * @param {string} entityId - ID to subscribe to.
-     * @param {Function} callback - Callback to receive data.
-     * @returns {Object} Query reference for unsubscribing.
-     */
-    subscribeToOne(entityId, callback) {
-      try {
-        const entityRef = ref(firebaseCore.database, `${this.collectionName}/${entityId}`)
-
-        onValue(entityRef, (snapshot) => {
-          const data = snapshot.exists() ? { id: entityId, ...snapshot.val() } : null
-          callback(data)
-        })
-
-        return entityRef
-      } catch (error) {
-        const wrappedError = firebaseCore.createError('subscribeToOne', this.entityName, error)
-        console.error(wrappedError)
-        throw wrappedError // Rethrow for upstream handling
-      }
-    }
-
-    /**
-     * Subscribe to entities filtered by a field value.
-     * @param {string} fieldName - Field to filter by.
-     * @param {any} value - Value to match.
-     * @param {Function} callback - Callback to receive entities.
-     * @param {Function|null} sortFn - Optional sorting function.
-     * @returns {Object} Query reference for unsubscribing.
-     */
-    subscribeToByField(fieldName, value, callback, sortFn = null) {
-      try {
-        const entitiesRef = ref(firebaseCore.database, this.collectionName)
-        const fieldQuery = query(entitiesRef, orderByChild(fieldName), equalTo(value))
-
-        onValue(fieldQuery, (snapshot) => {
-          const entities = snapshot.exists()
-            ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
-            : []
-
-          // Apply sorting if provided
-          if (sortFn && typeof sortFn === 'function') {
-            entities.sort(sortFn)
-          }
-
-          callback(entities)
-        })
-
-        return fieldQuery
-      } catch (error) {
-        const wrappedError = firebaseCore.createError('subscribeToByField', this.entityName, error)
-        console.error(wrappedError)
-        throw wrappedError // Rethrow for upstream handling
-      }
-    }
-
-    /**
-     * Unsubscribe from a query reference.
-     * @param {Object} queryRef - Reference to unsubscribe from.
-     * @returns {boolean} True if unsubscribed successfully.
-     */
-    unsubscribe(queryRef) {
-      try {
-        if (queryRef) {
-          off(queryRef)
-          return true
+        } else {
+          callback([])
         }
-        return false
-      } catch (error) {
-        const wrappedError = firebaseCore.createError('unsubscribe', this.entityName, error)
-        console.error(wrappedError)
-        throw wrappedError // Rethrow for upstream handling
       }
+
+      onValue(pathRef, listener, (err) => {
+        handleError(err, `Realtime subscription error for ${key}`)
+        errorCallback(err)
+      })
+
+      this.subscriptions[key] = { ref: pathRef, listener }
+
+      // Return unsubscribe function
+      return () => this.unsubscribe(key)
     }
 
     /**
-     * Subscribe with custom query builder.
-     * @param {Function} queryBuilder - Function to build the query.
-     * @param {Function} callback - Callback to receive entities.
-     * @returns {Object} Query reference for unsubscribing.
+     * Subscribe to all entities in the collection (RTDB-specific).
+     * @param {Function} callback - Callback to receive entities (array of objects with id).
+     * @param {Function|null} sortFn - Optional sorting function for the entities array.
+     * @param {Function} [errorCallback] - Optional callback for errors.
+     * @returns {Function} Unsubscribe function.
      */
-    subscribeWithCustomQuery(queryBuilder, callback) {
-      try {
-        const entitiesRef = ref(firebaseCore.database, this.collectionName)
-        const customQuery = queryBuilder(entitiesRef)
+    subscribeToAll(callback, sortFn = null, errorCallback = () => {}) {
+      const entitiesRef = ref(this.db, this.collectionName) // Use this.db set in constructor
 
-        onValue(customQuery, (snapshot) => {
-          const entities = snapshot.exists()
-            ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
-            : []
-          callback(entities)
-        })
-
-        return customQuery
-      } catch (error) {
-        const wrappedError = firebaseCore.createError(
-          'subscribeWithCustomQuery',
-          this.entityName,
-          error,
+      if (!entitiesRef) {
+        handleError(
+          new Error('Invalid entitiesRef in subscribeToAll'),
+          'RealtimeMixin.subscribeToAll',
         )
-        console.error(wrappedError)
-        throw wrappedError // Rethrow for upstream handling
+        return () => {} // Return noop unsubscribe
       }
+
+      return this.subscribe(
+        'allEntities',
+        entitiesRef,
+        (data) => {
+          const sorted = sortFn && typeof sortFn === 'function' ? data.sort(sortFn) : data
+          callback(sorted)
+        },
+        errorCallback,
+      )
     }
 
     /**
-     * Subscribe to recent entities based on timestamp.
-     * @param {Date} since - Filter entities since this date.
-     * @param {Function} callback - Callback to receive entities.
-     * @param {number} [limit=0] - Optional limit (client-side enforced).
-     * @returns {Object} Query reference for unsubscribing.
+     * Unsubscribe from a realtime listener.
+     * @param {string} key - The key of the subscription to unsubscribe.
+     * @returns {void}
      */
-    subscribeToRecent(since, callback, limit = 0) {
-      try {
-        return this.subscribeWithCustomQuery(
-          (entitiesRef) => {
-            let q = query(entitiesRef, orderByChild('timestamp'))
-            if (since) {
-              const cutoffTimestamp = since.toISOString()
-              q = query(q, startAt(cutoffTimestamp))
-            }
-            return q
-          },
-          (entities) => {
-            // Sort descending by timestamp
-            entities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-            // Apply client-side limit
-            if (limit > 0) {
-              entities = entities.slice(0, limit)
-            }
-            callback(entities)
-          },
-        )
-      } catch (error) {
-        const wrappedError = firebaseCore.createError('subscribeToRecent', this.entityName, error)
-        console.error(wrappedError)
-        throw wrappedError // Rethrow for upstream handling
+    unsubscribe(key) {
+      if (!key) {
+        handleError(new Error('Unsubscribe called with falsy key'), 'RealtimeMixin.unsubscribe')
+        return
       }
+
+      const sub = this.subscriptions[key]
+      if (!sub || typeof sub.listener !== 'function') {
+        handleError(
+          new Error('No valid unsubscribe function'),
+          `RealtimeMixin.unsubscribe for key: ${key}`,
+        )
+        return
+      }
+
+      off(sub.ref, 'value', sub.listener)
+      delete this.subscriptions[key]
+    }
+
+    /**
+     * Unsubscribe from all active subscriptions.
+     * @returns {void}
+     */
+    unsubscribeAll() {
+      const keys = Object.keys(this.subscriptions)
+      keys.forEach((key) => this.unsubscribe(key))
     }
   }
 }

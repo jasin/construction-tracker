@@ -3,6 +3,7 @@ import { CrudMixin } from '../mixins/CrudMixin'
 import { RealtimeMixin } from '../mixins/RealtimeMixin'
 import { validateAndCleanForm } from '@/utils/index'
 import { handleAsync, extractData } from '@/utils/errorHandler'
+import firebaseCore from './FirebaseCore'
 
 /**
  * Base repository class that all entity repositories extend
@@ -13,6 +14,7 @@ export default class BaseRepository {
     this.collectionName = collectionName
     this.entityName = entityName || this.deriveEntityName(collectionName)
     this.schema = schema
+    this.db = firebaseCore.database
 
     // Apply mixins
     Object.assign(this, CrudMixin)

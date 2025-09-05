@@ -1,3 +1,5 @@
+// src/utils/errorHandler.js
+
 /**
  * Centralized error handling utilities for async operations.
  * @module errorHandler
@@ -17,9 +19,7 @@ export async function handleAsync(asyncFn, options = {}) {
   const { silent = false, context = '' } = options
   try {
     const data = await asyncFn()
-    const result = { success: true, data, error: null }
-    console.log(`handleAsync result for "${context}":`, result) // Debug: Log actual return on success
-    return result
+    return { success: true, data, error: null }
   } catch (err) {
     const errorMessage = err.message || 'An unexpected error occurred'
     Logger.error({ message: errorMessage, context, stack: err.stack })
@@ -42,4 +42,31 @@ export async function handleAsync(asyncFn, options = {}) {
  */
 export function extractData(result, defaultValue = []) {
   return result.success ? result.data : defaultValue
+}
+
+/**
+ * Handles synchronous errors uniformly, logging via Logger.
+ * Use this for non-async error handling to centralize logging.
+ * @param {Error|string} err - The error object or message.
+ * @param {string} [context=''] - Context string for logging.
+ * @param {Object} [options={}] - Optional configuration.
+ * @param {boolean} [options.silent=false] - If true, suppresses UI notifications.
+ * @param {boolean} [options.rethrow=false] - If true, rethrows the error after logging.
+ * @returns {void}
+ */
+export function handleError(err, context = '', options = {}) {
+  const { silent = false, rethrow = false } = options
+  const errorMessage = err instanceof Error ? err.message : err || 'An unexpected error occurred'
+  const stack = err instanceof Error ? err.stack : undefined
+
+  Logger.error({ message: errorMessage, context, stack })
+
+  if (!silent) {
+    // Integrate with UI store for notifications (e.g., via ui.js store).
+    // Example: useUIStore().addNotification({ type: 'error', message: errorMessage });
+  }
+
+  if (rethrow) {
+    throw err
+  }
 }
