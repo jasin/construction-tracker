@@ -6,7 +6,7 @@
       ".indexOn": ["projectId"]
     },
     "activityLog": {
-      ".indexOn": ["projectId"]
+      ".indexOn": ["projectId", "timestamp"]
     },
     "rfis": {
       ".indexOn": ["projectId"]
