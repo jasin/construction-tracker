@@ -1,15 +1,16 @@
 // stores/project.js
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository';
+import { extractData, handleAsync, handleError } from '../utils/errorHandler';
 
 export const useProjectStore = defineStore('project', () => {
   // State
-  const currentProject = ref({})
-  const projects = ref([])
-  const loading = ref(false)
-  const error = ref(null)
-  const subscriptions = ref([])
+  const currentProject = ref({});
+  const projects = ref([]);
+  const loading = ref(false);
+  const error = ref(null);
+  const subscriptions = ref([]);
 
   // Getters
   const projectTeam = computed(() => {
@@ -18,22 +19,22 @@ export const useProjectStore = defineStore('project', () => {
         name: currentProject.value.projectManager,
         role: 'Project Manager',
         icon: 'pi-user',
-        color: 'blue'
+        color: 'blue',
       },
       currentProject.value.superintendent && {
         name: currentProject.value.superintendent,
         role: 'Superintendent',
         icon: 'pi-hard-hat',
-        color: 'yellow'
+        color: 'yellow',
       },
       currentProject.value.architect && {
         name: currentProject.value.architect,
         role: 'Architect',
         icon: 'pi-pencil',
-        color: 'purple'
-      }
-    ].filter(Boolean)
-  })
+        color: 'purple',
+      },
+    ].filter(Boolean);
+  });
 
   const projectStatus = computed(() => {
     return {
@@ -42,54 +43,71 @@ export const useProjectStore = defineStore('project', () => {
       cost: currentProject.value.cost,
       startDate: currentProject.value.startDate,
       endDate: currentProject.value.endDate,
-    }
-  })
+    };
+  });
 
-  // Actions
+  /**
+   * Loads a project by ID, updating loading and error state.
+   * @param {string} projectId - The ID of the project to load.
+   * @returns {Promise<Object|null>} Loaded project data or null if not found.
+   */
   async function loadProject(projectId) {
-    loading.value = true
-    error.value = null
+    loading.value = true;
+    error.value = null;
 
-    try {
-      const projectData = await ProjectRepository.getProject(projectId)
-      if (!projectData) {
-        throw new Error('Project not found')
-      }
-      currentProject.value = projectData
-    } catch (err) {
-      error.value = err.message
-      console.error('Error loading project:', err)
-    } finally {
-      loading.value = false
+    const result = await handleAsync(
+      async () => {
+        const projectData = await ProjectRepository.getProject(projectId);
+        currentProject.value = projectData || null; // Assign null if not found
+        return projectData;
+      },
+      { context: `Load project ${projectId}` }
+    );
+
+    const projectData = extractData(result);
+
+    if (!projectData) {
+      error.value = 'Project not found'; // Set UI error after extraction
     }
+
+    loading.value = false;
+    return projectData;
   }
 
   function subscribeToProject(projectId) {
     const unsubscribe = ProjectRepository.subscribeToProject(projectId, (projectData) => {
       if (projectData) {
-        currentProject.value = projectData
+        currentProject.value = projectData;
       }
-    })
-    subscriptions.value.push(unsubscribe)
-    return unsubscribe
+    });
+    subscriptions.value.push(unsubscribe);
+    return unsubscribe;
   }
 
   function updateProject(updates) {
-    currentProject.value = { ...currentProject.value, ...updates }
+    currentProject.value = { ...currentProject.value, ...updates };
   }
 
   function clearSubscriptions() {
     subscriptions.value.forEach((unsubscribe) => {
       if (typeof unsubscribe === 'function') {
-        unsubscribe()
+        unsubscribe();
+      } else if (unsubscribe && typeof unsubscribe.unsubscribe === 'function') {
+        unsubscribe.unsubscribe();
+      } else {
+        handleError(
+          new Error('Invalid subscribe type'),
+          'clearSubscriptions - Invalid unsubscribe'
+        );
       }
-    })
-    subscriptions.value = []
+    });
+    subscriptions.value = [];
   }
 
   function resetProject() {
-    currentProject.value = {}
-    clearSubscriptions()
+    currentProject.value = {};
+    error.value = null;
+    clearSubscriptions();
   }
 
   return {
@@ -108,6 +126,6 @@ export const useProjectStore = defineStore('project', () => {
     subscribeToProject,
     updateProject,
     clearSubscriptions,
-    resetProject
-  }
-})
+    resetProject,
+  };
+});

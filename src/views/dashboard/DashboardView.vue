@@ -88,21 +88,21 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useToast } from 'primevue/usetoast'
-import Card from 'primevue/card'
-import ProgressSpinner from 'primevue/progressspinner'
-import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
-import ActivityService from '@/services/logging/ActivityService'
-import { handleError } from '../../utils/errorHandler'
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useToast } from 'primevue/usetoast';
+import Card from 'primevue/card';
+import ProgressSpinner from 'primevue/progressspinner';
+import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository';
+import ActivityService from '@/services/logging/ActivityService';
+import { handleError } from '../../utils/errorHandler';
 
-const toast = useToast()
+const toast = useToast();
 
-const loading = ref(true)
-const projects = ref([])
-const activities = ref([])
-let activityUnsubscribe = null
-let projectUnsubscribe = null
+const loading = ref(true);
+const projects = ref([]);
+const activities = ref([]);
+let activityUnsubscribe = null;
+let projectUnsubscribe = null;
 
 /**
  * Computes grouped activities by projectId.
@@ -110,12 +110,12 @@ let projectUnsubscribe = null
  */
 const groupedActivities = computed(() => {
   return activities.value.reduce((acc, activity) => {
-    const pid = activity.projectId
-    if (!acc[pid]) acc[pid] = []
-    acc[pid].push(activity)
-    return acc
-  }, {})
-})
+    const pid = activity.projectId;
+    if (!acc[pid]) acc[pid] = [];
+    acc[pid].push(activity);
+    return acc;
+  }, {});
+});
 
 /**
  * Computes the top 4 projects with recent activity, sorted by recency and volume.
@@ -123,38 +123,38 @@ const groupedActivities = computed(() => {
  * @returns {Array} Array of enhanced project objects.
  */
 const activeProjects = computed(() => {
-  const now = Date.now()
-  const yesterday = now - 24 * 60 * 60 * 1000
+  const now = Date.now();
+  const yesterday = now - 24 * 60 * 60 * 1000;
 
   return projects.value
     .map((project) => {
-      const projActivities = groupedActivities.value[project.id] || []
-      if (!projActivities.length) return null
+      const projActivities = groupedActivities.value[project.id] || [];
+      if (!projActivities.length) return null;
 
-      const lastTimestamp = Math.max(...projActivities.map((a) => new Date(a.timestamp).getTime()))
-      const activityCount = projActivities.length
+      const lastTimestamp = Math.max(...projActivities.map((a) => new Date(a.timestamp).getTime()));
+      const activityCount = projActivities.length;
       const changes = projActivities.filter(
-        (a) => new Date(a.timestamp).getTime() > yesterday,
-      ).length
+        (a) => new Date(a.timestamp).getTime() > yesterday
+      ).length;
 
       const updates = projActivities
         .filter((a) =>
-          ['created_rfi', 'created_submittal', 'created_change_order'].includes(a.action),
+          ['created_rfi', 'created_submittal', 'created_change_order'].includes(a.action)
         )
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-        .slice(0, 3) // Limit to top 3 updates
+        .slice(0, 3); // Limit to top 3 updates
 
       const documents = projActivities
         .filter((a) => a.action === 'uploaded_document')
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-        .slice(0, 2) // Limit to top 2 documents
+        .slice(0, 2); // Limit to top 2 documents
 
-      return { ...project, lastTimestamp, activityCount, changes, updates, documents }
+      return { ...project, lastTimestamp, activityCount, changes, updates, documents };
     })
     .filter(Boolean)
     .sort((a, b) => b.lastTimestamp - a.lastTimestamp || b.activityCount - a.activityCount)
-    .slice(0, 4)
-})
+    .slice(0, 4);
+});
 
 /**
  * Loads projects and recent activities.
@@ -162,48 +162,48 @@ const activeProjects = computed(() => {
  */
 const loadData = async () => {
   try {
-    loading.value = true
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    loading.value = true;
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const [projData, actData] = await Promise.all([
       ProjectRepository.getAllProjects(),
       ActivityService.getRecentActivities({ since: sevenDaysAgo }),
-    ])
-    projects.value = projData
-    activities.value = actData
+    ]);
+    projects.value = projData;
+    activities.value = actData;
   } catch (error) {
-    handleError(error, 'DashboardView.loadData')
+    handleError(error, 'DashboardView.loadData');
     toast.add({
       severity: 'error',
       summary: 'Error',
       detail: 'Failed to load data. Please try again.',
       life: 5000,
-    })
+    });
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 /**
  * Sets up realtime subscription to recent activities.
  */
 const setupSubscription = () => {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   activityUnsubscribe = ActivityService.subscribeToRecentActivities(
     { since: sevenDaysAgo },
     (updatedActivities) => {
-      activities.value = updatedActivities
-    },
-  )
-}
+      activities.value = updatedActivities;
+    }
+  );
+};
 
 /**
  * Sets up realtime subscription to projects.
  */
 const setupProjectSubscription = () => {
   projectUnsubscribe = ProjectRepository.subscribeToAll((updatedProjects) => {
-    projects.value = updatedProjects
-  })
-}
+    projects.value = updatedProjects;
+  });
+};
 
 /**
  * Formats a timestamp as relative time ago.
@@ -211,19 +211,19 @@ const setupProjectSubscription = () => {
  * @returns {string} Formatted relative time.
  */
 const formatTimeAgo = (timestamp) => {
-  if (!timestamp) return 'Unknown'
-  const now = new Date()
-  const time = new Date(timestamp)
-  const diffInMs = now - time
-  const diffInMinutes = Math.floor(diffInMs / (1000 * 60))
-  const diffInHours = Math.floor(diffInMinutes / 60)
-  const diffInDays = Math.floor(diffInHours / 24)
-  if (diffInMinutes < 1) return 'Just now'
-  if (diffInMinutes < 60) return `${diffInMinutes}m ago`
-  if (diffInHours < 24) return `${diffInHours}h ago`
-  if (diffInDays < 7) return `${diffInDays}d ago`
-  return time.toLocaleDateString()
-}
+  if (!timestamp) return 'Unknown';
+  const now = new Date();
+  const time = new Date(timestamp);
+  const diffInMs = now - time;
+  const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInMinutes < 1) return 'Just now';
+  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+  if (diffInHours < 24) return `${diffInHours}h ago`;
+  if (diffInDays < 7) return `${diffInDays}d ago`;
+  return time.toLocaleDateString();
+};
 
 /**
  * Gets the CSS class for an activity icon based on action.
@@ -236,9 +236,9 @@ const getActivityIconClass = (action) => {
     created_submittal: 'bg-green-100 text-green-700',
     created_change_order: 'bg-yellow-100 text-yellow-700',
     uploaded_document: 'bg-pink-100 text-pink-700',
-  }
-  return classMap[action] || 'bg-surface-100 text-surface-600'
-}
+  };
+  return classMap[action] || 'bg-surface-100 text-surface-600';
+};
 
 /**
  * Gets the PrimeIcon class for an activity.
@@ -251,23 +251,23 @@ const getActivityIcon = (action) => {
     created_submittal: 'pi pi-file-check',
     created_change_order: 'pi pi-file-edit',
     uploaded_document: 'pi pi-file',
-  }
-  return iconMap[action] || 'pi pi-circle'
-}
+  };
+  return iconMap[action] || 'pi pi-circle';
+};
 
 onMounted(async () => {
-  await loadData()
-  setupSubscription()
-  setupProjectSubscription()
-})
+  await loadData();
+  setupSubscription();
+  setupProjectSubscription();
+});
 
 onUnmounted(() => {
   if (activityUnsubscribe) {
-    activityUnsubscribe()
+    activityUnsubscribe();
   }
 
   if (projectUnsubscribe) {
-    projectUnsubscribe()
+    projectUnsubscribe();
   }
-})
+});
 </script>
