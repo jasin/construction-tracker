@@ -51,7 +51,7 @@
       <!-- Main content area (full width after sidebar removal) -->
       <main class="flex-1 p-4 overflow-auto">
         <template v-if="selectedProject">
-          <ProjectDetailView :project-id="selectedProject.id" />
+          <ProjectDetailView :key="selectedProject.id" :project-id="selectedProject.id" />
         </template>
         <template v-else>
           <DashboardView />
@@ -68,42 +68,42 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores' // Centralized store import via index.js
-import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository' // Singleton repository import
-import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository' // Singleton for document uploads
-import SubmittalRepository from '@/services/firebase/Repositories/SubmittalRepository' // Singleton for submittals
-import ChangeOrderRepository from '@/services/firebase/Repositories/ChangeOrderRepository' // Singleton for change orders
-import { useToast } from 'primevue/usetoast' // Composable for toast notifications
-import LoginView from '@/views/auth/LoginView.vue'
-import DashboardView from '@/views/dashboard/DashboardView.vue'
-import ProjectDetailView from '@/views/projects/ProjectDetailView.vue'
-import AutoComplete from 'primevue/autocomplete'
-import Button from 'primevue/button'
-import Avatar from 'primevue/avatar'
-import Menu from 'primevue/menu'
-import ContextMenu from 'primevue/contextmenu' // PrimeVue ContextMenu for right-click menu
-import Toast from 'primevue/toast' // PrimeVue Toast component for notifications
-import ProjectDialog from './components/forms/ProjectDialog.vue'
-import TaskDialog from './components/forms/TaskDialog.vue'
-import RFIDialog from './components/forms/RFIDialog.vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores'; // Centralized store import via index.js
+import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'; // Singleton repository import
+import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository'; // Singleton for document uploads
+import SubmittalRepository from '@/services/firebase/Repositories/SubmittalRepository'; // Singleton for submittals
+import ChangeOrderRepository from '@/services/firebase/Repositories/ChangeOrderRepository'; // Singleton for change orders
+import { useToast } from 'primevue/usetoast'; // Composable for toast notifications
+import LoginView from '@/views/auth/LoginView.vue';
+import DashboardView from '@/views/dashboard/DashboardView.vue';
+import ProjectDetailView from '@/views/projects/ProjectDetailView.vue';
+import AutoComplete from 'primevue/autocomplete';
+import Button from 'primevue/button';
+import Avatar from 'primevue/avatar';
+import Menu from 'primevue/menu';
+import ContextMenu from 'primevue/contextmenu'; // PrimeVue ContextMenu for right-click menu
+import Toast from 'primevue/toast'; // PrimeVue Toast component for notifications
+import ProjectDialog from './components/forms/ProjectDialog.vue';
+import TaskDialog from './components/forms/TaskDialog.vue';
+import RFIDialog from './components/forms/RFIDialog.vue';
 
-let projectUnsubscribe = null
+let projectUnsubscribe = null;
 
-const router = useRouter()
-const authStore = useAuthStore() // Use centralized auth store
-const toast = useToast() // PrimeVue toast for success/error messages
+const router = useRouter();
+const authStore = useAuthStore(); // Use centralized auth store
+const toast = useToast(); // PrimeVue toast for success/error messages
 
-const projects = ref([])
-const selectedProject = ref(null)
-const filteredProjects = ref([])
-const userMenu = ref()
-const contextMenu = ref() // Ref for ContextMenu component
-const autoCompleteRef = ref()
-const showProjectDialog = ref(false)
-const showTaskDialog = ref(false)
-const showRFIDialog = ref(false)
+const projects = ref([]);
+const selectedProject = ref(null);
+const filteredProjects = ref([]);
+const userMenu = ref();
+const contextMenu = ref(); // Ref for ContextMenu component
+const autoCompleteRef = ref();
+const showProjectDialog = ref(false);
+const showTaskDialog = ref(false);
+const showRFIDialog = ref(false);
 
 // Define functions before refs for proper initialization order
 
@@ -114,33 +114,33 @@ const showRFIDialog = ref(false)
  * @param {Object} project - The created or updated project data.
  */
 const handleProjectUpdated = (project) => {
-  showProjectDialog.value = false
+  showProjectDialog.value = false;
   toast.add({
     severity: 'success',
     summary: 'Success',
     detail: project.id ? 'Project updated successfully' : 'Project created successfully',
     life: 3000,
-  })
-}
+  });
+};
 
 /**
  * Uploads a document.
  */
 const uploadDocument = async () => {
   try {
-    await DocumentRepository.create({ name: 'New Document', projectId: selectedProject.value?.id })
-    toast.add({ severity: 'success', summary: 'Success', detail: 'Document uploaded', life: 3000 })
+    await DocumentRepository.create({ name: 'New Document', projectId: selectedProject.value?.id });
+    toast.add({ severity: 'success', summary: 'Success', detail: 'Document uploaded', life: 3000 });
   } catch (error) {
-    console.error('Upload document error:', error)
+    console.error('Upload document error:', error);
     toast.add({
       severity: 'error',
       summary: 'Error',
       detail: 'Failed to upload document',
       life: 3000,
-    })
-    throw new Error(`Failed to upload document: ${error.message}`)
+    });
+    throw new Error(`Failed to upload document: ${error.message}`);
   }
-}
+};
 
 /**
  * Handles the task-updated event from TaskDialog.
@@ -149,14 +149,14 @@ const uploadDocument = async () => {
  * @param {Object} task - The created or updated task data.
  */
 const handleTaskUpdated = (task) => {
-  showTaskDialog.value = false
+  showTaskDialog.value = false;
   toast.add({
     severity: 'success',
     summary: 'Success',
     detail: task.id ? 'Task updated successfully' : 'Task created successfully',
     life: 3000,
-  })
-}
+  });
+};
 /**
  * Handles the rfi-saved event from TaskDialog.
  * Since realtime subscriptions are in place, we don't need to manually refresh rfis.value.
@@ -164,14 +164,14 @@ const handleTaskUpdated = (task) => {
  * @param {Object} RFI - The created or updated RFI data.
  */
 const handleRFISaved = (rfi) => {
-  showRFIDialog.value = false
+  showRFIDialog.value = false;
   toast.add({
     severity: 'success',
     summary: 'Success',
     detail: rfi.id ? 'RFI updated successfully' : 'RFI created successfully',
     life: 3000,
-  })
-}
+  });
+};
 
 /**
  * Creates a new submittal.
@@ -181,19 +181,19 @@ const newSubmittal = async () => {
     await SubmittalRepository.create({
       title: 'New Submittal',
       projectId: selectedProject.value?.id,
-    })
-    toast.add({ severity: 'success', summary: 'Success', detail: 'Submittal created', life: 3000 })
+    });
+    toast.add({ severity: 'success', summary: 'Success', detail: 'Submittal created', life: 3000 });
   } catch (error) {
-    console.error('New submittal error:', error)
+    console.error('New submittal error:', error);
     toast.add({
       severity: 'error',
       summary: 'Error',
       detail: 'Failed to create submittal',
       life: 3000,
-    })
-    throw new Error(`Failed to create submittal: ${error.message}`)
+    });
+    throw new Error(`Failed to create submittal: ${error.message}`);
   }
-}
+};
 
 /**
  * Creates a change order.
@@ -203,24 +203,24 @@ const changeOrder = async () => {
     await ChangeOrderRepository.create({
       description: 'New Change Order',
       projectId: selectedProject.value?.id,
-    })
+    });
     toast.add({
       severity: 'success',
       summary: 'Success',
       detail: 'Change order created',
       life: 3000,
-    })
+    });
   } catch (error) {
-    console.error('Change order error:', error)
+    console.error('Change order error:', error);
     toast.add({
       severity: 'error',
       summary: 'Error',
       detail: 'Failed to create change order',
       life: 3000,
-    })
-    throw new Error(`Failed to create change order: ${error.message}`)
+    });
+    throw new Error(`Failed to create change order: ${error.message}`);
   }
-}
+};
 
 /**
  * Generates a report.
@@ -228,26 +228,26 @@ const changeOrder = async () => {
 const generateReport = async () => {
   try {
     // Placeholder: Implement report generation logic (e.g., fetch data and export PDF/CSV)
-    toast.add({ severity: 'success', summary: 'Success', detail: 'Report generated', life: 3000 })
+    toast.add({ severity: 'success', summary: 'Success', detail: 'Report generated', life: 3000 });
   } catch (error) {
-    console.error('Generate report error:', error)
+    console.error('Generate report error:', error);
     toast.add({
       severity: 'error',
       summary: 'Error',
       detail: 'Failed to generate report',
       life: 3000,
-    })
-    throw new Error(`Failed to generate report: ${error.message}`)
+    });
+    throw new Error(`Failed to generate report: ${error.message}`);
   }
-}
+};
 
 /**
  * Navigates to settings.
  */
 const settings = () => {
   // Placeholder: Navigate to settings route
-  router.push('/settings')
-}
+  router.push('/settings');
+};
 
 const userMenuItems = ref([
   {
@@ -264,16 +264,16 @@ const userMenuItems = ref([
     label: 'Logout',
     command: async () => {
       try {
-        await authStore.logout()
-        router.push('/login')
+        await authStore.logout();
+        router.push('/login');
       } catch (error) {
-        console.error('Logout error:', error)
-        toast.add({ severity: 'error', summary: 'Error', detail: 'Logout failed', life: 3000 })
-        throw new Error(`Logout failed: ${error.message}`)
+        console.error('Logout error:', error);
+        toast.add({ severity: 'error', summary: 'Error', detail: 'Logout failed', life: 3000 });
+        throw new Error(`Logout failed: ${error.message}`);
       }
     },
   },
-])
+]);
 
 // Added: Context menu items based on former footer actions
 const contextMenuItems = ref([
@@ -281,7 +281,7 @@ const contextMenuItems = ref([
     label: 'New Project',
     icon: 'pi pi-plus',
     command: () => {
-      showProjectDialog.value = true
+      showProjectDialog.value = true;
     },
   },
   {
@@ -293,14 +293,14 @@ const contextMenuItems = ref([
     label: 'Create Task',
     icon: 'pi pi-check-square',
     command: () => {
-      showTaskDialog.value = true
+      showTaskDialog.value = true;
     },
   },
   {
     label: 'Submit RFI',
     icon: 'pi pi-question-circle',
     command: () => {
-      showRFIDialog.value = true
+      showRFIDialog.value = true;
     },
   },
   {
@@ -323,51 +323,59 @@ const contextMenuItems = ref([
     icon: 'pi pi-cog',
     command: settings,
   },
-])
+]);
 
 const userInitials = computed(() => {
-  if (!authStore.user?.name) return 'U'
+  if (!authStore.user?.name) return 'U';
   return authStore.user.name
     .split(' ')
     .map((n) => n[0])
     .join('')
-    .toUpperCase()
-})
+    .toUpperCase();
+});
 
-const authLoading = computed(() => authStore.loading) // Use store's loading for auth state
-const isAuthenticated = computed(() => authStore.isAuthenticated) // Use store's getter for auth check
-const user = computed(() => authStore.user) // Use store's user ref
+const authLoading = computed(() => authStore.loading); // Use store's loading for auth state
+const isAuthenticated = computed(() => authStore.isAuthenticated); // Use store's getter for auth check
+const user = computed(() => authStore.user); // Use store's user ref
 
 onMounted(async () => {
   try {
-    await authStore.initAuth() // Call store's initAuth to handle onAuthStateChanged and syncing
+    await authStore.initAuth(); // Call store's initAuth to handle onAuthStateChanged and syncing
     if (authStore.isAuthenticated) {
       projectUnsubscribe = ProjectRepository.subscribeToAll((updatedProjects) => {
-        projects.value = updatedProjects
-      })
+        projects.value = updatedProjects;
+      });
     }
   } catch (error) {
-    console.error('App init error:', error)
+    console.error('App init error:', error);
     toast.add({
       severity: 'error',
       summary: 'Error',
       detail: 'Failed to initialize app',
       life: 3000,
-    })
-    throw new Error(`Failed to initialize app: ${error.message}`)
+    });
+    throw new Error(`Failed to initialize app: ${error.message}`);
   }
-})
+});
 
 onUnmounted(() => {
   if (projectUnsubscribe) {
     try {
-      ProjectRepository.unsubscribe(projectUnsubscribe)
+      ProjectRepository.unsubscribe(projectUnsubscribe);
     } catch (error) {
-      console.error('Unsubscribe error:', error)
-      throw new Error(`Failed to unsubscribe from projects: ${error.message}`)
+      console.error('Unsubscribe error:', error);
+      throw new Error(`Failed to unsubscribe from projects: ${error.message}`);
     }
   }
-})
+});
+
+watch(
+  projects,
+  (newProjects) => {
+    filteredProjects.value = groupProjects(newProjects);
+  },
+  { deep: true }
+);
 
 // New: Mapping from project phase to group name (based on HTML structure)
 const phaseToGroup = {
@@ -375,41 +383,41 @@ const phaseToGroup = {
   'pre-construction': 'Pre-Construction',
   complete: 'Completed',
   // Add more mappings if needed, e.g., 'close-out': 'Close-Out'
-}
+};
 
 // New: Ordered list for sorting groups
-const groupOrder = ['Active Projects', 'Pre-Construction', 'Completed']
+const groupOrder = ['Active Projects', 'Pre-Construction', 'Completed'];
 
 // New: Function to group and sort projects (with optional query for filtering)
 const groupProjects = (projectsList, query = '') => {
-  const lowerQuery = query.toLowerCase()
+  const lowerQuery = query.toLowerCase();
   const filtered = query
     ? projectsList.filter(
         (p) =>
           p.name.toLowerCase().includes(lowerQuery) ||
-          (p.jobNumber || '').toLowerCase().includes(lowerQuery),
+          (p.jobNumber || '').toLowerCase().includes(lowerQuery)
       )
-    : projectsList
+    : projectsList;
 
-  const groupsMap = {}
+  const groupsMap = {};
   filtered.forEach((p) => {
-    const groupName = phaseToGroup[p.phase] || 'Other'
-    if (!groupsMap[groupName]) groupsMap[groupName] = []
-    groupsMap[groupName].push(p)
-  })
+    const groupName = phaseToGroup[p.phase] || 'Other';
+    if (!groupsMap[groupName]) groupsMap[groupName] = [];
+    groupsMap[groupName].push(p);
+  });
 
   const groups = Object.keys(groupsMap)
     .map((name) => ({
       name,
       items: groupsMap[name].sort((a, b) => a.name.localeCompare(b.name)), // Sort projects by name within group
     }))
-    .filter((g) => g.items.length > 0) // Exclude empty groups
+    .filter((g) => g.items.length > 0); // Exclude empty groups
 
   // Sort groups by predefined order
-  groups.sort((a, b) => groupOrder.indexOf(a.name) - groupOrder.indexOf(b.name))
+  groups.sort((a, b) => groupOrder.indexOf(a.name) - groupOrder.indexOf(b.name));
 
-  return groups
-}
+  return groups;
+};
 
 /**
  * Handles project search by filtering projects based on query.
@@ -417,31 +425,37 @@ const groupProjects = (projectsList, query = '') => {
  * @param {Object} event - AutoComplete complete event.
  */
 const handleProjectSearch = (event) => {
-  filteredProjects.value = groupProjects(projects.value, event.query)
-}
+  filteredProjects.value = groupProjects(projects.value, event.query);
+};
 
+/**
+ * Handles project selection to show in ProjectDetailView.
+ * Assigns selectedProject only if selected project is actually a different project
+ * @param {Object} event - AutoComplete complete event
+ */
 const handleProjectSelect = (event) => {
-  selectedProject.value = event.value
-}
+  if (!selectedProject.value || selectedProject.value.id !== event.value.id)
+    selectedProject.value = event.value;
+};
 
 const toggleUserMenu = (event) => {
-  userMenu.value.toggle(event)
-}
+  userMenu.value.toggle(event);
+};
 
 const resetToDashboard = () => {
-  selectedProject.value = null
+  selectedProject.value = null;
   if (autoCompleteRef.value) {
-    autoCompleteRef.value.hide()
+    autoCompleteRef.value.hide();
   }
-}
+};
 
 /**
  * Shows the context menu at the right-click position.
  * @param {Event} event - The contextmenu event.
  */
 const showContextMenu = (event) => {
-  contextMenu.value.show(event) // Display context menu on right-click
-}
+  contextMenu.value.show(event); // Display context menu on right-click
+};
 </script>
 
 <style>
