@@ -10,9 +10,9 @@
           <!-- Project Selector with fuzzy search -->
           <AutoComplete
             ref="autoCompleteRef"
-            v-model="selectedProject"
+            v-model="inputQuery"
             :suggestions="filteredProjects"
-            @complete="handleProjectSearch"
+            :loading="projectsLoading"
             optionLabel="name"
             optionGroupLabel="name"
             optionGroupChildren="items"
@@ -68,7 +68,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores'; // Centralized store import via index.js
 import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'; // Singleton repository import
@@ -95,20 +95,91 @@ const router = useRouter();
 const authStore = useAuthStore(); // Use centralized auth store
 const toast = useToast(); // PrimeVue toast for success/error messages
 
+// Refs
 const projects = ref([]);
 const selectedProject = ref(null);
-const filteredProjects = ref([]);
+const inputQuery = ref(''); // String ref for reactive input filtering and display
 const userMenu = ref();
 const contextMenu = ref(); // Ref for ContextMenu component
 const autoCompleteRef = ref();
 const showProjectDialog = ref(false);
 const showTaskDialog = ref(false);
 const showRFIDialog = ref(false);
+const projectsLoading = ref(true);
+const projectsInitialized = ref(false);
 
-// Define functions before refs for proper initialization order
+// Constants
+const phaseToGroup = {
+  construction: 'Active Projects',
+  'pre-construction': 'Pre-Construction',
+  complete: 'Completed',
+  // Add more mappings if needed, e.g., 'close-out': 'Close-Out'
+};
+
+const groupOrder = ['Active Projects', 'Pre-Construction', 'Completed'];
+
+// Computed properties
+const userInitials = computed(() => {
+  if (!authStore.user?.name) return 'U';
+  return authStore.user.name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase();
+});
 
 /**
- * Handles the project-updated event from the ProjectDialog.
+ * Computed suggestions: Groups and filters projects reactively based on inputQuery.
+ * Updates automatically when projects changes (realtime subscription) or inputQuery changes (typing).
+ * @type {ComputedRef<Array<{name: string, items: Array<Object>}>>}
+ */
+const filteredProjects = computed(() => groupProjects(projects.value, inputQuery.value));
+
+const authLoading = computed(() => authStore.loading); // Use store's loading for auth state
+const isAuthenticated = computed(() => authStore.isAuthenticated); // Use store's getter for auth check
+const user = computed(() => authStore.user); // Use store's user ref
+
+// Utility function for grouping and sorting projects
+/**
+ * Groups projects by phase and sorts within groups and across groups.
+ * Filters by query if provided.
+ * @param {Array<Object>} projectsList - List of project objects.
+ * @param {string} [query=''] - Optional search query for filtering.
+ * @returns {Array<{name: string, items: Array<Object>}>} Grouped and sorted projects.
+ */
+const groupProjects = (projectsList, query = '') => {
+  const lowerQuery = query.toLowerCase();
+  const filtered = query
+    ? projectsList.filter(
+        (p) =>
+          p.name.toLowerCase().includes(lowerQuery) ||
+          (p.jobNumber || '').toLowerCase().includes(lowerQuery)
+      )
+    : projectsList;
+
+  const groupsMap = {};
+  filtered.forEach((p) => {
+    const groupName = phaseToGroup[p.phase] || 'Other';
+    if (!groupsMap[groupName]) groupsMap[groupName] = [];
+    groupsMap[groupName].push(p);
+  });
+
+  const groups = Object.keys(groupsMap)
+    .map((name) => ({
+      name,
+      items: groupsMap[name].sort((a, b) => a.name.localeCompare(b.name)), // Sort projects by name within group
+    }))
+    .filter((g) => g.items.length > 0); // Exclude empty groups
+
+  // Sort groups by predefined order
+  groups.sort((a, b) => groupOrder.indexOf(a.name) - groupOrder.indexOf(b.name));
+
+  return groups;
+};
+
+// Event handlers (defined before menus to resolve references)
+/**
+ * Handles the project-saved event from the ProjectDialog.
  * Since realtime subscriptions are in place, we don't need to manually refresh projects.value.
  * This can be used for additional UI feedback if needed.
  * @param {Object} project - The created or updated project data.
@@ -125,6 +196,7 @@ const handleProjectUpdated = (project) => {
 
 /**
  * Uploads a document.
+ * @returns {Promise<void>}
  */
 const uploadDocument = async () => {
   try {
@@ -143,7 +215,7 @@ const uploadDocument = async () => {
 };
 
 /**
- * Handles the task-updated event from TaskDialog.
+ * Handles the task-saved event from TaskDialog.
  * Since realtime subscriptions are in place, we don't need to manually refresh tasks.value.
  * This can be used for additional UI feedback if needed.
  * @param {Object} task - The created or updated task data.
@@ -157,11 +229,12 @@ const handleTaskUpdated = (task) => {
     life: 3000,
   });
 };
+
 /**
- * Handles the rfi-saved event from TaskDialog.
+ * Handles the rfi-saved event from RFIDialog.
  * Since realtime subscriptions are in place, we don't need to manually refresh rfis.value.
  * This can be used for additional UI feedback if needed.
- * @param {Object} RFI - The created or updated RFI data.
+ * @param {Object} rfi - The created or updated RFI data.
  */
 const handleRFISaved = (rfi) => {
   showRFIDialog.value = false;
@@ -175,6 +248,7 @@ const handleRFISaved = (rfi) => {
 
 /**
  * Creates a new submittal.
+ * @returns {Promise<void>}
  */
 const newSubmittal = async () => {
   try {
@@ -197,6 +271,7 @@ const newSubmittal = async () => {
 
 /**
  * Creates a change order.
+ * @returns {Promise<void>}
  */
 const changeOrder = async () => {
   try {
@@ -224,6 +299,7 @@ const changeOrder = async () => {
 
 /**
  * Generates a report.
+ * @returns {Promise<void>}
  */
 const generateReport = async () => {
   try {
@@ -249,6 +325,55 @@ const settings = () => {
   router.push('/settings');
 };
 
+/**
+ * Handles project selection to show in ProjectDetailView.
+ * Assigns selectedProject only if it's a different project, and syncs input display.
+ * @param {Object} event - AutoComplete item-select event.
+ */
+const handleProjectSelect = (event) => {
+  if (!selectedProject.value || selectedProject.value.id !== event.value.id) {
+    selectedProject.value = event.value;
+    inputQuery.value = event.value.name; // Sync input to show selected name
+  }
+};
+
+/**
+ * Toggles the user menu popup.
+ * @param {Event} event - Click event.
+ */
+const toggleUserMenu = (event) => {
+  userMenu.value.toggle(event);
+};
+
+/**
+ * Resets to dashboard view and clears selection/query.
+ */
+const resetToDashboard = () => {
+  selectedProject.value = null;
+  inputQuery.value = ''; // Clear to show all on next dropdown open
+  if (autoCompleteRef.value) {
+    autoCompleteRef.value.hide();
+  }
+};
+
+/**
+ * Shows the context menu at the right-click position.
+ * @param {Event} event - The contextmenu event.
+ */
+const showContextMenu = (event) => {
+  contextMenu.value.show(event); // Display context menu on right-click
+};
+
+// Watchers
+/**
+ * Syncs inputQuery to selectedProject's name when selection changes externally.
+ * Ensures input reflects current selection (e.g., if set via route params).
+ */
+watch(selectedProject, (newProject) => {
+  inputQuery.value = newProject?.name || '';
+});
+
+// Menu items (defined after handlers to resolve command references)
 const userMenuItems = ref([
   {
     label: 'Profile',
@@ -275,7 +400,6 @@ const userMenuItems = ref([
   },
 ]);
 
-// Added: Context menu items based on former footer actions
 const contextMenuItems = ref([
   {
     label: 'New Project',
@@ -325,28 +449,28 @@ const contextMenuItems = ref([
   },
 ]);
 
-const userInitials = computed(() => {
-  if (!authStore.user?.name) return 'U';
-  return authStore.user.name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase();
-});
-
-const authLoading = computed(() => authStore.loading); // Use store's loading for auth state
-const isAuthenticated = computed(() => authStore.isAuthenticated); // Use store's getter for auth check
-const user = computed(() => authStore.user); // Use store's user ref
-
 onMounted(async () => {
   try {
-    await authStore.initAuth(); // Call store's initAuth to handle onAuthStateChanged and syncing
+    await authStore.initAuth();
     if (authStore.isAuthenticated) {
       projectUnsubscribe = ProjectRepository.subscribeToAll((updatedProjects) => {
         projects.value = updatedProjects;
+        // Set loading to false after first data load
+        projectsLoading.value = false;
+        projectsInitialized.value = true;
       });
+
+      // Set a timeout fallback in case subscription doesn't fire immediately
+      setTimeout(() => {
+        if (!projectsInitialized.value) {
+          projectsLoading.value = false;
+        }
+      }, 1000);
+    } else {
+      projectsLoading.value = false;
     }
   } catch (error) {
+    projectsLoading.value = false;
     console.error('App init error:', error);
     toast.add({
       severity: 'error',
@@ -354,7 +478,6 @@ onMounted(async () => {
       detail: 'Failed to initialize app',
       life: 3000,
     });
-    throw new Error(`Failed to initialize app: ${error.message}`);
   }
 });
 
@@ -368,94 +491,6 @@ onUnmounted(() => {
     }
   }
 });
-
-watch(
-  projects,
-  (newProjects) => {
-    filteredProjects.value = groupProjects(newProjects);
-  },
-  { deep: true }
-);
-
-// New: Mapping from project phase to group name (based on HTML structure)
-const phaseToGroup = {
-  construction: 'Active Projects',
-  'pre-construction': 'Pre-Construction',
-  complete: 'Completed',
-  // Add more mappings if needed, e.g., 'close-out': 'Close-Out'
-};
-
-// New: Ordered list for sorting groups
-const groupOrder = ['Active Projects', 'Pre-Construction', 'Completed'];
-
-// New: Function to group and sort projects (with optional query for filtering)
-const groupProjects = (projectsList, query = '') => {
-  const lowerQuery = query.toLowerCase();
-  const filtered = query
-    ? projectsList.filter(
-        (p) =>
-          p.name.toLowerCase().includes(lowerQuery) ||
-          (p.jobNumber || '').toLowerCase().includes(lowerQuery)
-      )
-    : projectsList;
-
-  const groupsMap = {};
-  filtered.forEach((p) => {
-    const groupName = phaseToGroup[p.phase] || 'Other';
-    if (!groupsMap[groupName]) groupsMap[groupName] = [];
-    groupsMap[groupName].push(p);
-  });
-
-  const groups = Object.keys(groupsMap)
-    .map((name) => ({
-      name,
-      items: groupsMap[name].sort((a, b) => a.name.localeCompare(b.name)), // Sort projects by name within group
-    }))
-    .filter((g) => g.items.length > 0); // Exclude empty groups
-
-  // Sort groups by predefined order
-  groups.sort((a, b) => groupOrder.indexOf(a.name) - groupOrder.indexOf(b.name));
-
-  return groups;
-};
-
-/**
- * Handles project search by filtering projects based on query.
- * Assigns to filteredProjects ref for dropdown suggestions.
- * @param {Object} event - AutoComplete complete event.
- */
-const handleProjectSearch = (event) => {
-  filteredProjects.value = groupProjects(projects.value, event.query);
-};
-
-/**
- * Handles project selection to show in ProjectDetailView.
- * Assigns selectedProject only if selected project is actually a different project
- * @param {Object} event - AutoComplete complete event
- */
-const handleProjectSelect = (event) => {
-  if (!selectedProject.value || selectedProject.value.id !== event.value.id)
-    selectedProject.value = event.value;
-};
-
-const toggleUserMenu = (event) => {
-  userMenu.value.toggle(event);
-};
-
-const resetToDashboard = () => {
-  selectedProject.value = null;
-  if (autoCompleteRef.value) {
-    autoCompleteRef.value.hide();
-  }
-};
-
-/**
- * Shows the context menu at the right-click position.
- * @param {Event} event - The contextmenu event.
- */
-const showContextMenu = (event) => {
-  contextMenu.value.show(event); // Display context menu on right-click
-};
 </script>
 
 <style>
