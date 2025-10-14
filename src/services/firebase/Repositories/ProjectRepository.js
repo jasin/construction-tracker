@@ -50,7 +50,7 @@ class ProjectRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    * @returns {Promise<Array<Object>>} Array of projects.
    */
   async getAllProjects() {
-    const result = handleAsync(
+    const result = await handleAsync(
       async () => {
         return await super.getAll(); // Changed: Use super.getAll from CrudMixin
       },

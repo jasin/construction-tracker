@@ -5,14 +5,19 @@ import ProjectRepository from '@/services/firebase/Repositories/ProjectRepositor
 import { extractData, handleAsync, handleError } from '../utils/errorHandler';
 
 export const useProjectStore = defineStore('project', () => {
-  // State
+  // State - Single Project (existing)
   const currentProject = ref({});
-  const projects = ref([]);
   const loading = ref(false);
   const error = ref(null);
   const subscriptions = ref([]);
 
-  // Getters
+  // State - All Projects (new)
+  const projects = ref([]);
+  const projectsLoading = ref(true);
+  const projectsInitialized = ref(false);
+  let allProjectsUnsubscribe = null;
+
+  // Getters - Single Project (existing)
   const projectTeam = computed(() => {
     return [
       currentProject.value.projectManager && {
@@ -46,6 +51,24 @@ export const useProjectStore = defineStore('project', () => {
     };
   });
 
+  // Getters - All Projects (new)
+  const projectCount = computed(() => projects.value.length);
+
+  const activeProjects = computed(() =>
+    projects.value.filter((p) => !['completed', 'cancelled', 'on-hold'].includes(p.status))
+  );
+
+  const projectsByPhase = computed(() => {
+    const grouped = {};
+    projects.value.forEach((project) => {
+      const phase = project.phase || 'other';
+      if (!grouped[phase]) grouped[phase] = [];
+      grouped[phase].push(project);
+    });
+    return grouped;
+  });
+
+  // Actions - Single Project (existing)
   /**
    * Loads a project by ID, updating loading and error state.
    * @param {string} projectId - The ID of the project to load.
@@ -58,7 +81,7 @@ export const useProjectStore = defineStore('project', () => {
     const result = await handleAsync(
       async () => {
         const projectData = await ProjectRepository.getProject(projectId);
-        currentProject.value = projectData || null; // Assign null if not found
+        currentProject.value = projectData || null;
         return projectData;
       },
       { context: `Load project ${projectId}` }
@@ -67,7 +90,7 @@ export const useProjectStore = defineStore('project', () => {
     const projectData = extractData(result);
 
     if (!projectData) {
-      error.value = 'Project not found'; // Set UI error after extraction
+      error.value = 'Project not found';
     }
 
     loading.value = false;
@@ -110,22 +133,105 @@ export const useProjectStore = defineStore('project', () => {
     clearSubscriptions();
   }
 
+  // Actions - All Projects (new)
+  /**
+   * Initializes the real-time subscription to all projects.
+   * Should be called once when the app starts (after authentication).
+   */
+  function initializeProjectsSubscription() {
+    if (allProjectsUnsubscribe) {
+      console.log('⚠️ Projects subscription already active');
+      return;
+    }
+
+    console.log('🔥 Initializing all projects subscription in store');
+
+    allProjectsUnsubscribe = ProjectRepository.subscribeToAll(
+      (updatedProjects) => {
+        console.log('📦 Store received projects update:', updatedProjects.length);
+        projects.value = [...updatedProjects];
+        projectsLoading.value = false;
+        projectsInitialized.value = true;
+      },
+      null, // sortFn
+      (error) => {
+        console.error('🚨 Store subscription error:', error);
+        projectsLoading.value = false;
+        handleError(error, 'Projects subscription error');
+      }
+    );
+  }
+
+  /**
+   * Cleans up the all projects subscription.
+   * Should be called on logout.
+   */
+  function cleanupProjectsSubscription() {
+    if (allProjectsUnsubscribe) {
+      console.log('🧹 Cleaning up all projects subscription');
+      allProjectsUnsubscribe();
+      allProjectsUnsubscribe = null;
+      projectsInitialized.value = false;
+      projects.value = [];
+    }
+  }
+
+  /**
+   * Gets a project by ID from the projects list.
+   * @param {string} id - Project ID
+   * @returns {Object|undefined} Project object or undefined
+   */
+  function getProjectById(id) {
+    return projects.value.find((p) => p.id === id);
+  }
+
+  /**
+   * Searches projects by name, job number, or client name.
+   * @param {string} query - Search query
+   * @returns {Array} Filtered projects
+   */
+  function searchProjects(query) {
+    if (!query) return projects.value;
+    const lowerQuery = query.toLowerCase();
+    return projects.value.filter(
+      (p) =>
+        p.name.toLowerCase().includes(lowerQuery) ||
+        (p.jobNumber || '').toLowerCase().includes(lowerQuery) ||
+        (p.clientName || '').toLowerCase().includes(lowerQuery)
+    );
+  }
+
   return {
-    // State
+    // State - Single Project
     currentProject,
-    projects,
     loading,
     error,
 
-    // Getters
+    // State - All Projects
+    projects,
+    projectsLoading,
+    projectsInitialized,
+
+    // Getters - Single Project
     projectTeam,
     projectStatus,
 
-    // Actions
+    // Getters - All Projects
+    projectCount,
+    activeProjects,
+    projectsByPhase,
+
+    // Actions - Single Project
     loadProject,
     subscribeToProject,
     updateProject,
     clearSubscriptions,
     resetProject,
+
+    // Actions - All Projects
+    initializeProjectsSubscription,
+    cleanupProjectsSubscription,
+    getProjectById,
+    searchProjects,
   };
 });

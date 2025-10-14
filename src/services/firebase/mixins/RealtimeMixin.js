@@ -1,76 +1,23 @@
 // src/services/firebase/mixins/RealtimeMixin.js
-import { ref, onValue, off, query, orderByChild, equalTo } from 'firebase/database';
+import { ref, onValue, query, orderByChild, equalTo } from 'firebase/database';
 import { handleError } from '@/utils/errorHandler';
 
 /**
  * Mixin providing realtime subscription capabilities for Firebase repositories (RTDB).
- * Allows subscribing to path changes with automatic error handling via callbacks.
+ * Returns unsubscribe functions directly - caller is responsible for cleanup.
  * @mixin
  */
 export function RealtimeMixin(base) {
   return class extends base {
     /**
-     * Internal map of active subscriptions.
-     * Key: subscription name, Value: { ref: firebase.database.Reference, listener: Function }.
-     */
-    subscriptions = {};
-
-    /**
-     * Subscribe to realtime updates for a path (RTDB).
-     * @param {string} key - Unique key for the subscription (e.g., 'ProjectDocuments').
-     * @param {firebase.database.Reference} pathRef - RTDB reference to subscribe to.
-     * @param {Function} callback - Callback to handle data updates (object or array with id).
-     * @param {Function} [errorCallback] - Optional callback for errors.
-     * @returns {Function} Unsubscribe function.
-     */
-    subscribe(key, pathRef, callback, errorCallback = () => {}) {
-      if (!key) {
-        handleError(new Error('Subscribe called with falsy key'), 'RealtimeMixin.subscribe');
-        return () => {}; // Return noop unsubscribe
-      }
-      if (!pathRef) {
-        handleError(
-          new Error('Subscribe called with falsy ref'),
-          `RealtimeMixin.subscribe for key: ${key}`
-        );
-        return () => {}; // Return noop unsubscribe
-      }
-
-      if (this.subscriptions[key]) {
-        this.unsubscribe(key); // Clean existing subscription if any
-      }
-
-      const listener = (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          // Map object to array with id if collection-like
-          const entities = Object.entries(data).map(([id, entityData]) => ({ id, ...entityData }));
-          callback(entities);
-        } else {
-          callback([]);
-        }
-      };
-
-      onValue(pathRef, listener, (err) => {
-        handleError(err, `Realtime subscription error for ${key}`);
-        errorCallback(err);
-      });
-
-      this.subscriptions[key] = { ref: pathRef, listener };
-
-      // Return unsubscribe function
-      return () => this.unsubscribe(key);
-    }
-
-    /**
-     * Subscribe to all entities in the collection (RTDB-specific).
+     * Subscribe to realtime updates for all entities in the collection.
      * @param {Function} callback - Callback to receive entities (array of objects with id).
      * @param {Function|null} sortFn - Optional sorting function for the entities array.
      * @param {Function} [errorCallback] - Optional callback for errors.
-     * @returns {Function} Unsubscribe function.
+     * @returns {Function} Unsubscribe function - caller MUST call this to cleanup.
      */
     subscribeToAll(callback, sortFn = null, errorCallback = () => {}) {
-      const entitiesRef = ref(this.db, this.collectionName); // Use this.db set in constructor
+      const entitiesRef = ref(this.db, this.collectionName);
 
       if (!entitiesRef) {
         handleError(
@@ -80,23 +27,50 @@ export function RealtimeMixin(base) {
         return () => {}; // Return noop unsubscribe
       }
 
-      return this.subscribe(
-        'allEntities',
-        entitiesRef,
-        (data) => {
-          const sorted = sortFn && typeof sortFn === 'function' ? data.sort(sortFn) : data;
-          callback(sorted);
-        },
-        errorCallback
-      );
+      const listener = (snapshot) => {
+        try {
+          const data = snapshot.val();
+          console.log(
+            `[RealtimeMixin] Data received for ${this.collectionName}:`,
+            data ? Object.keys(data).length : 0
+          );
+          if (data) {
+            const entities = Object.entries(data).map(([id, entityData]) => ({
+              id,
+              ...entityData,
+            }));
+            const sorted =
+              sortFn && typeof sortFn === 'function' ? entities.sort(sortFn) : entities;
+            callback(sorted);
+          } else {
+            callback([]);
+          }
+        } catch (error) {
+          console.error(`[RealtimeMixin] Error in listener for ${this.collectionName}:`, error);
+          handleError(error, `Realtime subscription listener error for ${this.collectionName}`);
+          errorCallback(error);
+        }
+      };
+
+      const errorListener = (error) => {
+        console.error(`[RealtimeMixin] Firebase error for ${this.collectionName}:`, error);
+        handleError(error, `Realtime subscription error for ${this.collectionName}`);
+        errorCallback(error);
+      };
+
+      // Firebase's onValue returns an unsubscribe function
+      const unsubscribe = onValue(entitiesRef, listener, errorListener);
+
+      // Return the unsubscribe function directly - caller manages lifecycle
+      return unsubscribe;
     }
 
     /**
-     * Subscribe to a single entity by ID (RTDB-specific).
+     * Subscribe to a single entity by ID.
      * @param {string} entityId - The ID of the entity to subscribe to.
      * @param {Function} callback - Callback to receive entity data (object with id or null).
      * @param {Function} [errorCallback] - Optional callback for errors.
-     * @returns {Function} Unsubscribe function.
+     * @returns {Function} Unsubscribe function - caller MUST call this to cleanup.
      */
     subscribeToOne(entityId, callback, errorCallback = () => {}) {
       if (!entityId) {
@@ -108,40 +82,40 @@ export function RealtimeMixin(base) {
       }
 
       const entityRef = ref(this.db, `${this.collectionName}/${entityId}`);
-      const key = `entity_${entityId}`;
-
-      if (this.subscriptions[key]) {
-        this.unsubscribe(key); // Clean existing subscription if any
-      }
 
       const listener = (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          callback({ id: entityId, ...data });
-        } else {
-          callback(null);
+        try {
+          const data = snapshot.val();
+          if (data) {
+            callback({ id: entityId, ...data });
+          } else {
+            callback(null);
+          }
+        } catch (error) {
+          console.error(`[RealtimeMixin] Error in listener for ${entityId}:`, error);
+          handleError(error, `Realtime subscription error for ${entityId}`);
+          errorCallback(error);
         }
       };
 
-      onValue(entityRef, listener, (err) => {
-        handleError(err, `Realtime subscription error for ${key}`);
-        errorCallback(err);
-      });
+      const errorListener = (error) => {
+        console.error(`[RealtimeMixin] Firebase error for ${entityId}:`, error);
+        handleError(error, `Realtime subscription error for ${entityId}`);
+        errorCallback(error);
+      };
 
-      this.subscriptions[key] = { ref: entityRef, listener };
-
-      // Return unsubscribe function
-      return () => this.unsubscribe(key);
+      const unsubscribe = onValue(entityRef, listener, errorListener);
+      return unsubscribe;
     }
 
     /**
-     * Subscribe to entities by field (RTDB-specific).
+     * Subscribe to entities by field value.
      * @param {string} fieldName - Field to query by.
      * @param {any} value - Value to match.
      * @param {Function} callback - Callback to receive entities (array of objects with id).
      * @param {Function|null} sortFn - Optional sorting function for the entities array.
      * @param {Function} [errorCallback] - Optional callback for errors.
-     * @returns {Function} Unsubscribe function.
+     * @returns {Function} Unsubscribe function - caller MUST call this to cleanup.
      */
     subscribeToByField(fieldName, value, callback, sortFn = null, errorCallback = () => {}) {
       if (!fieldName || value === undefined) {
@@ -154,50 +128,40 @@ export function RealtimeMixin(base) {
 
       const entitiesRef = ref(this.db, this.collectionName);
       const fieldQuery = query(entitiesRef, orderByChild(fieldName), equalTo(value));
-      const key = `field_${fieldName}_${value}`;
 
-      return this.subscribe(
-        key,
-        fieldQuery,
-        (data) => {
-          const sorted = sortFn && typeof sortFn === 'function' ? data.sort(sortFn) : data;
-          callback(sorted);
-        },
-        errorCallback
-      );
-    }
+      const listener = (snapshot) => {
+        try {
+          const data = snapshot.val();
+          console.log(
+            `[RealtimeMixin] Data received for ${this.collectionName} where ${fieldName}=${value}:`,
+            data ? Object.keys(data).length : 0
+          );
+          if (data) {
+            const entities = Object.entries(data).map(([id, entityData]) => ({
+              id,
+              ...entityData,
+            }));
+            const sorted =
+              sortFn && typeof sortFn === 'function' ? entities.sort(sortFn) : entities;
+            callback(sorted);
+          } else {
+            callback([]);
+          }
+        } catch (error) {
+          console.error(`[RealtimeMixin] Error in listener:`, error);
+          handleError(error, `Realtime subscription listener error`);
+          errorCallback(error);
+        }
+      };
 
-    /**
-     * Unsubscribe from a realtime listener.
-     * @param {string} key - The key of the subscription to unsubscribe.
-     * @returns {void}
-     */
-    unsubscribe(key) {
-      if (!key) {
-        handleError(new Error('Unsubscribe called with falsy key'), 'RealtimeMixin.unsubscribe');
-        return;
-      }
+      const errorListener = (error) => {
+        console.error(`[RealtimeMixin] Firebase error:`, error);
+        handleError(error, `Realtime subscription error`);
+        errorCallback(error);
+      };
 
-      const sub = this.subscriptions[key];
-      if (!sub || typeof sub.listener !== 'function') {
-        handleError(
-          new Error(`No valid subscription found for key: ${key}`),
-          'RealtimeMixin.unsubscribe'
-        );
-        return;
-      }
-
-      off(sub.ref, 'value', sub.listener);
-      delete this.subscriptions[key];
-    }
-
-    /**
-     * Unsubscribe from all active subscriptions.
-     * @returns {void}
-     */
-    unsubscribeAll() {
-      const keys = Object.keys(this.subscriptions);
-      keys.forEach((key) => this.unsubscribe(key));
+      const unsubscribe = onValue(fieldQuery, listener, errorListener);
+      return unsubscribe;
     }
   };
 }

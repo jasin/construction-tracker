@@ -191,19 +191,19 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
-import Dialog from 'primevue/dialog'
-import InputText from 'primevue/inputtext'
-import Textarea from 'primevue/textarea'
-import Select from 'primevue/select'
-import InputNumber from 'primevue/inputnumber'
-import Checkbox from 'primevue/checkbox'
-import DatePicker from 'primevue/datepicker'
-import Button from 'primevue/button'
-import AutoComplete from 'primevue/autocomplete'
-import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
-import ClientRepository from '@/services/firebase/Repositories/ClientRepository'
-import ClientDialog from './ClientDialog.vue'
+import { ref, watch, computed } from 'vue';
+import Dialog from 'primevue/dialog';
+import InputText from 'primevue/inputtext';
+import Textarea from 'primevue/textarea';
+import Select from 'primevue/select';
+import InputNumber from 'primevue/inputnumber';
+import Checkbox from 'primevue/checkbox';
+import DatePicker from 'primevue/datepicker';
+import Button from 'primevue/button';
+import AutoComplete from 'primevue/autocomplete';
+import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository';
+import ClientRepository from '@/services/firebase/Repositories/ClientRepository';
+import ClientDialog from './ClientDialog.vue';
 
 // Props
 const props = defineProps({
@@ -219,26 +219,26 @@ const props = defineProps({
     type: String,
     default: null,
   },
-})
+});
 
 // Emits
-const emit = defineEmits(['update:visible', 'project-saved'])
+const emit = defineEmits(['update:visible', 'project-saved']);
 
 // Reactive state
-const loading = ref(false)
-const error = ref('')
-const success = ref('')
-const errors = ref({})
-const clients = ref([])
-const showCreateClient = ref(false)
-const filteredClients = ref([])
-const selectedClient = ref(null)
+const loading = ref(false);
+const error = ref('');
+const success = ref('');
+const errors = ref({});
+const clients = ref([]);
+const showCreateClient = ref(false);
+const filteredClients = ref([]);
+const selectedClient = ref(null);
 
 // Computed
 const isOpen = computed({
   get: () => props.visible,
   set: (value) => emit('update:visible', value),
-})
+});
 
 // Form data
 const form = ref({
@@ -248,22 +248,22 @@ const form = ref({
   architect: '',
   projectManager: '',
   superintendent: '',
-  phase: 'pre-construction',
+  phase: 'preConstruction',
   cost: null,
   contractSigned: false,
   startDate: null,
   endDate: null,
   address: '',
   description: '',
-})
+});
 
 // Phase options
 const phaseOptions = [
-  { label: 'Pre-Construction', value: 'pre-construction' },
+  { label: 'Pre-Construction', value: 'preConstruction' },
   { label: 'Construction', value: 'construction' },
-  { label: 'Close-Out', value: 'close-out' },
+  { label: 'Close-Out', value: 'closeOut' },
   { label: 'Complete', value: 'complete' },
-]
+];
 
 /**
  * Loads all clients from repository.
@@ -271,24 +271,24 @@ const phaseOptions = [
  */
 const loadClients = async () => {
   try {
-    clients.value = await ClientRepository.getAllClients()
-    console.log('Loaded clients for project form:', clients.value)
+    clients.value = await ClientRepository.getAllClients();
+    console.log('Loaded clients for project form:', clients.value);
   } catch (err) {
-    console.error('Error loading clients:', err.message)
-    throw new Error(`Clients load failed: ${err.message}`)
+    console.error('Error loading clients:', err.message);
+    throw new Error(`Clients load failed: ${err.message}`);
   }
-}
+};
 
 /**
  * Handles fuzzy search for clients.
  * @param {Object} event - AutoComplete event with query.
  */
 const searchClients = (event) => {
-  const query = event.query.toLowerCase()
+  const query = event.query.toLowerCase();
   filteredClients.value = clients.value.filter((client) =>
-    client.name.toLowerCase().includes(query),
-  )
-}
+    client.name.toLowerCase().includes(query)
+  );
+};
 
 /**
  * Loads or resets form data based on props.
@@ -311,8 +311,8 @@ const loadProjectData = () => {
         endDate: props.project.endDate ? new Date(props.project.endDate) : null,
         address: props.project.address || '',
         description: props.project.description || '',
-      }
-      selectedClient.value = clients.value.find((c) => c.id === form.value.clientId) || null
+      };
+      selectedClient.value = clients.value.find((c) => c.id === form.value.clientId) || null;
     } else {
       form.value = {
         name: '',
@@ -328,33 +328,33 @@ const loadProjectData = () => {
         endDate: null,
         address: '',
         description: '',
-      }
-      selectedClient.value = clients.value.find((c) => c.id === props.initialClientId) || null
+      };
+      selectedClient.value = clients.value.find((c) => c.id === props.initialClientId) || null;
     }
   } catch (err) {
-    console.error('Error loading project data:', err.message)
-    throw new Error(`Project data load failed: ${err.message}`)
+    console.error('Error loading project data:', err.message);
+    throw new Error(`Project data load failed: ${err.message}`);
   }
-}
+};
 
 // Validation
 const validateForm = () => {
-  errors.value = {}
+  errors.value = {};
 
   if (!form.value.name?.trim()) {
-    errors.value.name = 'Project name is required'
+    errors.value.name = 'Project name is required';
   }
 
   if (!form.value.jobNumber?.trim()) {
-    errors.value.jobNumber = 'Job number is required'
+    errors.value.jobNumber = 'Job number is required';
   }
 
   if (!form.value.clientId) {
-    errors.value.clientId = 'Client is required'
+    errors.value.clientId = 'Client is required';
   }
 
-  return Object.keys(errors.value).length === 0
-}
+  return Object.keys(errors.value).length === 0;
+};
 
 /**
  * Saves the project (create or update).
@@ -363,12 +363,12 @@ const validateForm = () => {
  */
 const saveProject = async () => {
   if (!validateForm()) {
-    return
+    return;
   }
 
-  loading.value = true
-  error.value = ''
-  success.value = ''
+  loading.value = true;
+  error.value = '';
+  success.value = '';
 
   try {
     const projectData = {
@@ -386,82 +386,82 @@ const saveProject = async () => {
       address: form.value.address?.trim() || '',
       description: form.value.description?.trim() || '',
       updatedAt: new Date().toISOString(),
-    }
+    };
 
-    let projectSaved
+    let projectSaved;
 
     if (props.project?.id) {
-      await ProjectRepository.updateProject(props.project.id, projectData)
-      success.value = 'Project updated successfully'
-      projectSaved = { ...props.project, ...projectData }
+      await ProjectRepository.updateProject(props.project.id, projectData);
+      success.value = 'Project updated successfully';
+      projectSaved = { ...props.project, ...projectData };
     } else {
-      projectSaved = await ProjectRepository.createProject(projectData)
-      success.value = 'Project created successfully'
+      projectSaved = await ProjectRepository.createProject(projectData);
+      success.value = 'Project created successfully';
     }
 
-    emit('project-saved', projectSaved)
+    emit('project-saved', projectSaved);
 
     // Close modal after a brief delay
     setTimeout(() => {
-      closeModal()
-    }, 1500)
+      closeModal();
+    }, 1500);
   } catch (err) {
-    console.error('Error saving project:', err.message)
-    error.value = err.message || 'Failed to save project'
-    throw new Error(`Project save failed: ${err.message}`)
+    console.error('Error saving project:', err.message);
+    error.value = err.message || 'Failed to save project';
+    throw new Error(`Project save failed: ${err.message}`);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const openCreateClient = () => {
-  showCreateClient.value = true
-}
+  showCreateClient.value = true;
+};
 
 const handleClientCreated = (newClient) => {
   // Add to client list
-  clients.value.unshift(newClient)
+  clients.value.unshift(newClient);
 
   // Select new client
-  selectedClient.value = newClient
-  form.value.clientId = newClient.id
+  selectedClient.value = newClient;
+  form.value.clientId = newClient.id;
 
   // Close the client modal
-  showCreateClient.value = false
-}
+  showCreateClient.value = false;
+};
 
 // Close modal
 const closeModal = () => {
-  emit('update:visible', false)
-  error.value = ''
-  success.value = ''
-}
+  emit('update:visible', false);
+  error.value = '';
+  success.value = '';
+};
 
 // Watch selectedClient to sync clientId
 watch(selectedClient, (newVal) => {
-  form.value.clientId = newVal?.id || ''
-})
+  form.value.clientId = newVal?.id || '';
+});
 
 // Watch for visibility changes
 watch(
   () => props.visible,
   (newVal) => {
     if (newVal) {
-      loadClients()
-      loadProjectData()
+      loadClients();
+      loadProjectData();
     }
-  },
-)
+  }
+);
 
 watch(
   () => props.project,
   () => {
     if (props.visible) {
-      loadProjectData()
+      loadProjectData();
     }
   },
-  { deep: true },
-)
+  { deep: true }
+);
 </script>
 
 <style scoped>
