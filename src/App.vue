@@ -11,13 +11,13 @@
           <AutoComplete
             ref="autoCompleteRef"
             v-model="inputQuery"
-            :suggestions="filteredProjects"
-            :loading="projectsLoading"
+            :suggestions="suggestions"
             optionLabel="name"
             optionGroupLabel="name"
             optionGroupChildren="items"
             placeholder="Select a project"
             class="ml-4 w-64 text-xs"
+            @complete="onComplete"
             @item-select="handleProjectSelect"
             size="small"
             dropdown
@@ -48,7 +48,8 @@
           <Menu ref="userMenu" :model="userMenuItems" :popup="true" />
         </div>
       </header>
-      <!-- Main content area (full width after sidebar removal) -->
+
+      <!-- Main content area -->
       <main class="flex-1 p-4 overflow-auto">
         <template v-if="selectedProject">
           <ProjectDetailView :key="selectedProject.id" :project-id="selectedProject.id" />
@@ -57,6 +58,7 @@
           <DashboardView />
         </template>
       </main>
+
       <!-- Context Menu for actions (right-click anywhere) -->
       <ContextMenu ref="contextMenu" :model="contextMenuItems" />
       <Toast />
@@ -68,14 +70,20 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
+// ==================== IMPORTS ====================
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { useAuthStore } from '@/stores'; // Centralized store import via index.js
-import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'; // Singleton repository import
-import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository'; // Singleton for document uploads
-import SubmittalRepository from '@/services/firebase/Repositories/SubmittalRepository'; // Singleton for submittals
-import ChangeOrderRepository from '@/services/firebase/Repositories/ChangeOrderRepository'; // Singleton for change orders
-import { useToast } from 'primevue/usetoast'; // Composable for toast notifications
+import { useToast } from 'primevue/usetoast';
+
+// Stores
+import { useAuthStore, useProjectStore } from '@/stores';
+
+// Repositories
+import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository';
+import SubmittalRepository from '@/services/firebase/Repositories/SubmittalRepository';
+import ChangeOrderRepository from '@/services/firebase/Repositories/ChangeOrderRepository';
+
+// Components
 import LoginView from '@/views/auth/LoginView.vue';
 import DashboardView from '@/views/dashboard/DashboardView.vue';
 import ProjectDetailView from '@/views/projects/ProjectDetailView.vue';
@@ -83,42 +91,40 @@ import AutoComplete from 'primevue/autocomplete';
 import Button from 'primevue/button';
 import Avatar from 'primevue/avatar';
 import Menu from 'primevue/menu';
-import ContextMenu from 'primevue/contextmenu'; // PrimeVue ContextMenu for right-click menu
-import Toast from 'primevue/toast'; // PrimeVue Toast component for notifications
+import ContextMenu from 'primevue/contextmenu';
+import Toast from 'primevue/toast';
 import ProjectDialog from './components/forms/ProjectDialog.vue';
 import TaskDialog from './components/forms/TaskDialog.vue';
 import RFIDialog from './components/forms/RFIDialog.vue';
 
-let projectUnsubscribe = null;
-
+// ==================== COMPOSABLES ====================
 const router = useRouter();
-const authStore = useAuthStore(); // Use centralized auth store
-const toast = useToast(); // PrimeVue toast for success/error messages
+const authStore = useAuthStore();
+const projectStore = useProjectStore();
+const toast = useToast();
 
-// Refs
-const projects = ref([]);
+// ==================== STATE (REFS) ====================
+const suggestions = ref([]);
 const selectedProject = ref(null);
-const inputQuery = ref(''); // String ref for reactive input filtering and display
+const inputQuery = ref('');
 const userMenu = ref();
-const contextMenu = ref(); // Ref for ContextMenu component
+const contextMenu = ref();
 const autoCompleteRef = ref();
 const showProjectDialog = ref(false);
 const showTaskDialog = ref(false);
 const showRFIDialog = ref(false);
-const projectsLoading = ref(true);
-const projectsInitialized = ref(false);
 
-// Constants
+// ==================== CONSTANTS ====================
 const phaseToGroup = {
   construction: 'Active Projects',
-  'pre-construction': 'Pre-Construction',
+  preConstruction: 'Pre-Construction',
   complete: 'Completed',
-  // Add more mappings if needed, e.g., 'close-out': 'Close-Out'
+  closeOut: 'Close-Out',
 };
 
-const groupOrder = ['Active Projects', 'Pre-Construction', 'Completed'];
+const groupOrder = ['Active Projects', 'Pre-Construction', 'Completed', 'Close-Out'];
 
-// Computed properties
+// ==================== COMPUTED PROPERTIES ====================
 const userInitials = computed(() => {
   if (!authStore.user?.name) return 'U';
   return authStore.user.name
@@ -128,18 +134,11 @@ const userInitials = computed(() => {
     .toUpperCase();
 });
 
-/**
- * Computed suggestions: Groups and filters projects reactively based on inputQuery.
- * Updates automatically when projects changes (realtime subscription) or inputQuery changes (typing).
- * @type {ComputedRef<Array<{name: string, items: Array<Object>}>>}
- */
-const filteredProjects = computed(() => groupProjects(projects.value, inputQuery.value));
+const authLoading = computed(() => authStore.loading);
+const isAuthenticated = computed(() => authStore.isAuthenticated);
+const user = computed(() => authStore.user);
 
-const authLoading = computed(() => authStore.loading); // Use store's loading for auth state
-const isAuthenticated = computed(() => authStore.isAuthenticated); // Use store's getter for auth check
-const user = computed(() => authStore.user); // Use store's user ref
-
-// Utility function for grouping and sorting projects
+// ==================== UTILITY FUNCTIONS ====================
 /**
  * Groups projects by phase and sorts within groups and across groups.
  * Filters by query if provided.
@@ -167,22 +166,18 @@ const groupProjects = (projectsList, query = '') => {
   const groups = Object.keys(groupsMap)
     .map((name) => ({
       name,
-      items: groupsMap[name].sort((a, b) => a.name.localeCompare(b.name)), // Sort projects by name within group
+      items: groupsMap[name].sort((a, b) => a.name.localeCompare(b.name)),
     }))
-    .filter((g) => g.items.length > 0); // Exclude empty groups
+    .filter((g) => g.items.length > 0);
 
-  // Sort groups by predefined order
   groups.sort((a, b) => groupOrder.indexOf(a.name) - groupOrder.indexOf(b.name));
 
   return groups;
 };
 
-// Event handlers (defined before menus to resolve references)
+// ==================== EVENT HANDLERS ====================
 /**
  * Handles the project-saved event from the ProjectDialog.
- * Since realtime subscriptions are in place, we don't need to manually refresh projects.value.
- * This can be used for additional UI feedback if needed.
- * @param {Object} project - The created or updated project data.
  */
 const handleProjectUpdated = (project) => {
   showProjectDialog.value = false;
@@ -195,30 +190,7 @@ const handleProjectUpdated = (project) => {
 };
 
 /**
- * Uploads a document.
- * @returns {Promise<void>}
- */
-const uploadDocument = async () => {
-  try {
-    await DocumentRepository.create({ name: 'New Document', projectId: selectedProject.value?.id });
-    toast.add({ severity: 'success', summary: 'Success', detail: 'Document uploaded', life: 3000 });
-  } catch (error) {
-    console.error('Upload document error:', error);
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to upload document',
-      life: 3000,
-    });
-    throw new Error(`Failed to upload document: ${error.message}`);
-  }
-};
-
-/**
  * Handles the task-saved event from TaskDialog.
- * Since realtime subscriptions are in place, we don't need to manually refresh tasks.value.
- * This can be used for additional UI feedback if needed.
- * @param {Object} task - The created or updated task data.
  */
 const handleTaskUpdated = (task) => {
   showTaskDialog.value = false;
@@ -232,9 +204,6 @@ const handleTaskUpdated = (task) => {
 
 /**
  * Handles the rfi-saved event from RFIDialog.
- * Since realtime subscriptions are in place, we don't need to manually refresh rfis.value.
- * This can be used for additional UI feedback if needed.
- * @param {Object} rfi - The created or updated RFI data.
  */
 const handleRFISaved = (rfi) => {
   showRFIDialog.value = false;
@@ -247,8 +216,25 @@ const handleRFISaved = (rfi) => {
 };
 
 /**
+ * Uploads a document.
+ */
+const uploadDocument = async () => {
+  try {
+    await DocumentRepository.create({ name: 'New Document', projectId: selectedProject.value?.id });
+    toast.add({ severity: 'success', summary: 'Success', detail: 'Document uploaded', life: 3000 });
+  } catch (error) {
+    console.error('Upload document error:', error);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: 'Failed to upload document',
+      life: 3000,
+    });
+  }
+};
+
+/**
  * Creates a new submittal.
- * @returns {Promise<void>}
  */
 const newSubmittal = async () => {
   try {
@@ -265,13 +251,11 @@ const newSubmittal = async () => {
       detail: 'Failed to create submittal',
       life: 3000,
     });
-    throw new Error(`Failed to create submittal: ${error.message}`);
   }
 };
 
 /**
  * Creates a change order.
- * @returns {Promise<void>}
  */
 const changeOrder = async () => {
   try {
@@ -293,17 +277,14 @@ const changeOrder = async () => {
       detail: 'Failed to create change order',
       life: 3000,
     });
-    throw new Error(`Failed to create change order: ${error.message}`);
   }
 };
 
 /**
  * Generates a report.
- * @returns {Promise<void>}
  */
 const generateReport = async () => {
   try {
-    // Placeholder: Implement report generation logic (e.g., fetch data and export PDF/CSV)
     toast.add({ severity: 'success', summary: 'Success', detail: 'Report generated', life: 3000 });
   } catch (error) {
     console.error('Generate report error:', error);
@@ -313,7 +294,6 @@ const generateReport = async () => {
       detail: 'Failed to generate report',
       life: 3000,
     });
-    throw new Error(`Failed to generate report: ${error.message}`);
   }
 };
 
@@ -321,25 +301,21 @@ const generateReport = async () => {
  * Navigates to settings.
  */
 const settings = () => {
-  // Placeholder: Navigate to settings route
   router.push('/settings');
 };
 
 /**
  * Handles project selection to show in ProjectDetailView.
- * Assigns selectedProject only if it's a different project, and syncs input display.
- * @param {Object} event - AutoComplete item-select event.
  */
 const handleProjectSelect = (event) => {
   if (!selectedProject.value || selectedProject.value.id !== event.value.id) {
     selectedProject.value = event.value;
-    inputQuery.value = event.value.name; // Sync input to show selected name
+    inputQuery.value = event.value.name;
   }
 };
 
 /**
  * Toggles the user menu popup.
- * @param {Event} event - Click event.
  */
 const toggleUserMenu = (event) => {
   userMenu.value.toggle(event);
@@ -350,7 +326,7 @@ const toggleUserMenu = (event) => {
  */
 const resetToDashboard = () => {
   selectedProject.value = null;
-  inputQuery.value = ''; // Clear to show all on next dropdown open
+  inputQuery.value = '';
   if (autoCompleteRef.value) {
     autoCompleteRef.value.hide();
   }
@@ -358,22 +334,21 @@ const resetToDashboard = () => {
 
 /**
  * Shows the context menu at the right-click position.
- * @param {Event} event - The contextmenu event.
  */
 const showContextMenu = (event) => {
-  contextMenu.value.show(event); // Display context menu on right-click
+  contextMenu.value.show(event);
 };
 
-// Watchers
 /**
- * Syncs inputQuery to selectedProject's name when selection changes externally.
- * Ensures input reflects current selection (e.g., if set via route params).
+ * Handles autocomplete complete event.
  */
-watch(selectedProject, (newProject) => {
-  inputQuery.value = newProject?.name || '';
-});
+const onComplete = (event) => {
+  console.log('AutoComplete @complete event fired, query:', event.query);
+  suggestions.value = groupProjects(projectStore.projects, event.query);
+  console.log('Updated suggestions (grouped):', suggestions.value);
+};
 
-// Menu items (defined after handlers to resolve command references)
+// ==================== MENU ITEMS (Defined after handlers) ====================
 const userMenuItems = ref([
   {
     label: 'Profile',
@@ -394,7 +369,6 @@ const userMenuItems = ref([
       } catch (error) {
         console.error('Logout error:', error);
         toast.add({ severity: 'error', summary: 'Error', detail: 'Logout failed', life: 3000 });
-        throw new Error(`Logout failed: ${error.message}`);
       }
     },
   },
@@ -449,46 +423,32 @@ const contextMenuItems = ref([
   },
 ]);
 
-onMounted(async () => {
-  try {
-    await authStore.initAuth();
-    if (authStore.isAuthenticated) {
-      projectUnsubscribe = ProjectRepository.subscribeToAll((updatedProjects) => {
-        projects.value = updatedProjects;
-        // Set loading to false after first data load
-        projectsLoading.value = false;
-        projectsInitialized.value = true;
-      });
-
-      // Set a timeout fallback in case subscription doesn't fire immediately
-      setTimeout(() => {
-        if (!projectsInitialized.value) {
-          projectsLoading.value = false;
-        }
-      }, 1000);
-    } else {
-      projectsLoading.value = false;
-    }
-  } catch (error) {
-    projectsLoading.value = false;
-    console.error('App init error:', error);
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to initialize app',
-      life: 3000,
-    });
-  }
+// ==================== WATCHERS ====================
+/**
+ * Syncs inputQuery to selectedProject's name when selection changes externally.
+ */
+watch(selectedProject, (newProject) => {
+  inputQuery.value = newProject?.name || '';
 });
 
-onUnmounted(() => {
-  if (projectUnsubscribe) {
-    try {
-      ProjectRepository.unsubscribe(projectUnsubscribe);
-    } catch (error) {
-      console.error('Unsubscribe error:', error);
-      throw new Error(`Failed to unsubscribe from projects: ${error.message}`);
-    }
+/**
+ * Updates autocomplete suggestions when store projects change.
+ */
+watch(
+  () => projectStore.projects,
+  (newProjects) => {
+    console.log('🔄 Projects from store updated:', newProjects.length);
+    suggestions.value = groupProjects(newProjects, inputQuery.value);
+    console.log('Updated suggestions (grouped):', suggestions.value);
+  },
+  { immediate: true, deep: true }
+);
+
+// ==================== LIFECYCLE HOOKS ====================
+onMounted(async () => {
+  await authStore.initAuth();
+  if (authStore.isAuthenticated) {
+    projectStore.initializeProjectsSubscription();
   }
 });
 </script>

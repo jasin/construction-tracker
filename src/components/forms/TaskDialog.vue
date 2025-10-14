@@ -183,19 +183,19 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue'
-import Dialog from 'primevue/dialog'
-import InputText from 'primevue/inputtext'
-import Textarea from 'primevue/textarea'
-import Select from 'primevue/select'
-import MultiSelect from 'primevue/multiselect'
-import DatePicker from 'primevue/datepicker'
-import InputNumber from 'primevue/inputnumber'
-import Button from 'primevue/button'
-import EntityAttachments from '@/components/widgets/EntityAttachments.vue'
-import UserRepository from '@/services/firebase/Repositories/UserRepository'
-import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
-import TaskRepository from '@/services/firebase/Repositories/TaskRepository'
+import { useProjectStore } from '@/stores';
+import { ref, watch, computed, onMounted } from 'vue';
+import Dialog from 'primevue/dialog';
+import InputText from 'primevue/inputtext';
+import Textarea from 'primevue/textarea';
+import Select from 'primevue/select';
+import MultiSelect from 'primevue/multiselect';
+import DatePicker from 'primevue/datepicker';
+import InputNumber from 'primevue/inputnumber';
+import Button from 'primevue/button';
+import EntityAttachments from '@/components/widgets/EntityAttachments.vue';
+import UserRepository from '@/services/firebase/Repositories/UserRepository';
+import TaskRepository from '@/services/firebase/Repositories/TaskRepository';
 
 // Props
 const props = defineProps({
@@ -216,54 +216,49 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
-})
+});
 
 // Emits
-const emit = defineEmits(['update:visible', 'task-created', 'task-updated'])
+const emit = defineEmits(['update:visible', 'task-created', 'task-updated']);
 
 // Reactive state
-const loading = ref(false)
-const error = ref('')
-const success = ref('')
-const errors = ref({})
-const users = ref([]) // Add users state)
-const projects = ref([])
+const loading = ref(false);
+const error = ref('');
+const success = ref('');
+const errors = ref({});
+const users = ref([]); // Add users state)
+const projectStore = useProjectStore();
 
 // Computed
 const isOpen = computed({
   get: () => props.visible,
   set: (value) => emit('update:visible', value),
-})
+});
 
-const projectOptions = computed(() => {
-  return projects.value.map((project) => ({
-    label: `${project.jobNumber} - ${project.name}`,
-    value: project.id,
-  }))
-})
+const projectOptions = computed(() => projectStore.projects);
 
 // Ensure availableTasks is always a valid array and filter out current task when editing
 const filteredAvailableTasks = computed(() => {
   // Ensure we have an array - handle various edge cases
-  let tasks = []
+  let tasks = [];
 
   if (Array.isArray(props.availableTasks)) {
-    tasks = props.availableTasks
+    tasks = props.availableTasks;
   } else if (props.availableTasks && typeof props.availableTasks === 'object') {
     // Handle case where it might be an object
-    tasks = Object.values(props.availableTasks).filter((task) => task && typeof task === 'object')
+    tasks = Object.values(props.availableTasks).filter((task) => task && typeof task === 'object');
   }
 
   // Ensure each task has required properties
-  tasks = tasks.filter((task) => task && task.id && task.title)
+  tasks = tasks.filter((task) => task && task.id && task.title);
 
   // When editing, filter out the current task to prevent self-dependency
   if (props.task?.id) {
-    tasks = tasks.filter((task) => task.id !== props.task.id)
+    tasks = tasks.filter((task) => task.id !== props.task.id);
   }
 
-  return tasks
-})
+  return tasks;
+});
 
 // Form data
 const form = ref({
@@ -277,7 +272,7 @@ const form = ref({
   category: '',
   projectId: null,
   dependencies: [],
-})
+});
 
 // Options
 const priorityOptions = [
@@ -285,7 +280,7 @@ const priorityOptions = [
   { label: 'Medium', value: 'medium' },
   { label: 'High', value: 'high' },
   { label: 'Critical', value: 'critical' },
-]
+];
 
 const statusOptions = [
   { label: 'To Do', value: 'todo' },
@@ -293,7 +288,7 @@ const statusOptions = [
   { label: 'Review', value: 'review' },
   { label: 'Complete', value: 'complete' },
   { label: 'On Hold', value: 'on-hold' },
-]
+];
 
 const categoryOptions = [
   { label: 'Planning', value: 'planning' },
@@ -302,7 +297,7 @@ const categoryOptions = [
   { label: 'Inspection', value: 'inspection' },
   { label: 'Documentation', value: 'documentation' },
   { label: 'Administrative', value: 'administrative' },
-]
+];
 
 // User options - Load from Firebase users table
 const userOptions = computed(() => {
@@ -311,21 +306,21 @@ const userOptions = computed(() => {
     .map((user) => ({
       label: user.name || user.email,
       value: user.id,
-    }))
-})
+    }));
+});
 
 // Load users from Firebase
 const loadUsers = async () => {
   try {
-    const allUsers = await UserRepository.getAllUsers()
-    users.value = allUsers
-    console.log('Loaded users for assignment:', allUsers)
+    const allUsers = await UserRepository.getAllUsers();
+    users.value = allUsers;
+    console.log('Loaded users for assignment:', allUsers);
   } catch (err) {
-    console.error('Error loading users:', err)
+    console.error('Error loading users:', err);
     // Fallback to empty array if loading fails
-    users.value = []
+    users.value = [];
   }
-}
+};
 // Load task data into form (for editing)
 const loadTaskData = () => {
   if (props.task) {
@@ -340,56 +335,44 @@ const loadTaskData = () => {
       category: props.task.category || '',
       projectId: props.task.projectId || props.projectId || null,
       dependencies: Array.isArray(props.task.dependencies) ? props.task.dependencies : [],
-    }
+    };
   } else {
-    resetForm()
+    resetForm();
   }
-}
-
-// Load project data into form (for editing)
-const loadProjects = async () => {
-  try {
-    const allProjects = await ProjectRepository.getAllProjects()
-    projects.value = allProjects
-    console.log('Loaded projects for selection:', allProjects)
-  } catch (err) {
-    console.error('Error loading projects:', err)
-    projects.value = []
-  }
-}
+};
 
 // Validation
 const validateForm = () => {
-  errors.value = {}
+  errors.value = {};
 
   if (!form.value.title?.trim()) {
-    errors.value.title = 'Task title is required'
+    errors.value.title = 'Task title is required';
   }
 
-  return Object.keys(errors.value).length === 0
-}
+  return Object.keys(errors.value).length === 0;
+};
 
 // Handle changed attachments
 const handleAttachmentsChanged = (attachmentData) => {
-  console.log('Task attachments changed:', attachmentData)
+  console.log('Task attachments changed:', attachmentData);
   // Could emit to parent or update local state if needed
-}
+};
 
 // Handle any errors encountered
 const handleAttachmentError = (error) => {
-  console.error('Attachment error:', error)
+  console.error('Attachment error:', error);
   // Could show error in the form's error state
-}
+};
 
 // Handle form submission
 const handleSubmit = async () => {
   if (!validateForm()) {
-    return
+    return;
   }
 
-  loading.value = true
-  error.value = ''
-  success.value = ''
+  loading.value = true;
+  error.value = '';
+  success.value = '';
 
   try {
     const taskData = {
@@ -403,46 +386,46 @@ const handleSubmit = async () => {
       category: form.value.category || '',
       dependencies: Array.isArray(form.value.dependencies) ? form.value.dependencies : [],
       projectId: form.value.projectId || props.projectId || null,
-    }
+    };
 
-    let taskSaved
+    let taskSaved;
 
     if (props.task?.id) {
       // Update existing task
       const updates = {
         ...taskData,
         updatedAt: new Date().toISOString(),
-      }
+      };
 
-      await TaskRepository.updateTask(props.task.id, updates)
-      success.value = 'Task updated successfully!'
-      taskSaved = { ...props.task, ...updates }
-      emit('task-saved', taskSaved)
+      await TaskRepository.updateTask(props.task.id, updates);
+      success.value = 'Task updated successfully!';
+      taskSaved = { ...props.task, ...updates };
+      emit('task-saved', taskSaved);
     } else {
       // Create new task
-      taskSaved = await TaskRepository.createTask(taskData)
-      success.value = 'Task created successfully!'
-      emit('task-saved', taskSaved)
+      taskSaved = await TaskRepository.createTask(taskData);
+      success.value = 'Task created successfully!';
+      emit('task-saved', taskSaved);
     }
 
     // Close modal after a brief delay
     setTimeout(() => {
-      closeModal()
-    }, 1500)
+      closeModal();
+    }, 1500);
   } catch (err) {
-    console.error('Error saving task:', err)
-    error.value = err.message || `Failed to ${props.task?.id ? 'update' : 'create'} task`
+    console.error('Error saving task:', err);
+    error.value = err.message || `Failed to ${props.task?.id ? 'update' : 'create'} task`;
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // Close modal
 const closeModal = () => {
-  emit('update:visible', false)
-  error.value = ''
-  success.value = ''
-}
+  emit('update:visible', false);
+  error.value = '';
+  success.value = '';
+};
 
 // Reset form
 const resetForm = () => {
@@ -457,39 +440,39 @@ const resetForm = () => {
     category: '',
     projectId: null,
     dependencies: [],
-  }
-  errors.value = {}
-  error.value = ''
-  success.value = ''
-}
+  };
+  errors.value = {};
+  error.value = '';
+  success.value = '';
+};
 
 // Watch for visibility changes
 watch(
   () => props.visible,
   (newVal) => {
     if (newVal) {
-      loadUsers() // Load users when modal opens
-      loadTaskData()
-      loadProjects()
+      loadUsers(); // Load users when modal opens
+      loadTaskData();
+      //loadProjects();
     }
-  },
-)
+  }
+);
 
 watch(
   () => props.task,
   () => {
     if (props.visible) {
-      loadTaskData()
+      loadTaskData();
     }
   },
-  { deep: true },
-)
+  { deep: true }
+);
 
 // Load users when component mounts
 onMounted(() => {
-  loadUsers()
-  loadProjects()
-})
+  loadUsers();
+  //loadProjects();
+});
 </script>
 
 <style scoped>
