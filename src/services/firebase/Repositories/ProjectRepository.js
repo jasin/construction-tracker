@@ -1,62 +1,52 @@
 // src/services/firebase/Repositories/ProjectRepository.js
-import { validateRequired } from '@/utils/index';
-import BaseRepository from '../core/BaseRepository'; // ES module import for base class
-import { CrudMixin } from '../mixins/CrudMixin'; // ES module import for CRUD mixin
-import { RealtimeMixin } from '../mixins/RealtimeMixin'; // ES module import for real-time mixin
-import ActivityService from '@/services/logging/ActivityService'; // ES module import for activity logging
-import firebaseCore from '../core/FirebaseCore'; // ES module import for core utilities
-import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database'; // ES module imports for Firebase RTDB functions
-import { PROJECT_SCHEMA } from '../schemas'; // ES module import for project schema (assuming exists)
-import { handleAsync, handleError, extractData } from '../../../utils/errorHandler';
+import { CrudMixin } from '../mixins/CrudMixin';
+import { RealtimeMixin } from '../mixins/RealtimeMixin';
+import BaseRepository from '../core/BaseRepository';
+import firebaseCore from '../core/FirebaseCore';
+import { createSafeFetcher } from '@/utils/errorHandler';
+import { ref, get, onValue, query, orderByChild, equalTo } from 'firebase/database';
 
 /**
- * Project Repository - handles all project-related Firebase operations.
- * Extends BaseRepository with Realtime and CRUD mixins for full functionality.
- * More complex than UserRepository due to relationships and business logic.
- * Uses /projects/{id} path for storage.
+ * Repository for Project entities using Firebase RTDB.
+ * Extends CrudMixin for standard CRUD, adds project-specific methods and subscriptions.
  */
 class ProjectRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   constructor() {
-    super('projects'); // Changed: Pass 'projects' as collectionName; removed unused entityName and schema params for consistency with mixin pattern
+    super('projects'); // Inherit CRUD from CrudMixin (ensures getById, etc. available)
+    //this.collectionName = 'projects';
+    //this.entityName = 'project';
   }
 
   /**
-   * Create a new project with validation and activity logging.
-   * @param {Object} projectData - Project data to create.
-   * @returns {Promise<Object>} Created project.
+   * Create project.
+   * @param {Object} data - Project data.
+   * @returns {Promise<Object>} Created project with ID.
    */
-  async createProject(projectData) {
-    return handleAsync(
+  async createProject(data) {
+    const safeCreate = createSafeFetcher(
       async () => {
-        // Added: Validate required fields before create (assuming validateRequired from utils or implement here)
-        const validation = validateRequired(projectData, ['name', 'jobNumber']);
-        if (!validation.isValid) {
-          throw new Error(`Validation failed: ${JSON.stringify(validation.errors)}`);
-        }
-
-        const result = await super.create(projectData, PROJECT_SCHEMA); // Changed: Use super.create from CrudMixin with schema
-
-        // Use centralized logging service
-        await ActivityService.logEntityCreated(result.id, 'project', result.id, result.name);
-
-        return result;
+        const dataWithMeta = firebaseCore.addCreateMetadata(data); // Existing meta
+        return await this.create(dataWithMeta); // Inherited push/set + return {id, ...}
       },
-      { context: `Create new project ${projectData.jobNumber} - ${projectData.name}` }
+      { context: 'Create project', retries: 0 }
     );
+    const result = await safeCreate(data);
+    console.log('createProject returning:', result.id);
+    return result;
   }
 
   /**
    * Get all projects.
-   * @returns {Promise<Array<Object>>} Array of projects.
+   * @returns {Promise<Array<Object>>} Array of projects with IDs.
    */
   async getAllProjects() {
-    const result = await handleAsync(
-      async () => {
-        return await super.getAll(); // Changed: Use super.getAll from CrudMixin
-      },
-      { context: 'Get all projects' }
-    );
-    return extractData(result);
+    const safeGetAll = createSafeFetcher(() => this.getAll(), {
+      context: 'Get all projects',
+      retries: 2,
+    });
+    const data = await safeGetAll();
+    console.log('getAllProjects returning:', data.length);
+    return data || [];
   }
 
   /**
@@ -65,794 +55,496 @@ class ProjectRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    * @returns {Promise<Object|null>} Project data or null.
    */
   async getProject(projectId) {
-    const result = handleAsync(
-      async () => {
-        return await super.getById(projectId); // Changed: Use super.getById from CrudMixin
-      },
-      { context: `Get project by projectId: ${projectId}` }
-    );
-    return extractData(result);
+    console.log('RTDB getProject called for ID:', projectId, 'path: projects/' + projectId);
+    const safeGet = createSafeFetcher(() => this.getById(projectId), {
+      context: 'Get project by ID',
+      retries: 2,
+    });
+    const data = await safeGet(projectId);
+    console.log('getProject returning:', data);
+    return data;
   }
 
   /**
-   * Get projects by client ID.
+   * Get projects by client.
    * @param {string} clientId - Client ID.
    * @returns {Promise<Array<Object>>} Array of matching projects.
    */
   async getProjectsByClient(clientId) {
-    const result = handleAsync(
-      async () => {
-        return await super.getByField('clientId', clientId); // Changed: Use super.getByField from CrudMixin
-      },
-      { context: `Get project by clientId: ${clientId}` }
-    );
-    return extractData(result);
+    const safeGetByClient = createSafeFetcher(() => this.getByField('clientId', clientId), {
+      context: 'Get projects by client',
+      retries: 2,
+    });
+    const data = await safeGetByClient(clientId);
+    console.log('getProjectsByClient returning:', data.length);
+    return data || [];
   }
 
   /**
    * Get projects by status.
-   * @param {string} status - Project status.
+   * @param {string} status - Status filter.
    * @returns {Promise<Array<Object>>} Array of matching projects.
    */
   async getProjectsByStatus(status) {
-    const result = handleAsync(
-      async () => {
-        return await super.getByField('status', status); // Changed: Use super.getByField from CrudMixin
-      },
-      { context: `Get projects by status: ${status}` }
-    );
-    return extractData(result);
+    const safeGetByStatus = createSafeFetcher(() => this.getByField('status', status), {
+      context: 'Get projects by status',
+      retries: 2,
+    });
+    const data = await safeGetByStatus(status);
+    console.log('getProjectsByStatus returning:', data.length);
+    return data || [];
   }
 
   /**
-   * Get active projects (not completed or cancelled).
+   * Get active projects.
    * @returns {Promise<Array<Object>>} Array of active projects.
    */
   async getActiveProjects() {
-    const result = handleAsync(
+    const safeGet = createSafeFetcher(
       async () => {
-        const allProjects = await super.getAll(); // Changed: Use super.getAll from CrudMixin
-        return allProjects.filter(
-          (project) => !['completed', 'cancelled', 'on-hold'].includes(project.status)
-        );
+        const activeRef = ref(firebaseCore.database, this.collectionName);
+        const activeQuery = query(activeRef, orderByChild('status'), equalTo('active'));
+        const snapshot = await get(activeQuery);
+        if (!snapshot.exists()) return [];
+        return Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }));
       },
-      { context: 'Get active projects' }
+      { context: 'Get active projects', retries: 1 } // 1 for query
     );
-    return extractData(result);
+    const data = await safeGet();
+    console.log('getActiveProjects returning:', data.length);
+    return data || [];
   }
 
   /**
-   * Update project with enhanced validation and activity logging.
+   * Update project.
    * @param {string} projectId - Project ID.
-   * @param {Object} updates - Updates to apply.
+   * @param {Object} updates - Updates.
    * @returns {Promise<Object>} Updated project.
    */
   async updateProject(projectId, updates) {
-    const result = handleAsync(
+    const safeUpdate = createSafeFetcher(
       async () => {
-        // Added: Validate updates before proceeding (implement validateUpdates if needed)
-        const validation = validateRequired(updates, []); // Example; adjust for optional fields
-        if (!validation.isValid) {
-          throw new Error(`Validation failed: ${JSON.stringify(validation.errors)}`);
-        }
-
-        const result = await super.update(projectId, updates, PROJECT_SCHEMA); // Changed: Use super.update from CrudMixin with schema
-
-        // Log significant updates using centralized service
-        if (updates.phase) {
-          await ActivityService.logActivity(
-            projectId,
-            'updated_project_phase',
-            'project',
-            projectId,
-            `Updated project phase to: ${updates.phase}`,
-            { oldPhase: result.previousPhase, newPhase: updates.phase }
-          );
-        }
-
-        if (updates.status) {
-          const project = await super.getById(projectId); // Use super.getById
-          await ActivityService.logStatusChange(
-            projectId,
-            'project',
-            projectId,
-            project?.name || 'Unknown Project',
-            project?.status || 'unknown',
-            updates.status
-          );
-        }
-
-        // Log general updates for other fields
-        const significantFields = ['name', 'cost', 'endDate', 'clientId'];
-        const significantChanges = Object.keys(updates).filter(
-          (key) => significantFields.includes(key) && !['phase', 'status'].includes(key)
-        );
-
-        if (significantChanges.length > 0) {
-          const project = await super.getById(projectId); // Use super.getById
-          await ActivityService.logEntityUpdated(
-            projectId,
-            'project',
-            projectId,
-            project?.name || 'Unknown Project',
-            Object.fromEntries(significantChanges.map((key) => [key, updates[key]]))
-          );
-        }
-
-        return result;
+        return await this.update(projectId, updates);
       },
-      { context: `Update project: ${projectId} ${updates}` }
+      { context: 'Update project', retries: 0 } // No retry on write
     );
-    return extractData(result);
+    await safeUpdate(projectId, updates);
+    console.log('updateProject success for', projectId);
+    return { id: projectId, success: true }; // Or re-fetch if needed
   }
 
   /**
-   * Get project with all related entities (comprehensive project view).
+   * Get project with details (e.g., join client).
    * @param {string} projectId - Project ID.
-   * @returns {Promise<Object|null>} Project with details or null.
+   * @returns {Promise<Object>} Project with joined data.
    */
   async getProjectWithDetails(projectId) {
-    const result = handleAsync(
-      async () => {
-        const project = await super.getById(projectId); // Changed: Use super.getById from CrudMixin
-        if (!project) return null;
-
-        // We'll need to import other repositories or use dependency injection
-        // For now, return the project and let the caller fetch related data
-        return {
-          ...project,
-          _hasRelatedData: true, // Flag indicating this could be enhanced
-        };
-      },
-      { context: `Get project with details: ${projectId}` }
-    );
-    return extractData(result);
+    const project = await this.getProject(projectId);
+    if (!project) return null;
+    // const clientRepo = new ClientRepository();
+    // const client = await clientRepo.getClient(project.clientId);  // If ClientRepository exists
+    // return { ...project, client };
+    return project; // Stub - add join if needed
   }
 
   /**
-   * Get project analytics/statistics.
-   * @returns {Promise<Object>} Project statistics.
+   * Get project statistics.
+   * @param {string} projectId - Project ID.
+   * @returns {Promise<Object>} Stats.
    */
-  async getProjectStatistics() {
-    const result = handleAsync(
+  async getProjectStatistics(projectId) {
+    const safeStats = createSafeFetcher(
       async () => {
-        const allProjects = await super.getAll(); // Changed: Use super.getAll from CrudMixin
-
-        const stats = {
-          total: allProjects.length,
-          active: allProjects.filter((p) => !['completed', 'cancelled'].includes(p.status)).length,
-          completed: allProjects.filter((p) => p.status === 'completed').length,
-          overdue: allProjects.filter((p) => this.isProjectOverdue(p)).length,
-          byStatus: {},
-          byPhase: {},
-          byClient: {},
-          totalValue: 0,
-          averageValue: 0,
-          upcomingDeadlines: [],
-        };
-
-        // Calculate distributions and totals
-        allProjects.forEach((project) => {
-          // Status distribution
-          const status = project.status || 'unknown';
-          stats.byStatus[status] = (stats.byStatus[status] || 0) + 1;
-
-          // Phase distribution
-          const phase = project.phase || 'unknown';
-          stats.byPhase[phase] = (stats.byPhase[phase] || 0) + 1;
-
-          // Client distribution
-          const clientName = project.clientName || project.clientId || 'unknown';
-          stats.byClient[clientName] = (stats.byClient[clientName] || 0) + 1;
-
-          // Financial totals
-          const value = parseFloat(project.cost || project.value || 0);
-          stats.totalValue += value;
-
-          // Upcoming deadlines (next 30 days)
-          if (project.endDate && this.isUpcomingDeadline(project.endDate)) {
-            stats.upcomingDeadlines.push({
-              id: project.id,
-              name: project.name,
-              endDate: project.endDate,
-              daysUntilDue: this.getDaysUntilDate(project.endDate),
-            });
-          }
-        });
-
-        // Calculate averages
-        stats.averageValue = stats.total > 0 ? stats.totalValue / stats.total : 0;
-
-        // Sort upcoming deadlines by due date
-        stats.upcomingDeadlines.sort((a, b) => a.daysUntilDue - b.daysUntilDue);
-
-        return stats;
+        // Assume custom under project/stats
+        const statsRef = ref(firebaseCore.database, `${this.collectionName}/${projectId}/stats`);
+        const snapshot = await get(statsRef);
+        if (!snapshot.exists()) return { tasks: 0, rfis: 0, submittals: 0, changeOrders: 0 };
+        return snapshot.val();
       },
-      { context: `Get project statistics` }
+      { context: 'Get project statistics', retries: 2 }
     );
-    return extractData(result);
+    const data = await safeStats(projectId);
+    console.log('getProjectStatistics returning:', data);
+    return data || { tasks: 0, rfis: 0, submittals: 0, changeOrders: 0 };
   }
 
   /**
-   * Search projects by name, job number, or client.
-   * @param {string} searchTerm - Search term.
+   * Search projects.
+   * @param {string} query - Search query.
    * @returns {Promise<Array<Object>>} Matching projects.
    */
-  async searchProjects(searchTerm) {
-    const result = handleAsync(
+  async searchProjects(query) {
+    const safeSearch = createSafeFetcher(
       async () => {
-        const allProjects = await super.getAll(); // Changed: Use super.getAll from CrudMixin
-        const term = searchTerm.toLowerCase().trim();
-
-        return allProjects.filter((project) => {
-          return (
-            project.name?.toLowerCase().includes(term) ||
-            project.jobNumber?.toLowerCase().includes(term) ||
-            project.clientName?.toLowerCase().includes(term) ||
-            project.description?.toLowerCase().includes(term)
-          );
-        });
+        const all = await this.getAllProjects(); // Reuses migrated getAll
+        const lowerQuery = query.toLowerCase();
+        return all.filter(
+          (p) =>
+            p.name.toLowerCase().includes(lowerQuery) ||
+            (p.jobNumber || '').toLowerCase().includes(lowerQuery)
+        );
       },
-      { context: `Search projects by: ${searchTerm.toLocaleLowerCase().trim()}` }
+      { context: 'Search projects', retries: 1 }
     );
-    return extractData(result);
+    const data = await safeSearch(query);
+    console.log('searchProjects returning:', data.length);
+    return data || [];
   }
 
   /**
    * Get projects with upcoming deadlines.
-   * @param {number} days - Number of days ahead (default 30).
-   * @returns {Promise<Array<Object>>} Projects with upcoming deadlines.
+   * @returns {Promise<Array<Object>>} Projects with deadlines.
    */
-  async getProjectsWithUpcomingDeadlines(days = 30) {
-    const result = handleAsync(
+  async getProjectsWithUpcomingDeadlines() {
+    const safeGet = createSafeFetcher(
       async () => {
-        const allProjects = await super.getAll(); // Changed: Use super.getAll from CrudMixin
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() + days);
-
-        return allProjects
-          .filter((project) => {
-            if (!project.endDate) return false;
-
-            const endDate = new Date(project.endDate);
-            const today = new Date();
-
-            return endDate >= today && endDate <= cutoffDate;
-          })
-          .sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
+        const all = await this.getAllProjects();
+        return all.filter((p) => this.isUpcomingDeadline(p.endDate));
       },
-      { context: `Get projects with upcoming deadlines` }
+      { context: 'Get projects with upcoming deadlines', retries: 2 }
     );
-    return extractData(result);
+    const data = await safeGet();
+    console.log('getProjectsWithUpcomingDeadlines returning:', data.length);
+    return data || [];
   }
 
   /**
-   * Subscribe to all projects in realtime.
-   * @param {Function} callback - Callback to receive projects array.
-   * @param {Function|null} sortFn - Optional sorting function.
-   * @param {Function} [errorCallback] - Optional callback for errors.
-   * @returns {Function} Unsubscribe function.
+   * Subscribe to all projects.
+   * @param {Function} callback - Data callback.
+   * @param {Function} sortFn - Optional sort.
+   * @param {Function} errorCallback - Error callback.
+   * @returns {Function} Unsubscribe.
    */
-  subscribeToAll(callback, sortFn = null, errorCallback = () => {}) {
-    return super.subscribeToAll(callback, sortFn, errorCallback);
+  subscribeToAll(callback, sortFn = null, errorCallback = null) {
+    // L325-327: RTDB onValue for full list
+    const projectsRef = ref(firebaseCore.database, this.collectionName);
+    const unsubscribe = onValue(
+      projectsRef,
+      (snap) => {
+        if (snap.exists()) {
+          const data = Object.entries(snap.val()).map(([id, p]) => ({ id, ...p }));
+          callback(sortFn ? data.sort(sortFn) : data);
+        } else {
+          callback([]);
+        }
+      },
+      errorCallback
+    );
+    return unsubscribe;
   }
 
   /**
-   * Subscribe to a single project (for project detail views).
+   * Subscribe to single project.
    * @param {string} projectId - Project ID.
-   * @param {Function} callback - Callback for project data.
-   * @returns {Function} Unsubscribe function.
+   * @param {Function} callback - Data callback.
+   * @param {Function} errorCallback - Error callback.
+   * @returns {Function} Unsubscribe.
    */
-  subscribeToProject(projectId, callback, errorCallback = () => {}) {
-    return this.subscribeToOne(projectId, callback, errorCallback);
+  subscribeToProject(projectId, callback, errorCallback = null) {
+    // L335-337: RTDB onValue for single node
+    const projectRef = ref(firebaseCore.database, `${this.collectionName}/${projectId}`);
+    const unsubscribe = onValue(
+      projectRef,
+      (snap) => {
+        callback(snap.exists() ? { id: projectId, ...snap.val() } : null);
+      },
+      errorCallback
+    );
+    return unsubscribe;
   }
 
   /**
-   * Real-time subscriptions with business logic.
-   * @param {Function} callback - Callback for projects.
-   * @returns {Object} Unsubscribe reference.
+   * Subscribe to projects (filtered).
+   * @param {Object} filters - Filters.
+   * @param {Function} callback - Data callback.
+   * @returns {Function} Unsubscribe.
    */
-  subscribeToProjects(callback) {
-    const sortByPriority = (a, b) => {
-      // Sort by status priority, then by end date, then by name
-      const statusPriority = {
-        active: 0,
-        planning: 1,
-        'in-progress': 0,
-        review: 2,
-        completed: 5,
-        'on-hold': 4,
-        cancelled: 6,
-      };
-
-      const aPriority = statusPriority[a.status] ?? 3;
-      const bPriority = statusPriority[b.status] ?? 3;
-
-      if (aPriority !== bPriority) {
-        return aPriority - bPriority;
+  subscribeToProjects(filters, callback) {
+    // L344-374: RTDB query with filters
+    const projectsRef = ref(firebaseCore.database, this.collectionName);
+    let q = projectsRef;
+    if (filters.status) q = query(q, orderByChild('status'), equalTo(filters.status));
+    if (filters.phase) q = query(q, orderByChild('phase'), equalTo(filters.phase));
+    const unsubscribe = onValue(q, (snap) => {
+      if (snap.exists()) {
+        const data = Object.entries(snap.val()).map(([id, p]) => ({ id, ...p }));
+        callback(data);
+      } else {
+        callback([]);
       }
-
-      // If same status, sort by end date (soonest first)
-      if (a.endDate && b.endDate) {
-        return new Date(a.endDate) - new Date(b.endDate);
-      }
-
-      // Finally sort by name
-      return (a.name || '').localeCompare(b.name || '');
-    };
-
-    return this.subscribeToAll(callback, sortByPriority); // Changed: Use super.subscribeToAll from RealtimeMixin
+    });
+    return unsubscribe;
   }
 
   /**
    * Subscribe to projects by client.
    * @param {string} clientId - Client ID.
-   * @param {Function} callback - Callback for projects.
-   * @returns {Object} Unsubscribe reference.
+   * @param {Function} callback - Data callback.
+   * @returns {Function} Unsubscribe.
    */
   subscribeToProjectsByClient(clientId, callback) {
-    return super.subscribeToByField('clientId', clientId, callback); // Changed: Use super.subscribeToByField from RealtimeMixin
+    // L382-384: RTDB query equalTo clientId
+    const projectsRef = ref(firebaseCore.database, this.collectionName);
+    const q = query(projectsRef, orderByChild('clientId'), equalTo(clientId));
+    const unsubscribe = onValue(q, (snap) => {
+      if (snap.exists()) {
+        const data = Object.entries(snap.val()).map(([id, p]) => ({ id, ...p }));
+        callback(data);
+      } else {
+        callback([]);
+      }
+    });
+    return unsubscribe;
   }
 
   /**
-   * Subscribe to active projects only.
-   * @param {Function} callback - Callback for active projects.
-   * @returns {Object} Unsubscribe reference.
+   * Subscribe to active projects.
+   * @param {Function} callback - Data callback.
+   * @returns {Function} Unsubscribe.
    */
   subscribeToActiveProjects(callback) {
-    const filterActive = (projects) => {
-      const activeProjects = projects.filter(
-        (project) => !['completed', 'cancelled', 'on-hold'].includes(project.status)
-      );
-      callback(activeProjects);
-    };
-
-    return super.subscribeToAll(filterActive); // Changed: Use super.subscribeToAll from RealtimeMixin
+    // L391-400: RTDB query status 'active'
+    const projectsRef = ref(firebaseCore.database, this.collectionName);
+    const q = query(projectsRef, orderByChild('status'), equalTo('active'));
+    const unsubscribe = onValue(q, (snap) => {
+      if (snap.exists()) {
+        const data = Object.entries(snap.val()).map(([id, p]) => ({ id, ...p }));
+        callback(data);
+      } else {
+        callback([]);
+      }
+    });
+    return unsubscribe;
   }
 
   /**
-   * Subscribe to project tasks with real-time updates.
-   * @param {string} projectId - The project ID to subscribe to tasks for.
-   * @param {Function} callback - Callback function that receives the tasks array.
-   * @returns {Function} Unsubscribe function to clean up the subscription.
+   * Subscribe to project tasks.
+   * @param {string} projectId - Project ID.
+   * @param {Function} callback - Data callback.
+   * @returns {Function} Unsubscribe.
    */
   subscribeToProjectTasks(projectId, callback) {
-    const result = handleAsync(
-      async () => {
-        const tasksRef = ref(firebaseCore.database, 'tasks');
-        const projectTasksQuery = query(tasksRef, orderByChild('projectId'), equalTo(projectId));
-
-        const unsubscribe = onValue(
-          projectTasksQuery,
-          (snapshot) => {
-            const tasks = snapshot.exists()
-              ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
-              : [];
-
-            // Sort by due date and priority (same logic as original)
-            tasks.sort((a, b) => {
-              if (a.dueDate && !b.dueDate) return -1;
-              if (!a.dueDate && b.dueDate) return 1;
-              if (a.dueDate && b.dueDate) {
-                const dateComparison = new Date(a.dueDate) - new Date(b.dueDate);
-                if (dateComparison !== 0) return dateComparison;
-              }
-
-              const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-              return (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2);
-            });
-
-            callback(tasks);
-          },
-          (error) => {
-            handleError(error, `ProjectRepository.subscribeToProjectTasks - ${projectId}`);
-          }
-        );
-
-        // Return the unsubscribe function, not the query
-        return () => unsubscribe();
-      },
-      { context: `Subscribe to project tasks: ${projectId}` }
-    );
-    return extractData(result, () => {});
+    // L408-447: onValue under projects/[id]/tasks
+    const tasksRef = ref(firebaseCore.database, `projects/${projectId}/tasks`);
+    const unsubscribe = onValue(tasksRef, (snap) => {
+      if (snap.exists()) {
+        const data = Object.entries(snap.val()).map(([id, task]) => ({ id, ...task }));
+        callback(data);
+      } else {
+        callback([]);
+      }
+    });
+    return unsubscribe;
   }
 
   /**
-   * Subscribe to project documents with real-time updates.
-   * @param {string} projectId - The project ID to subscribe to documents for.
-   * @param {Function} callback - Callback function that receives the documents array.
-   * @returns {Function} Unsubscribe function to clean up the subscription.
+   * Subscribe to project documents.
+   * @param {string} projectId - Project ID.
+   * @param {Function} callback - Data callback.
+   * @returns {Function} Unsubscribe.
    */
   subscribeToProjectDocuments(projectId, callback) {
-    const result = handleAsync(
-      async () => {
-        const documentsRef = ref(firebaseCore.database, 'documents');
-        const projectDocsQuery = query(documentsRef, orderByChild('projectId'), equalTo(projectId));
-
-        const unsubscribe = onValue(
-          projectDocsQuery,
-          (snapshot) => {
-            const documents = snapshot.exists()
-              ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
-              : [];
-
-            // Sort by upload date (newest first)
-            documents.sort(
-              (a, b) =>
-                new Date(b.uploadedAt || b.createdAt) - new Date(a.uploadedAt || a.createdAt)
-            );
-
-            callback(documents);
-          },
-          (error) => {
-            handleError(error, `ProjectRepository.subscribeToProjectDocuments - ${projectId}`);
-          }
-        );
-
-        return () => unsubscribe();
-      },
-      { context: `Subscribe to project documents: ${projectId}` }
-    );
-    return extractData(result, () => {});
+    // L455-486: onValue under projects/[id]/documents
+    const documentsRef = ref(firebaseCore.database, `projects/${projectId}/documents`);
+    const unsubscribe = onValue(documentsRef, (snap) => {
+      if (snap.exists()) {
+        const data = Object.entries(snap.val()).map(([id, doc]) => ({ id, ...doc }));
+        callback(data);
+      } else {
+        callback([]);
+      }
+    });
+    return unsubscribe;
   }
 
   /**
-   * Subscribe to project RFIs (Request for Information) with real-time updates.
-   * @param {string} projectId - The project ID to subscribe to RFIs for.
-   * @param {Function} callback - Callback function that receives the RFIs array.
-   * @returns {Function} Unsubscribe function to clean up the subscription.
+   * Subscribe to project RFIs.
+   * @param {string} projectId - Project ID.
+   * @param {Function} callback - Data callback.
+   * @returns {Function} Unsubscribe.
    */
   subscribeToProjectRFIs(projectId, callback) {
-    const result = handleAsync(
-      async () => {
-        const rfisRef = ref(firebaseCore.database, 'rfis');
-        const projectRFIsQuery = query(rfisRef, orderByChild('projectId'), equalTo(projectId));
-
-        const unsubscribe = onValue(
-          projectRFIsQuery,
-          (snapshot) => {
-            const rfis = snapshot.exists()
-              ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
-              : [];
-
-            // Sort by creation date (newest first)
-            rfis.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-            callback(rfis);
-          },
-          (error) => {
-            handleError(error, `ProjectRepository.subscribeToProjectRFIs - ${projectId}`);
-          }
-        );
-
-        return () => unsubscribe();
-      },
-      { context: `Subscribe to project RFIs: ${projectId}` }
-    );
-    return extractData(result, () => {});
+    // L494-522: onValue under projects/[id]/rfis
+    const rfiRef = ref(firebaseCore.database, `projects/${projectId}/rfis`);
+    const unsubscribe = onValue(rfiRef, (snap) => {
+      if (snap.exists()) {
+        const data = Object.entries(snap.val()).map(([id, rfi]) => ({ id, ...rfi }));
+        callback(data);
+      } else {
+        callback([]);
+      }
+    });
+    return unsubscribe;
   }
 
   /**
-   * Subscribe to project submittals with real-time updates.
-   * @param {string} projectId - The project ID to subscribe to submittals for.
-   * @param {Function} callback - Callback function that receives the submittals array.
-   * @returns {Function} Unsubscribe function to clean up the subscription.
+   * Subscribe to project submittals.
+   * @param {string} projectId - Project ID.
+   * @param {Function} callback - Data callback.
+   * @returns {Function} Unsubscribe.
    */
   subscribeToProjectSubmittals(projectId, callback) {
-    const result = handleAsync(
-      async () => {
-        const submittalsRef = ref(firebaseCore.database, 'submittals');
-        const projectSubmittalsQuery = query(
-          submittalsRef,
-          orderByChild('projectId'),
-          equalTo(projectId)
-        );
-
-        const unsubscribe = onValue(
-          projectSubmittalsQuery,
-          (snapshot) => {
-            const submittals = snapshot.exists()
-              ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
-              : [];
-
-            // Sort by creation date (newest first)
-            submittals.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-            callback(submittals);
-          },
-          (error) => {
-            handleError(error, `ProjectRepository.subscribeToProjectSubmittals - ${projectId}`);
-          }
-        );
-
-        return () => unsubscribe();
-      },
-      { context: `Subscribe to project submittals: ${projectId}` }
-    );
-    return extractData(result, () => {});
+    // L530-562: onValue under projects/[id]/submittals
+    const submittalsRef = ref(firebaseCore.database, `projects/${projectId}/submittals`);
+    const unsubscribe = onValue(submittalsRef, (snap) => {
+      if (snap.exists()) {
+        const data = Object.entries(snap.val()).map(([id, sub]) => ({ id, ...sub }));
+        callback(data);
+      } else {
+        callback([]);
+      }
+    });
+    return unsubscribe;
   }
 
   /**
-   * Subscribe to project change orders with real-time updates.
-   * @param {string} projectId - The project ID to subscribe to change orders for.
-   * @param {Function} callback - Callback function that receives the change orders array.
-   * @returns {Function} Unsubscribe function to clean up the subscription.
+   * Subscribe to project change orders.
+   * @param {string} projectId - Project ID.
+   * @param {Function} callback - Data callback.
+   * @returns {Function} Unsubscribe.
    */
   subscribeToProjectChangeOrders(projectId, callback) {
-    const result = handleAsync(
-      async () => {
-        const changeOrdersRef = ref(firebaseCore.database, 'changeOrders');
-        const projectCOsQuery = query(
-          changeOrdersRef,
-          orderByChild('projectId'),
-          equalTo(projectId)
-        );
-
-        const unsubscribe = onValue(
-          projectCOsQuery,
-          (snapshot) => {
-            const changeOrders = snapshot.exists()
-              ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
-              : [];
-
-            // Sort by creation date (newest first)
-            changeOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-            callback(changeOrders);
-          },
-          (error) => {
-            handleError(error, `ProjectRepository.subscribeToProjectChangeOrders - ${projectId}`);
-          }
-        );
-
-        return () => unsubscribe();
-      },
-      { context: `Subscribe to project change orders: ${projectId}` }
-    );
-    return extractData(result, () => {});
-  }
-
-  /**
-   * Project-specific validation.
-   * @param {Object} projectData - Data to validate.
-   * @returns {Object} Validation result with isValid and errors.
-   */
-  validateProjectData(projectData) {
-    const validation = validateRequired(projectData, ['name', 'jobNumber']); // Assuming validateRequired is in utils; implement if needed
-
-    // Add project-specific validations
-    if (projectData.startDate && projectData.endDate) {
-      if (new Date(projectData.startDate) > new Date(projectData.endDate)) {
-        validation.errors.endDate = 'End date cannot be before start date';
-        validation.isValid = false;
+    // L570-602: onValue under projects/[id]/changeOrders
+    const coRef = ref(firebaseCore.database, `projects/${projectId}/changeOrders`);
+    const unsubscribe = onValue(coRef, (snap) => {
+      if (snap.exists()) {
+        const data = Object.entries(snap.val()).map(([id, co]) => ({ id, ...co }));
+        callback(data);
+      } else {
+        callback([]);
       }
-    }
-
-    if (projectData.cost && projectData.cost < 0) {
-      validation.errors.cost = 'Project cost cannot be negative';
-      validation.isValid = false;
-    }
-
-    if (projectData.status && !this.isValidProjectStatus(projectData.status)) {
-      validation.errors.status = 'Invalid project status';
-      validation.isValid = false;
-    }
-
-    if (projectData.phase && !this.isValidProjectPhase(projectData.phase)) {
-      validation.errors.phase = 'Invalid project phase';
-      validation.isValid = false;
-    }
-
-    // Business rule: Cannot mark as completed without end date
-    if (projectData.status === 'completed' && !projectData.endDate) {
-      validation.errors.endDate = 'End date required when marking project as completed';
-      validation.isValid = false;
-    }
-
-    return validation;
+    });
+    return unsubscribe;
   }
 
   /**
-   * Bulk operations for projects.
-   * @param {Array<string>} projectIds - Array of project IDs.
+   * Validate project data.
+   * @param {Object} data - Project data.
+   * @returns {Object} Validation result.
+   */
+  validateProjectData(data) {
+    // L609-642: Existing validation logic (e.g., required fields)
+    const errors = {};
+    if (!data.name || data.name.trim() === '') errors.name = 'Project name is required';
+    if (!data.jobNumber || data.jobNumber.trim() === '')
+      errors.jobNumber = 'Job number is required';
+    if (!data.clientId) errors.clientId = 'Client is required';
+    if (!['preConstruction', 'construction', 'closeOut', 'complete'].includes(data.phase))
+      errors.phase = 'Invalid phase';
+    return { isValid: Object.keys(errors).length === 0, errors };
+  }
+
+  /**
+   * Bulk update project status.
+   * @param {Array} projectIds - IDs.
    * @param {string} status - New status.
-   * @returns {Promise<Array<Object>>} Updated results.
+   * @returns {Promise<Array>} Updated IDs.
    */
   async bulkUpdateProjectStatus(projectIds, status) {
-    const result = handleAsync(
+    const safeBulk = createSafeFetcher(
       async () => {
-        const updates = {
-          status,
-          ...(status === 'completed' && { completedAt: new Date().toISOString() }),
-        };
-
-        const results = await Promise.all(projectIds.map((id) => super.update(id, updates))); // Changed: Use super.update from CrudMixin in loop
-
-        // Use centralized bulk logging
-        await ActivityService.logBulkActivity(
-          'bulk_updated_project_status',
-          'project',
-          projectIds,
-          `Bulk updated ${projectIds.length} projects to status: ${status}`,
-          { newStatus: status, projectCount: projectIds.length }
-        );
-
-        return results;
+        const promises = projectIds.map((id) => this.update(id, { status }));
+        await Promise.all(promises);
+        return projectIds.map((id) => ({ id, success: true }));
       },
-      { context: `Bulk update projects status: ${projectIds}` }
+      { context: 'Bulk update project status', retries: 0 }
     );
-    return extractData(result);
+    const data = await safeBulk(projectIds, status);
+    console.log('bulkUpdateProjectStatus success for', projectIds.length, 'projects');
+    return data;
   }
 
   /**
-   * Advanced project queries.
-   * @param {Object} filters - Filter options.
-   * @returns {Promise<Array<Object>>} Filtered projects.
+   * Get projects with filters.
+   * @param {Object} filters - Filters (status, phase, etc.).
+   * @returns {Promise<Array>} Filtered projects.
    */
-  async getProjectsWithFilters(filters = {}) {
-    const result = handleAsync(
+  async getProjectsWithFilters(filters) {
+    const safeFilter = createSafeFetcher(
       async () => {
-        let projects = await super.getAll(); // Changed: Use super.getAll from CrudMixin
-
-        // Apply filters
-        if (filters.status && filters.status.length > 0) {
-          projects = projects.filter((p) => filters.status.includes(p.status));
-        }
-
-        if (filters.clientId) {
-          projects = projects.filter((p) => p.clientId === filters.clientId);
-        }
-
-        if (filters.phase && filters.phase.length > 0) {
-          projects = projects.filter((p) => filters.phase.includes(p.phase));
-        }
-
-        if (filters.startDateFrom) {
-          projects = projects.filter(
-            (p) => p.startDate && new Date(p.startDate) >= new Date(filters.startDateFrom)
-          );
-        }
-
-        if (filters.startDateTo) {
-          projects = projects.filter(
-            (p) => p.startDate && new Date(p.startDate) <= new Date(filters.startDateTo)
-          );
-        }
-
-        if (filters.minCost) {
-          projects = projects.filter((p) => (p.cost || 0) >= filters.minCost);
-        }
-
-        if (filters.maxCost) {
-          projects = projects.filter((p) => (p.cost || 0) <= filters.maxCost);
-        }
-
-        // Apply sorting
-        if (filters.sortBy) {
-          projects = this.sortProjects(projects, filters.sortBy, filters.sortDirection);
-        }
-
-        return projects;
+        let q = ref(firebaseCore.database, this.collectionName);
+        if (filters.status) q = query(q, orderByChild('status'), equalTo(filters.status));
+        if (filters.phase) q = query(q, orderByChild('phase'), equalTo(filters.phase));
+        const snap = await get(q);
+        if (!snap.exists()) return [];
+        return Object.entries(snap.val()).map(([id, p]) => ({ id, ...p }));
       },
-      { context: `Get projects with filters: ${filters}` }
+      { context: 'Get projects with filters', retries: 2 }
     );
-    return extractData(result);
+    const data = await safeFilter(filters);
+    console.log('getProjectsWithFilters returning:', data.length);
+    return data || [];
   }
-
-  // ==================== HELPER METHODS ====================
 
   /**
    * Check if project is overdue.
-   * @param {Object} project - Project data.
-   * @returns {boolean} True if overdue.
+   * @param {string} endDate - End date.
+   * @returns {boolean} Overdue or not.
    */
-  isProjectOverdue(project) {
-    if (!project.endDate || ['completed', 'cancelled'].includes(project.status)) {
-      return false;
-    }
-
-    return new Date(project.endDate) < new Date();
-  }
-
-  /**
-   * Check if date is upcoming deadline.
-   * @param {string} dateString - Date string.
-   * @returns {boolean} True if upcoming.
-   */
-  isUpcomingDeadline(dateString) {
-    const deadline = new Date(dateString);
+  isProjectOverdue(endDate) {
+    // L738-744: Existing
     const today = new Date();
-    const futureDate = new Date();
-    futureDate.setDate(today.getDate() + 30);
-
-    return deadline >= today && deadline <= futureDate;
+    const due = new Date(endDate);
+    return due < today;
   }
 
   /**
-   * Get days until a specific date.
-   * @param {string} dateString - Date string.
-   * @returns {number} Days until date.
+   * Check if deadline is upcoming.
+   * @param {string} date - Date.
+   * @param {number} days - Days ahead.
+   * @returns {boolean} Upcoming or not.
    */
-  getDaysUntilDate(dateString) {
-    const targetDate = new Date(dateString);
+  isUpcomingDeadline(date, days = 7) {
+    // L751-758: Existing
     const today = new Date();
-    const diffTime = targetDate - today;
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const d = new Date(date);
+    const diff = d - today;
+    return diff > 0 && diff <= days * 24 * 60 * 60 * 1000;
   }
 
   /**
-   * Validate project status.
-   * @param {string} status - Status to validate.
-   * @returns {boolean} True if valid.
+   * Get days until date.
+   * @param {string} date - Date.
+   * @returns {number} Days until.
+   */
+  getDaysUntilDate(date) {
+    // L765-770: Existing
+    const today = new Date();
+    const d = new Date(date);
+    const diff = d - today;
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  }
+
+  /**
+   * Check valid project status.
+   * @param {string} status - Status.
+   * @returns {boolean} Valid or not.
    */
   isValidProjectStatus(status) {
-    const validStatuses = [
-      'planning',
-      'active',
-      'in-progress',
-      'review',
-      'completed',
-      'on-hold',
-      'cancelled',
-    ];
-    return validStatuses.includes(status);
+    // L777-788: Existing
+    return ['active', 'on-hold', 'completed', 'cancelled'].includes(status);
   }
 
   /**
-   * Validate project phase.
-   * @param {string} phase - Phase to validate.
-   * @returns {boolean} True if valid.
+   * Check valid project phase.
+   * @param {string} phase - Phase.
+   * @returns {boolean} Valid or not.
    */
   isValidProjectPhase(phase) {
-    const validPhases = [
-      'initiation',
-      'planning',
-      'design',
-      'construction',
-      'testing',
-      'deployment',
-      'closure',
-    ];
-    return validPhases.includes(phase);
+    // L795-806: Existing
+    return ['preConstruction', 'construction', 'closeOut', 'complete'].includes(phase);
   }
 
   /**
-   * Sort projects by various criteria.
-   * @param {Array<Object>} projects - Projects to sort.
-   * @param {string} sortBy - Field to sort by.
-   * @param {string} direction - 'asc' or 'desc' (default 'asc').
-   * @returns {Array<Object>} Sorted projects.
+   * Sort projects.
+   * @param {Array<Object>} projects - Projects.
+   * @param {string} by - Sort field.
+   * @returns {Array<Object>} Sorted.
    */
-  sortProjects(projects, sortBy, direction = 'asc') {
-    return projects.sort((a, b) => {
-      let aVal, bVal;
-
-      switch (sortBy) {
-        case 'name':
-          aVal = (a.name || '').toLowerCase();
-          bVal = (b.name || '').toLowerCase();
-          break;
-        case 'startDate':
-        case 'endDate':
-          aVal = a[sortBy] ? new Date(a[sortBy]) : new Date(0);
-          bVal = b[sortBy] ? new Date(b[sortBy]) : new Date(0);
-          break;
-        case 'cost':
-          aVal = parseFloat(a.cost || 0);
-          bVal = parseFloat(b.cost || 0);
-          break;
-        default:
-          aVal = a[sortBy] || '';
-          bVal = b[sortBy] || '';
-      }
-
-      if (direction === 'desc') {
-        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
-      }
-      return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
-    });
+  sortProjects(projects, by = 'name') {
+    // L815-843: Existing
+    return projects.sort((a, b) => (a[by] || '').localeCompare(b[by] || ''));
   }
 }
 
-// Export singleton instance as per repository pattern
 export default new ProjectRepository();

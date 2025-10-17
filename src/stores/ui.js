@@ -1,65 +1,69 @@
-/ stores/ui.js
-import { defineStore } from 'pinia'
-import { ref } from 'vue'
+/ stores/iu.js;
+import { defineStore } from 'pinia';
+import { ref } from 'vue';
 
 export const useUIStore = defineStore('ui', () => {
   // State
-  const notifications = ref([])
-  const activeTab = ref('overview')
-  const sidebarOpen = ref(false)
+  const notifications = ref([]);
+  const activeTab = ref('overview');
+  const sidebarOpen = ref(false);
   const modals = ref({
-    projectSlideOver: false,
-    taskSlideOver: false,
+    projectDialog: false,
+    taskDialog: false,
+    rfiDialog: false,
     activityFlyout: false,
-    documentUploader: false
-  })
+    documentUploader: false,
+  });
 
   // Actions
   function addNotification(notification) {
-    const id = Date.now().toString()
+    const id = Date.now().toString();
     notifications.value.unshift({
       id,
       timestamp: new Date(),
-      ...notification
-    })
+      ...notification,
+    });
 
     // Auto-remove after 5 seconds for non-persistent notifications
     if (!notification.persistent) {
       setTimeout(() => {
-        removeNotification(id)
-      }, 5000)
+        removeNotification(id);
+      }, 5000);
     }
   }
 
   function removeNotification(id) {
-    const index = notifications.value.findIndex(n => n.id === id)
+    const index = notifications.value.findIndex((n) => n.id === id);
     if (index !== -1) {
-      notifications.value.splice(index, 1)
+      notifications.value.splice(index, 1);
     }
   }
 
   function clearNotifications() {
-    notifications.value = []
+    notifications.value = [];
   }
 
   function setActiveTab(tab) {
-    activeTab.value = tab
+    activeTab.value = tab;
   }
 
   function openModal(modalName) {
+    console.log('uiStore: Opening modal', modalName);
     if (modalName in modals.value) {
-      modals.value[modalName] = true
+      modals.value[modalName] = true;
+    } else {
+      console.warn('uiStore: Unknown modal type:', modalName);
     }
   }
 
   function closeModal(modalName) {
     if (modalName in modals.value) {
-      modals.value[modalName] = false
+      modals.value[modalName] = false;
     }
   }
 
   function toggleSidebar() {
-    sidebarOpen.value = !sidebarOpen.value
+    sidebarOpen.value = !sidebarOpen.value;
   }
 
   return {
@@ -76,6 +80,6 @@ export const useUIStore = defineStore('ui', () => {
     setActiveTab,
     openModal,
     closeModal,
-    toggleSidebar
-  }
-})
+    toggleSidebar,
+  };
+});

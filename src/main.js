@@ -25,10 +25,10 @@ app.use(PrimeVue, {
 app.directive('tooltip', Tooltip);
 
 // Global error handler for bubbled errors
-app.config.errorHandler = (err, instance, info) => {
-  handleError(err, `Global Vue error: ${info}`, { silent: false }); // Use handleError for standardized logging/notifications
-  // Optional: Custom actions, e.g., uiStore.addNotification({ type: 'error', message: err.message });
-};
+//app.config.errorHandler = (err, instance, info) => {
+//handleError(err, `Global Vue error: ${info}`, { silent: false }); // Use handleError for standardized logging/notifications
+// Optional: Custom actions, e.g., uiStore.addNotification({ type: 'error', message: err.message });
+//};
 
 // Synchronous initialization with async handling via .then/catch
 const authStore = useAuthStore();

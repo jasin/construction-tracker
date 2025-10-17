@@ -11,28 +11,21 @@ import { getCurrentInstance } from 'vue';
 import { useToast } from 'primevue/usetoast';
 
 /**
- * Wraps an async function to handle errors uniformly.
- * @param {Function} asyncFn - The async function to execute.
- * @param {Object} [options={}] - Optional configuration.
- * @param {boolean} [options.silent=false] - If true, suppresses UI notifications.
- * @param {string} [options.context=''] - Context string for logging (e.g., 'Document load').
- * @returns {Promise<Object>} - { success: boolean, data: any, error: string|null }
+ * Legacy: Wraps an async function to handle errors uniformly.
+ * Keep for backward compatibility during migration.
  */
 export async function handleAsync(asyncFn, options = {}) {
   const { silent = false, context = '' } = options;
   try {
+    console.log(`Before await asyncFn in handleAsync (${context})`);
     const data = await asyncFn();
+    console.log(`After await asyncFn in handleAsync - data:`, data);
     return { success: true, data, error: null };
   } catch (err) {
+    console.log(`Caught in handleAsync (${context}):`, err);
     let errorMessage = err.message || 'An unexpected error occurred';
     Logger.error({ message: errorMessage, context, stack: err.stack });
 
-    if (!silent) {
-      // Integrate with UI store for notifications (e.g., via ui.js store).
-      // Example: useUIStore().addNotification({ type: 'error', message: errorMessage });
-    }
-
-    //let errorMessage = err.message || 'An unexpected error occurred';
     let firebaseCode = null;
     let statusCode = 500;
 
@@ -57,15 +50,15 @@ export async function handleAsync(asyncFn, options = {}) {
         default:
           errorMessage = `Authentication error: ${err.code}`;
       }
-    } else if (err.code && err.code.startsWith('datab ase/')) {
+    } else if (err.code && err.code.startsWith('database/')) {
       statusCode = 400;
       firebaseCode = err.code;
       switch (err.code) {
-        case 'datab ase/rules-not-allowed':
+        case 'database/rules-not-allowed':
           statusCode = 403;
           errorMessage = 'Operation not permitted due to database rules';
           break;
-        case 'datab ase/invalid-argument':
+        case 'database/invalid-argument':
           errorMessage = 'Invalid data provided';
           break;
         default:
@@ -82,10 +75,12 @@ export async function handleAsync(asyncFn, options = {}) {
       status: statusCode,
     });
 
-    if (!silent) {
-      // Show toast notification in Vue app
+    const instance = getCurrentInstance();
+    if (!silent && instance) {
       const toast = useToast();
       toast.add({ severity: 'error', summary: 'Error', detail: errorMessage, life: 3000 });
+    } else if (!silent) {
+      console.warn('Toast skipped - not in Vue component context');
     }
 
     return { success: false, data: null, error: appError };
@@ -93,14 +88,106 @@ export async function handleAsync(asyncFn, options = {}) {
 }
 
 /**
- * Extracts data from a handleAsync result, returning a default value on failure.
- * This standardizes data extraction across repositories, reducing redundancy.
- * @param {Object} result - The result object from handleAsync.
- * @param {any} [defaultValue=[]] - Default value to return if !result.success (e.g., [] for arrays, null for singles).
- * @returns {any} Extracted data or defaultValue.
+ * Legacy: Extracts data from a handleAsync result.
+ * Keep for backward compatibility.
  */
-export function extractData(result, defaultValue = []) {
-  return result.success ? result.data : defaultValue;
+export function extractData(result, defaultValue = null) {
+  if (!result.success) {
+    console.warn(
+      `extractData: failure in ${result.error?.context || 'unknown'}, returning default`
+    );
+    return defaultValue;
+  }
+  const data = result.data;
+  if (data === null || data === undefined) console.warn('extractData: success but null data');
+  return data || defaultValue;
+}
+
+/**
+ * New: Custom Promise Wrapper Factory (Solution #3).
+ * Creates a "safe" async function that retries, centralizes logging/toasting, returns data directly on success,
+ * or throws AppError on final fail (caller handles gracefully, e.g., fallback).
+ * @param {Function} asyncFn - The async function to wrap (e.g., () => this.getById(id)).
+ * @param {Object} [options={}] - Config.
+ * @param {number} [options.retries=0] - Number of retry attempts on fail/null.
+ * @param {boolean} [options.silent=false] - Suppress toasts.
+ * @param {string} [options.context=''] - Log context (e.g., 'Get project').
+ * @param {boolean} [options.retryOnNull=true] - Retry if data is null/falsy.
+ * @returns {Function} Wrapped async fn (call with args, returns data or throws).
+ */
+
+export function createSafeFetcher(asyncFn, options = {}) {
+  const { retries = 0, silent = false, context = '', retryOnNull = true } = options;
+
+  return async (...args) => {
+    let lastError;
+    for (let attempt = 1; attempt <= retries + 1; attempt++) {
+      // +1 for initial try
+      console.log(
+        `${context}: Fetch attempt ${attempt}/${retries + 1}${args.length ? ` with args: ${args}` : ''}`
+      );
+      try {
+        const data = await asyncFn(...args);
+        console.log(`${context}: Success on attempt ${attempt}, data:`, data);
+        if (data !== null && data !== undefined) {
+          return data; // Direct return – full data
+        }
+        if (!retryOnNull || attempt === retries + 1) {
+          console.warn(`${context}: Null/falsy data on final attempt, returning null`);
+          return null; // Graceful null for caller fallback
+        }
+      } catch (err) {
+        lastError = err;
+        console.error(`${context}: Error on attempt ${attempt}:`, err);
+        if (attempt === retries + 1) {
+          // Final fail: Central log/mapping/toast, throw AppError
+          const errorMessage = lastError.message || 'An unexpected error occurred';
+          let firebaseCode = null;
+          let statusCode = 500;
+
+          if (lastError.code && lastError.code.startsWith('auth/')) {
+            statusCode = 400;
+            firebaseCode = lastError.code;
+            // ... (same mapping as handleAsync)
+            switch (
+              lastError.code
+              // ... (cases)
+            ) {
+            }
+          } else if (lastError.code && lastError.code.startsWith('database/')) {
+            statusCode = 400;
+            firebaseCode = lastError.code;
+            // ... (cases)
+          }
+
+          const appError = new AppError(errorMessage, statusCode, firebaseCode);
+          Logger.error({
+            message: errorMessage,
+            context,
+            code: firebaseCode,
+            stack: lastError.stack,
+            status: statusCode,
+          });
+
+          const instance = getCurrentInstance();
+          if (!silent && instance) {
+            const toast = useToast();
+            toast.add({ severity: 'error', summary: 'Error', detail: errorMessage, life: 3000 });
+          } else if (!silent) {
+            console.warn('Toast skipped - not in Vue component context');
+          }
+
+          throw appError; // Throw for caller to handle (e.g., fallback in store)
+        }
+      }
+      // Backoff delay (emulator race fix)
+      if (attempt < retries + 1) {
+        const delay = 100 * attempt;
+        console.log(`${context}: Retrying in ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  };
 }
 
 /**

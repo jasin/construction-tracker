@@ -1,15 +1,15 @@
 // router.js
-import { createRouter, createWebHistory } from 'vue-router'
-import { requireAuth, requireRole, redirectIfAuthenticated } from './guards'
+import { createRouter, createWebHistory } from 'vue-router';
+import { requireAuth, requireRole, redirectIfAuthenticated } from './guards';
 
 // Existing components
-import ProjectDashboard from '@/views/projects/ProjectDetailView.vue'
-import LoginPage from '@/views/auth/LoginView.vue'
-import UserDashboard from '@/views/dashboard/DashboardView.vue'
-import TasksPage from '@/views/tasks/TaskListView.vue'
-import ClientsPage from '@/views/clients/ClientListView.vue'
-import DocumentsView from '@/views/documents/DocumentsView.vue'
-import UserManagement from '@/views/admin/UserManagementView.vue'
+import ProjectDashboard from '@/views/projects/ProjectDetailView.vue';
+import LoginPage from '@/views/auth/LoginView.vue';
+import UserDashboard from '@/views/dashboard/DashboardView.vue';
+import TasksPage from '@/views/tasks/TaskListView.vue';
+import ClientsPage from '@/views/clients/ClientListView.vue';
+import DocumentsView from '@/views/documents/DocumentsView.vue';
+import UserManagement from '@/views/admin/UserManagementView.vue';
 
 // Placeholder component for routes that don't have components yet
 const PlaceholderPage = {
@@ -31,7 +31,7 @@ const PlaceholderPage = {
     </div>
   `,
   props: ['title', 'description'],
-}
+};
 
 const routes = [
   // Public routes
@@ -62,6 +62,13 @@ const routes = [
     path: '/project/:projectId/documents',
     name: 'ProjectDocuments',
     component: () => import('@/views/documents/DocumentsView.vue'),
+    props: true,
+    beforeEnter: requireAuth,
+  },
+  {
+    path: '/project/:projectId/settings',
+    name: 'ProjectSettings',
+    //component: () => import('@/views/projects/ProjectSettings.vue'),
     props: true,
     beforeEnter: requireAuth,
   },
@@ -195,11 +202,11 @@ const routes = [
     path: '/:pathMatch(.*)*',
     redirect: '/',
   },
-]
+];
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
-})
+});
 
-export default router
+export default router;
