@@ -2,7 +2,7 @@
   <Dialog
     v-model:visible="isOpen"
     modal
-    :header="props.project?.id ? 'Edit Project' : 'New Project'"
+    :header="props.projectId ? 'Edit Project' : 'New Project'"
     :style="{ width: '50vw' }"
     @hide="closeModal"
   >
@@ -191,7 +191,10 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onMounted } from 'vue'; // Added onMounted
+import { useProjectStore } from '@/stores/project'; // Added store import
+import { createSafeFetcher } from '@/utils/errorHandler';
+import { useToast } from 'primevue/usetoast';
 import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
@@ -201,7 +204,7 @@ import Checkbox from 'primevue/checkbox';
 import DatePicker from 'primevue/datepicker';
 import Button from 'primevue/button';
 import AutoComplete from 'primevue/autocomplete';
-import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository';
+
 import ClientRepository from '@/services/firebase/Repositories/ClientRepository';
 import ClientDialog from './ClientDialog.vue';
 
@@ -211,8 +214,13 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // project prop deprecated - use projectId and read from store
   project: {
     type: Object,
+    default: null,
+  },
+  projectId: {
+    type: String,
     default: null,
   },
   initialClientId: {
@@ -220,6 +228,10 @@ const props = defineProps({
     default: null,
   },
 });
+
+const toast = useToast();
+
+const projectStore = useProjectStore();
 
 // Emits
 const emit = defineEmits(['update:visible', 'project-saved']);
@@ -294,48 +306,82 @@ const searchClients = (event) => {
  * Loads or resets form data based on props.
  * For new projects, pre-selects client if initialClientId provided.
  */
-const loadProjectData = () => {
-  try {
-    if (props.project && props.project.id) {
-      form.value = {
-        name: props.project.name || '',
-        jobNumber: props.project.jobNumber || '',
-        clientId: props.project.clientId || '',
-        architect: props.project.architect || '',
-        projectManager: props.project.projectManager || '',
-        superintendent: props.project.superintendent || '',
-        phase: props.project.phase || 'pre-construction',
-        cost: props.project.cost || null,
-        contractSigned: props.project.contractSigned || false,
-        startDate: props.project.startDate ? new Date(props.project.startDate) : null,
-        endDate: props.project.endDate ? new Date(props.project.endDate) : null,
-        address: props.project.address || '',
-        description: props.project.description || '',
-      };
-      selectedClient.value = clients.value.find((c) => c.id === form.value.clientId) || null;
-    } else {
-      form.value = {
-        name: '',
-        jobNumber: '',
-        clientId: props.initialClientId || '',
-        architect: '',
-        projectManager: '',
-        superintendent: '',
-        phase: 'pre-construction',
-        cost: null,
-        contractSigned: false,
-        startDate: null,
-        endDate: null,
-        address: '',
-        description: '',
-      };
-      selectedClient.value = clients.value.find((c) => c.id === props.initialClientId) || null;
+const resetToNewMode = () => {
+  form.value = {
+    name: '',
+    jobNumber: '',
+    clientId: props.initialClientId || '',
+    architect: '',
+    projectManager: '',
+    superintendent: '',
+    phase: 'preConstruction',
+    cost: null,
+    contractSigned: false,
+    startDate: null,
+    endDate: null,
+    address: '',
+    description: '',
+  };
+  selectedClient.value = clients.value.find((c) => c.id === props.initialClientId) || null;
+  console.log('Reset to new mode - empty form');
+};
+
+const loadProjectData = async () => {
+  console.log('loadProjectData called - visible:', props.visible, 'projectId:', props.projectId); // Ensure log
+  error.value = '';
+
+  const projectIdToUse = props.projectId;
+  const isEditing = !!projectIdToUse;
+
+  if (isEditing) {
+    console.log('Editing mode - ensuring store has data for', projectIdToUse);
+    // Load if not in store (centralized)
+    if (projectStore.currentProject.id !== projectIdToUse) {
+      await projectStore.setActiveProject(projectIdToUse);
     }
-  } catch (err) {
-    console.error('Error loading project data:', err.message);
-    throw new Error(`Project data load failed: ${err.message}`);
+    const projectData = projectStore.currentProject || projectStore.getProjectById(projectIdToUse); // Fallback to list
+    console.log('Store projectData for pre-fill:', projectData); // Log to see partial/full
+    if (projectData && projectData.id) {
+      form.value = {
+        name: projectData.name || '',
+        jobNumber: projectData.jobNumber || '',
+        clientId: projectData.clientId || '',
+        architect: projectData.architect || '',
+        projectManager: projectData.projectManager || '',
+        superintendent: projectData.superintendent || '',
+        phase: projectData.phase || 'preConstruction',
+        cost: projectData.cost || null,
+        contractSigned: projectData.contractSigned || false,
+        startDate: projectData.startDate ? new Date(projectData.startDate) : null,
+        endDate: projectData.endDate ? new Date(projectData.endDate) : null,
+        address: projectData.address || '',
+        description: projectData.description || '',
+      };
+      console.log('Prefilled form from store:', form.value); // Log to confirm
+    } else {
+      console.warn('No store data for pre-fill - fallback new');
+      resetToNewMode();
+    }
+  } else {
+    console.log('New project mode - resetting form');
+    resetToNewMode();
   }
 };
+
+// Add onMounted for initial load
+onMounted(async () => {
+  console.log('ProjectDialog mounted, visible:', props.visible, 'projectId:', props.projectId);
+  if (props.visible) {
+    // Ensure load on mount if already visible
+    await loadClients();
+    await loadProjectData();
+    // Sync client
+    if (form.value.clientId && clients.value.length > 0) {
+      selectedClient.value = clients.value.find((c) => c.id === form.value.clientId) || null;
+      console.log('onMounted synced selectedClient:', selectedClient.value);
+    }
+  }
+});
 
 // Validation
 const validateForm = () => {
@@ -356,61 +402,89 @@ const validateForm = () => {
   return Object.keys(errors.value).length === 0;
 };
 
-/**
- * Saves the project (create or update).
- * Emits project-saved event with data (including clientId from selectedClient).
- * @async
- */
+// Replace or add saveProject (line ~350, after validateForm)
 const saveProject = async () => {
+  // Clear previous errors
+  errors.value = {};
+
+  // Validate
   if (!validateForm()) {
-    return;
+    return; // Errors set, user sees red spans
   }
 
-  loading.value = true;
-  error.value = '';
-  success.value = '';
-
   try {
-    const projectData = {
+    loading.value = true;
+    error.value = '';
+    success.value = '';
+
+    // Build formData from refs (explicit, no spread to avoid undefined)
+    const formData = {
       name: form.value.name.trim(),
       jobNumber: form.value.jobNumber.trim(),
-      clientId: selectedClient.value?.id || form.value.clientId?.trim() || '',
-      architect: form.value.architect?.trim() || '',
-      projectManager: form.value.projectManager?.trim() || '',
-      superintendent: form.value.superintendent?.trim() || '',
-      phase: form.value.phase,
+      clientId: selectedClient.value ? selectedClient.value.id : null,
+      architect: form.value.architect.trim(),
+      projectManager: form.value.projectManager.trim(),
+      superintendent: form.value.superintendent.trim(),
+      phase: form.value.phase || 'preConstruction',
       cost: form.value.cost || 0,
-      contractSigned: form.value.contractSigned,
-      startDate: form.value.startDate ? form.value.startDate.toISOString() : null,
-      endDate: form.value.endDate ? form.value.endDate.toISOString() : null,
-      address: form.value.address?.trim() || '',
-      description: form.value.description?.trim() || '',
-      updatedAt: new Date().toISOString(),
+      contractSigned: form.value.contractSigned || false,
+      startDate: form.value.startDate || null,
+      endDate: form.value.endDate || null,
+      address: form.value.address.trim(),
+      description: form.value.description.trim(),
     };
 
-    let projectSaved;
-
-    if (props.project?.id) {
-      await ProjectRepository.updateProject(props.project.id, projectData);
-      success.value = 'Project updated successfully';
-      projectSaved = { ...props.project, ...projectData };
-    } else {
-      projectSaved = await ProjectRepository.createProject(projectData);
-      success.value = 'Project created successfully';
+    // Additional validation
+    if (!formData.clientId) {
+      errors.value.clientId = 'Client is required';
+      loading.value = false;
+      return;
     }
 
-    emit('project-saved', projectSaved);
+    const isEditing = !!props.projectId;
+    let result;
+    let operation = isEditing ? 'updated' : 'created';
 
-    // Close modal after a brief delay
-    setTimeout(() => {
-      closeModal();
-    }, 1500);
+    if (isEditing) {
+      result = await projectStore.updateAndLogProject(props.projectId, formData);
+      success.value = `Project ${operation} successfully`;
+    } else {
+      result = await projectStore.createAndLogProject(formData);
+      success.value = `Project ${operation} successfully`;
+    }
+
+    if (result && result.id) {
+      console.log(`Project ${operation}:`, result.id);
+      toast.add({
+        severity: 'success',
+        summary: 'Success',
+        detail: success.value,
+        life: 3000,
+      });
+      emit('project-saved', result);
+      emit('update:visible', false); // Close modal
+      if (!isEditing) {
+        resetToNewMode(); // Reset form only for creation
+      }
+    } else {
+      loading.value = false;
+      toast.add({
+        severity: 'warn',
+        detail: `No project data returned after ${operation} – check data.`,
+        life: 3000,
+      });
+    }
   } catch (err) {
-    console.error('Error saving project:', err.message);
-    error.value = err.message || 'Failed to save project';
-    throw new Error(`Project save failed: ${err.message}`);
-  } finally {
     loading.value = false;
+    console.error('Project save error:', err);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: err.message || `${operation} failed`,
+      life: 3000,
+    });
+  } finally {
+    loading.value = false; // Ensure button unloads
   }
 };
 
@@ -445,12 +519,28 @@ watch(selectedClient, (newVal) => {
 // Watch for visibility changes
 watch(
   () => props.visible,
-  (newVal) => {
+  async (newVal) => {
     if (newVal) {
-      loadClients();
-      loadProjectData();
+      await loadClients();
+      await loadProjectData();
+      // Sync client from pre-filled clientId (store data)
+      if (form.value.clientId && clients.value.length > 0) {
+        selectedClient.value = clients.value.find((c) => c.id === form.value.clientId) || null;
+        console.log('Watch synced selectedClient from store data:', selectedClient.value);
+      }
     }
   }
+);
+
+// Watch for project changes while visible (e.g., if parent updates object)
+watch(
+  () => props.project,
+  async () => {
+    if (props.visible) {
+      await loadProjectData();
+    }
+  },
+  { deep: true }
 );
 
 watch(

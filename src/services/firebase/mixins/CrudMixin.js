@@ -9,9 +9,9 @@ import {
   query,
   orderByChild,
   equalTo,
-} from 'firebase/database'
-import firebaseCore from '../core/FirebaseCore'
-import { sanitizeForFirebase, sanitizeWithSchema } from '@/utils/index'
+} from 'firebase/database';
+import firebaseCore from '../core/FirebaseCore';
+import { sanitizeForFirebase, sanitizeWithSchema } from '@/utils/index';
 
 /**
  * Functional mixin providing standard CRUD operations for Firebase entities.
@@ -29,13 +29,15 @@ export function CrudMixin(Base) {
     async get(entityId) {
       // Added: Low-level get method for raw data fetch, used in custom repos or overrides
       try {
-        const entityRef = ref(firebaseCore.database, `${this.collectionName}/${entityId}`)
-        const snapshot = await get(entityRef)
-        return snapshot.exists() ? snapshot.val() : null
+        const entityRef = ref(firebaseCore.database, `${this.collectionName}/${entityId}`);
+        const snapshot = await get(entityRef);
+        const val = snapshot.exists() ? snapshot.val() : null;
+        console.log('CrudMixin get snap.val() for', entityId, ':', val); // Add log to diagnose empty data
+        return val;
       } catch (error) {
-        const wrappedError = firebaseCore.createError('get', this.entityName, error)
-        console.error(wrappedError)
-        throw wrappedError // Rethrow for upstream handling
+        const wrappedError = firebaseCore.createError('get', this.entityName, error);
+        console.error(wrappedError);
+        throw wrappedError; // Rethrow for upstream handling
       }
     }
 
@@ -48,12 +50,12 @@ export function CrudMixin(Base) {
     async set(entityId, data) {
       // Added: Low-level set method for atomic writes, used in create/update overrides
       try {
-        const entityRef = ref(firebaseCore.database, `${this.collectionName}/${entityId}`)
-        await set(entityRef, data)
+        const entityRef = ref(firebaseCore.database, `${this.collectionName}/${entityId}`);
+        await set(entityRef, data);
       } catch (error) {
-        const wrappedError = firebaseCore.createError('set', this.entityName, error)
-        console.error(wrappedError)
-        throw wrappedError // Rethrow for upstream handling
+        const wrappedError = firebaseCore.createError('set', this.entityName, error);
+        console.error(wrappedError);
+        throw wrappedError; // Rethrow for upstream handling
       }
     }
 
@@ -65,25 +67,25 @@ export function CrudMixin(Base) {
      */
     async create(data, schema = null) {
       try {
-        const entityRef = ref(firebaseCore.database, this.collectionName)
-        const newEntityRef = push(entityRef)
+        const entityRef = ref(firebaseCore.database, this.collectionName);
+        const newEntityRef = push(entityRef);
 
         // Add creation metadata
-        const dataWithMeta = firebaseCore.addCreateMetadata(data)
+        const dataWithMeta = firebaseCore.addCreateMetadata(data);
 
         // Sanitize data based on schema or generic sanitization
         const cleanData = schema
           ? sanitizeWithSchema(dataWithMeta, schema)
-          : sanitizeForFirebase(dataWithMeta)
+          : sanitizeForFirebase(dataWithMeta);
 
-        firebaseCore.logOperation('Creating', this.entityName, null, cleanData)
+        firebaseCore.logOperation('Creating', this.entityName, null, cleanData);
 
-        await set(newEntityRef, cleanData)
-        return { id: newEntityRef.key, ...cleanData }
+        await set(newEntityRef, cleanData);
+        return { id: newEntityRef.key, ...cleanData };
       } catch (error) {
-        const wrappedError = firebaseCore.createError('create', this.entityName, error)
-        console.error(wrappedError)
-        throw wrappedError // Rethrow for upstream handling
+        const wrappedError = firebaseCore.createError('create', this.entityName, error);
+        console.error(wrappedError);
+        throw wrappedError; // Rethrow for upstream handling
       }
     }
 
@@ -94,12 +96,12 @@ export function CrudMixin(Base) {
      */
     async getById(entityId) {
       try {
-        const data = await this.get(entityId) // Changed: Use low-level this.get for raw data
-        return data ? { id: entityId, ...data } : null
+        const data = await this.get(entityId); // Changed: Use low-level this.get for raw data
+        return data ? { id: entityId, ...data } : null;
       } catch (error) {
-        const wrappedError = firebaseCore.createError('getById', this.entityName, error)
-        console.error(wrappedError)
-        throw wrappedError // Rethrow for upstream handling
+        const wrappedError = firebaseCore.createError('getById', this.entityName, error);
+        console.error(wrappedError);
+        throw wrappedError; // Rethrow for upstream handling
       }
     }
 
@@ -109,19 +111,19 @@ export function CrudMixin(Base) {
      */
     async getAll() {
       try {
-        const entitiesRef = ref(firebaseCore.database, this.collectionName)
-        const snapshot = await get(entitiesRef)
+        const entitiesRef = ref(firebaseCore.database, this.collectionName);
+        const snapshot = await get(entitiesRef);
 
-        if (!snapshot.exists()) return []
+        if (!snapshot.exists()) return [];
 
         return Object.entries(snapshot.val()).map(([id, data]) => ({
           id,
           ...data,
-        }))
+        }));
       } catch (error) {
-        const wrappedError = firebaseCore.createError('getAll', this.entityName, error)
-        console.error(wrappedError)
-        throw wrappedError // Rethrow for upstream handling
+        const wrappedError = firebaseCore.createError('getAll', this.entityName, error);
+        console.error(wrappedError);
+        throw wrappedError; // Rethrow for upstream handling
       }
     }
 
@@ -134,24 +136,24 @@ export function CrudMixin(Base) {
      */
     async update(entityId, updates, schema = null) {
       try {
-        const entityRef = ref(firebaseCore.database, `${this.collectionName}/${entityId}`)
+        const entityRef = ref(firebaseCore.database, `${this.collectionName}/${entityId}`);
 
         // Add update metadata
-        const updatesWithMeta = firebaseCore.addUpdateMetadata(updates)
+        const updatesWithMeta = firebaseCore.addUpdateMetadata(updates);
 
         // Sanitize updates
         const cleanUpdates = schema
           ? sanitizeWithSchema(updatesWithMeta, schema)
-          : sanitizeForFirebase(updatesWithMeta)
+          : sanitizeForFirebase(updatesWithMeta);
 
-        firebaseCore.logOperation('Updating', this.entityName, entityId, cleanUpdates)
+        firebaseCore.logOperation('Updating', this.entityName, entityId, cleanUpdates);
 
-        await update(entityRef, cleanUpdates)
-        return { id: entityId, ...cleanUpdates }
+        await update(entityRef, cleanUpdates);
+        return { id: entityId, ...cleanUpdates };
       } catch (error) {
-        const wrappedError = firebaseCore.createError('update', this.entityName, error)
-        console.error(wrappedError)
-        throw wrappedError // Rethrow for upstream handling
+        const wrappedError = firebaseCore.createError('update', this.entityName, error);
+        console.error(wrappedError);
+        throw wrappedError; // Rethrow for upstream handling
       }
     }
 
@@ -162,16 +164,16 @@ export function CrudMixin(Base) {
      */
     async delete(entityId) {
       try {
-        const entityRef = ref(firebaseCore.database, `${this.collectionName}/${entityId}`)
+        const entityRef = ref(firebaseCore.database, `${this.collectionName}/${entityId}`);
 
-        firebaseCore.logOperation('Deleting', this.entityName, entityId)
+        firebaseCore.logOperation('Deleting', this.entityName, entityId);
 
-        await remove(entityRef)
-        return { success: true, id: entityId }
+        await remove(entityRef);
+        return { success: true, id: entityId };
       } catch (error) {
-        const wrappedError = firebaseCore.createError('delete', this.entityName, error)
-        console.error(wrappedError)
-        throw wrappedError // Rethrow for upstream handling
+        const wrappedError = firebaseCore.createError('delete', this.entityName, error);
+        console.error(wrappedError);
+        throw wrappedError; // Rethrow for upstream handling
       }
     }
 
@@ -183,22 +185,22 @@ export function CrudMixin(Base) {
      */
     async getByField(fieldName, value) {
       try {
-        const entitiesRef = ref(firebaseCore.database, this.collectionName)
-        const fieldQuery = query(entitiesRef, orderByChild(fieldName), equalTo(value))
+        const entitiesRef = ref(firebaseCore.database, this.collectionName);
+        const fieldQuery = query(entitiesRef, orderByChild(fieldName), equalTo(value));
 
-        const snapshot = await get(fieldQuery)
+        const snapshot = await get(fieldQuery);
 
-        if (!snapshot.exists()) return []
+        if (!snapshot.exists()) return [];
 
         return Object.entries(snapshot.val()).map(([id, data]) => ({
           id,
           ...data,
-        }))
+        }));
       } catch (error) {
-        const wrappedError = firebaseCore.createError('getByField', this.entityName, error)
-        console.error(wrappedError)
-        throw wrappedError // Rethrow for upstream handling
+        const wrappedError = firebaseCore.createError('getByField', this.entityName, error);
+        console.error(wrappedError);
+        throw wrappedError; // Rethrow for upstream handling
       }
     }
-  }
+  };
 }

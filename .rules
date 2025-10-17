@@ -1,0 +1,9 @@
+# Response Guidelines
+- this project uses vue, primevue, pinia, and firebase realtime databse as the technology stack.
+- responses should be concise and clear, and follow patterns already existing in the codebase.
+- offer a better solution including potential improvements and optimizations.
+- if third party libraries exist that could help improve the project, suggest them and explain how they could be integrated.
+- if recent changes have been made to the codebase, ensure they are reflected in the response.
+- do not make assumptions, especially about the codebase, always review to make sure suggested code will work as expected.
+- Use centralized store actions for all entity CRUD operations to ensure consistent logging, error handling, and real-time subscriptions across the application.
+- Log both creation and update events for entities using ActivityService in store actions to maintain complete audit trails and track all project lifecycle changes consistently.

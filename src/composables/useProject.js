@@ -1,21 +1,21 @@
 // composables/useProject.js
-import { storeToRefs } from 'pinia'
-import { computed } from 'vue'
-import { useProjectStore } from '@/stores/project'
-import { useConstructionStore } from '@/stores/construction'
-import { useActivityStore } from '@/stores/activity'
-import { useAuthStore } from '@/stores/auth'
-import { useUIStore } from '@/stores/ui'
+import { storeToRefs } from 'pinia';
+import { computed } from 'vue';
+import { useProjectStore } from '@/stores/project';
+import { useConstructionStore } from '@/stores/construction';
+import { useActivityStore } from '@/stores/activity';
+import { useAuthStore } from '@/stores/auth';
+import { useUIStore } from '@/stores/ui';
 
 export function useProject(projectId) {
-  const projectStore = useProjectStore()
-  const constructionStore = useConstructionStore()
-  const activityStore = useActivityStore()
-  const authStore = useAuthStore()
-  const uiStore = useUIStore()
+  const projectStore = useProjectStore();
+  const constructionStore = useConstructionStore();
+  const activityStore = useActivityStore();
+  const authStore = useAuthStore();
+  const uiStore = useUIStore();
 
   // Reactive state from stores
-  const { currentProject, loading, error, projectTeam } = storeToRefs(projectStore)
+  const { currentProject, loading, error, projectTeam } = storeToRefs(projectStore);
   const {
     rfis,
     submittals,
@@ -28,47 +28,46 @@ export function useProject(projectId) {
     pendingSubmittals,
     pendingChangeOrders,
     overdueTasks,
-    recentDocuments
-  } = storeToRefs(constructionStore)
-  const { recentActivities, todaysActivities } = storeToRefs(activityStore)
-  const permissions = computed(() => authStore.getPermissions)
-  const { setActiveTab, openModal, closeModal } = uiStore
+    recentDocuments,
+  } = storeToRefs(constructionStore);
+  const { recentActivities, todaysActivities } = storeToRefs(activityStore);
+  const permissions = computed(() => authStore.getPermissions);
+  const { setActiveTab, openModal, closeModal } = uiStore;
 
   // Initialize project data
   async function initializeProject() {
-    if (!projectId) return
+    if (!projectId) return;
 
     try {
-      // Load initial project data
-      await projectStore.loadProject(projectId)
-      await activityStore.loadActivities(projectId)
+      // Centralize loading via store action for full data + subscription + active sync
+      await projectStore.setActiveProject(projectId);
+      await activityStore.loadActivities(projectId);
 
-      // Set up real-time subscriptions
-      projectStore.subscribeToProject(projectId)
-      constructionStore.subscribeToConstructionData(projectId)
+      // Subscribe to related data (construction already handled in store)
+      constructionStore.subscribeToConstructionData(projectId);
 
       uiStore.addNotification({
         type: 'success',
         title: 'Project Loaded',
-        message: `Connected to ${currentProject.value.name}`
-      })
+        message: `Connected to ${currentProject.value.name}`,
+      });
     } catch (error) {
       uiStore.addNotification({
         type: 'error',
         title: 'Error',
-        message: 'Failed to load project data'
-      })
-      throw new Error(`Failed to load project data: ${error.message}`)
+        message: 'Failed to load project data',
+      });
+      throw new Error(`Failed to load project data: ${error.message}`);
     }
   }
 
   // Cleanup when leaving project
   function cleanupProject() {
-    projectStore.clearSubscriptions()
-    constructionStore.clearSubscriptions()
-    projectStore.resetProject()
-    constructionStore.resetConstructionData()
-    activityStore.clearActivities()
+    projectStore.clearSubscriptions();
+    constructionStore.clearSubscriptions();
+    projectStore.resetProject();
+    constructionStore.resetConstructionData();
+    activityStore.clearActivities();
   }
 
   return {
@@ -98,6 +97,6 @@ export function useProject(projectId) {
     cleanupProject,
     setActiveTab,
     openModal,
-    closeModal
-  }
+    closeModal,
+  };
 }

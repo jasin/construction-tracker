@@ -1,3 +1,4 @@
+src/App.vue#L Full Complete Fixed Version
 <template>
   <div v-if="authLoading">Loading...</div>
   <div v-else>
@@ -17,6 +18,10 @@
             optionGroupChildren="items"
             placeholder="Select a project"
             class="ml-4 w-64 text-xs"
+            field="name"
+            :completeOnFocus="true"
+            :minLength="0"
+            :delay="0"
             @complete="onComplete"
             @item-select="handleProjectSelect"
             size="small"
@@ -51,8 +56,11 @@
 
       <!-- Main content area -->
       <main class="flex-1 p-4 overflow-auto">
-        <template v-if="selectedProject">
-          <ProjectDetailView :key="selectedProject.id" :project-id="selectedProject.id" />
+        <template v-if="projectStore.activeProject">
+          <ProjectDetailView
+            :key="projectStore.activeProjectId"
+            :project-id="projectStore.activeProjectId"
+          />
         </template>
         <template v-else>
           <DashboardView />
@@ -62,23 +70,49 @@
       <!-- Context Menu for actions (right-click anywhere) -->
       <ContextMenu ref="contextMenu" :model="contextMenuItems" />
       <Toast />
-      <ProjectDialog v-model:visible="showProjectDialog" @project-saved="handleProjectUpdated" />
-      <TaskDialog v-model:visible="showTaskDialog" @task-saved="handleTaskUpdated" />
-      <RFIDialog v-model:visible="showRFIDialog" @rfi-saved="handleRFISaved" />
+      <ProjectDialog
+        v-if="modals.projectDialog"
+        :visible="modals.projectDialog"
+        @update:visible="uiStore.closeModal('projectDialog')"
+        @project-saved="handleProjectUpdated"
+        :project="projectStore.activeProject"
+        :project-id="projectStore.activeProjectId"
+      />
+      <TaskDialog
+        v-if="modals.taskDialog"
+        :visible="modals.taskDialog"
+        @update:visible="uiStore.closeModal('taskDialog')"
+        @task-saved="handleTaskUpdated"
+        :project-id="projectStore.activeProjectId"
+      />
+      <RFIDialog
+        v-if="modals.rfiDialog"
+        :visible="modals.rfiDialog"
+        @update:visible="uiStore.closeModal('rfiDialog')"
+        @rfi-saved="handleRFISaved"
+        :project-id="projectStore.activeProjectId"
+      />
+      <ActivityFlyout
+        v-if="modals.activityFlyout"
+        :visible="modals.activityFlyout"
+        @update:visible="uiStore.closeModal('activityFlyout')"
+        :project-id="projectStore.activeProjectId"
+      />
     </div>
   </div>
 </template>
 
 <script setup>
-// ==================== IMPORTS ====================
-import { ref, computed, onMounted, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
+import { storeToRefs } from 'pinia';
+import { useProjectSearch } from '@/composables/useProjectSearch';
 
 // Stores
-import { useAuthStore, useProjectStore } from '@/stores';
+import { useAuthStore, useProjectStore, useUIStore } from '@/stores';
 
-// Repositories
+// Repositories (for context menu actions)
 import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository';
 import SubmittalRepository from '@/services/firebase/Repositories/SubmittalRepository';
 import ChangeOrderRepository from '@/services/firebase/Repositories/ChangeOrderRepository';
@@ -96,35 +130,34 @@ import Toast from 'primevue/toast';
 import ProjectDialog from './components/forms/ProjectDialog.vue';
 import TaskDialog from './components/forms/TaskDialog.vue';
 import RFIDialog from './components/forms/RFIDialog.vue';
+import ActivityFlyout from './components/widgets/ActivityFlyout.vue';
 
-// ==================== COMPOSABLES ====================
+// Composables
+const projectSearch = useProjectSearch({
+  groupByPhase: true,
+  limit: 20,
+});
+const {
+  query: inputQuery,
+  suggestions,
+  selected: selectedProject,
+  selectProject,
+  reset,
+} = projectSearch;
+
 const router = useRouter();
-const authStore = useAuthStore();
 const projectStore = useProjectStore();
+const authStore = useAuthStore();
+const uiStore = useUIStore();
+const { modals } = storeToRefs(uiStore);
 const toast = useToast();
 
-// ==================== STATE (REFS) ====================
-const suggestions = ref([]);
-const selectedProject = ref(null);
-const inputQuery = ref('');
+// State (Refs)
 const userMenu = ref();
 const contextMenu = ref();
 const autoCompleteRef = ref();
-const showProjectDialog = ref(false);
-const showTaskDialog = ref(false);
-const showRFIDialog = ref(false);
 
-// ==================== CONSTANTS ====================
-const phaseToGroup = {
-  construction: 'Active Projects',
-  preConstruction: 'Pre-Construction',
-  complete: 'Completed',
-  closeOut: 'Close-Out',
-};
-
-const groupOrder = ['Active Projects', 'Pre-Construction', 'Completed', 'Close-Out'];
-
-// ==================== COMPUTED PROPERTIES ====================
+// Computed Properties
 const userInitials = computed(() => {
   if (!authStore.user?.name) return 'U';
   return authStore.user.name
@@ -138,62 +171,25 @@ const authLoading = computed(() => authStore.loading);
 const isAuthenticated = computed(() => authStore.isAuthenticated);
 const user = computed(() => authStore.user);
 
-// ==================== UTILITY FUNCTIONS ====================
-/**
- * Groups projects by phase and sorts within groups and across groups.
- * Filters by query if provided.
- * @param {Array<Object>} projectsList - List of project objects.
- * @param {string} [query=''] - Optional search query for filtering.
- * @returns {Array<{name: string, items: Array<Object>}>} Grouped and sorted projects.
- */
-const groupProjects = (projectsList, query = '') => {
-  const lowerQuery = query.toLowerCase();
-  const filtered = query
-    ? projectsList.filter(
-        (p) =>
-          p.name.toLowerCase().includes(lowerQuery) ||
-          (p.jobNumber || '').toLowerCase().includes(lowerQuery)
-      )
-    : projectsList;
-
-  const groupsMap = {};
-  filtered.forEach((p) => {
-    const groupName = phaseToGroup[p.phase] || 'Other';
-    if (!groupsMap[groupName]) groupsMap[groupName] = [];
-    groupsMap[groupName].push(p);
-  });
-
-  const groups = Object.keys(groupsMap)
-    .map((name) => ({
-      name,
-      items: groupsMap[name].sort((a, b) => a.name.localeCompare(b.name)),
-    }))
-    .filter((g) => g.items.length > 0);
-
-  groups.sort((a, b) => groupOrder.indexOf(a.name) - groupOrder.indexOf(b.name));
-
-  return groups;
-};
-
-// ==================== EVENT HANDLERS ====================
-/**
- * Handles the project-saved event from the ProjectDialog.
- */
-const handleProjectUpdated = (project) => {
-  showProjectDialog.value = false;
+// Event Handlers
+const handleProjectUpdated = async (project) => {
+  uiStore.closeModal('projectDialog');
   toast.add({
     severity: 'success',
     summary: 'Success',
     detail: project.id ? 'Project updated successfully' : 'Project created successfully',
     life: 3000,
   });
+  // Auto-activate the project after creation/update for better UX
+  await projectStore.setActiveProject(project.id);
+  selectProject(project);
+  if (autoCompleteRef.value) {
+    autoCompleteRef.value.hide();
+  }
 };
 
-/**
- * Handles the task-saved event from TaskDialog.
- */
 const handleTaskUpdated = (task) => {
-  showTaskDialog.value = false;
+  uiStore.closeModal('taskDialog');
   toast.add({
     severity: 'success',
     summary: 'Success',
@@ -202,11 +198,8 @@ const handleTaskUpdated = (task) => {
   });
 };
 
-/**
- * Handles the rfi-saved event from RFIDialog.
- */
 const handleRFISaved = (rfi) => {
-  showRFIDialog.value = false;
+  uiStore.closeModal('rfiDialog');
   toast.add({
     severity: 'success',
     summary: 'Success',
@@ -215,9 +208,6 @@ const handleRFISaved = (rfi) => {
   });
 };
 
-/**
- * Uploads a document.
- */
 const uploadDocument = async () => {
   try {
     await DocumentRepository.create({ name: 'New Document', projectId: selectedProject.value?.id });
@@ -233,9 +223,6 @@ const uploadDocument = async () => {
   }
 };
 
-/**
- * Creates a new submittal.
- */
 const newSubmittal = async () => {
   try {
     await SubmittalRepository.create({
@@ -254,9 +241,6 @@ const newSubmittal = async () => {
   }
 };
 
-/**
- * Creates a change order.
- */
 const changeOrder = async () => {
   try {
     await ChangeOrderRepository.create({
@@ -280,9 +264,6 @@ const changeOrder = async () => {
   }
 };
 
-/**
- * Generates a report.
- */
 const generateReport = async () => {
   try {
     toast.add({ severity: 'success', summary: 'Success', detail: 'Report generated', life: 3000 });
@@ -297,58 +278,40 @@ const generateReport = async () => {
   }
 };
 
-/**
- * Navigates to settings.
- */
 const settings = () => {
   router.push('/settings');
 };
 
-/**
- * Handles project selection to show in ProjectDetailView.
- */
-const handleProjectSelect = (event) => {
-  if (!selectedProject.value || selectedProject.value.id !== event.value.id) {
-    selectedProject.value = event.value;
-    inputQuery.value = event.value.name;
-  }
-};
-
-/**
- * Toggles the user menu popup.
- */
-const toggleUserMenu = (event) => {
-  userMenu.value.toggle(event);
-};
-
-/**
- * Resets to dashboard view and clears selection/query.
- */
-const resetToDashboard = () => {
-  selectedProject.value = null;
-  inputQuery.value = '';
+const handleProjectSelect = async (event) => {
+  selectProject(event.value);
+  await projectStore.setActiveProject(event.value.id);
+  await nextTick();
   if (autoCompleteRef.value) {
     autoCompleteRef.value.hide();
   }
 };
 
-/**
- * Shows the context menu at the right-click position.
- */
+const toggleUserMenu = (event) => {
+  userMenu.value.toggle(event);
+};
+
+const resetToDashboard = () => {
+  projectStore.setActiveProject(null);
+  reset();
+  if (autoCompleteRef.value) {
+    autoCompleteRef.value.hide();
+  }
+};
+
 const showContextMenu = (event) => {
   contextMenu.value.show(event);
 };
 
-/**
- * Handles autocomplete complete event.
- */
 const onComplete = (event) => {
-  console.log('AutoComplete @complete event fired, query:', event.query);
-  suggestions.value = groupProjects(projectStore.projects, event.query);
-  console.log('Updated suggestions (grouped):', suggestions.value);
+  inputQuery.value = event.query;
 };
 
-// ==================== MENU ITEMS (Defined after handlers) ====================
+// Menu Items
 const userMenuItems = ref([
   {
     label: 'Profile',
@@ -379,7 +342,7 @@ const contextMenuItems = ref([
     label: 'New Project',
     icon: 'pi pi-plus',
     command: () => {
-      showProjectDialog.value = true;
+      uiStore.openModal('projectDialog');
     },
   },
   {
@@ -391,14 +354,14 @@ const contextMenuItems = ref([
     label: 'Create Task',
     icon: 'pi pi-check-square',
     command: () => {
-      showTaskDialog.value = true;
+      uiStore.openModal('taskDialog');
     },
   },
   {
     label: 'Submit RFI',
     icon: 'pi pi-question-circle',
     command: () => {
-      showRFIDialog.value = true;
+      uiStore.openModal('rfiDialog');
     },
   },
   {
@@ -423,28 +386,45 @@ const contextMenuItems = ref([
   },
 ]);
 
-// ==================== WATCHERS ====================
-/**
- * Syncs inputQuery to selectedProject's name when selection changes externally.
- */
-watch(selectedProject, (newProject) => {
-  inputQuery.value = newProject?.name || '';
-});
-
-/**
- * Updates autocomplete suggestions when store projects change.
- */
+// Watchers
 watch(
-  () => projectStore.projects,
-  (newProjects) => {
-    console.log('🔄 Projects from store updated:', newProjects.length);
-    suggestions.value = groupProjects(newProjects, inputQuery.value);
-    console.log('Updated suggestions (grouped):', suggestions.value);
-  },
-  { immediate: true, deep: true }
+  () => projectStore.activeProject,
+  (newProject) => {
+    inputQuery.value = newProject?.name || '';
+  }
 );
 
-// ==================== LIFECYCLE HOOKS ====================
+// Watch for activeProjectId change to toggle 'app-transitioning' class on document.body during switches (100ms on ID change)
+watch(
+  () => projectStore.activeProjectId,
+  (newId, oldId) => {
+    if (newId && newId !== oldId) {
+      document.body.classList.add('app-transitioning');
+      setTimeout(() => {
+        document.body.classList.remove('app-transitioning');
+      }, 100);
+    }
+  }
+);
+
+// Watch for activeProjectId change to toggle transitioning class during switch
+watch(
+  () => projectStore.activeProjectId,
+  (newId) => {
+    if (newId) {
+      // Switching to detail view
+      const header = autoCompleteRef.value?.$el?.closest('header');
+      if (header) {
+        header.classList.add('autocomplete-transitioning');
+        setTimeout(() => {
+          header.classList.remove('autocomplete-transitioning');
+        }, 100); // Short duration for transition
+      }
+    }
+  }
+);
+
+// Lifecycle Hooks
 onMounted(async () => {
   await authStore.initAuth();
   if (authStore.isAuthenticated) {
@@ -454,5 +434,19 @@ onMounted(async () => {
 </script>
 
 <style>
-/* Add any additional styles or rely on Tailwind */
+/* Snap hide autocomplete overlay during view transitions */
+.app-transitioning .p-autocomplete-overlay {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  z-index: -1 !important;
+  transition: none !important;
+}
+
+/* Ensure normal popup behavior otherwise */
+.p-autocomplete-overlay {
+  transition: opacity 200ms ease;
+}
 </style>
+
+<style scoped></style>

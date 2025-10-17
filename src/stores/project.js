@@ -2,7 +2,10 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository';
-import { extractData, handleAsync, handleError } from '../utils/errorHandler';
+import { handleError } from '../utils/errorHandler';
+import { ref as dbRef, onValue } from 'firebase/database';
+import firebaseCore from '@/services/firebase/core/FirebaseCore';
+import ActivityService from '@/services/logging/ActivityService.js';
 
 export const useProjectStore = defineStore('project', () => {
   // State - Single Project (existing)
@@ -15,6 +18,7 @@ export const useProjectStore = defineStore('project', () => {
   const projects = ref([]);
   const projectsLoading = ref(true);
   const projectsInitialized = ref(false);
+  const activeProjectId = ref(null);
   let allProjectsUnsubscribe = null;
 
   // Getters - Single Project (existing)
@@ -51,6 +55,16 @@ export const useProjectStore = defineStore('project', () => {
     };
   });
 
+  // Getters - Active Project (new)
+  const activeProject = computed(() => {
+    if (activeProjectId.value === null) return null;
+    if (currentProject.value?.id === activeProjectId.value) {
+      return currentProject.value; // Full loaded data
+    }
+    // Fallback to list item (partial) if not fully loaded
+    return projects.value.find((p) => p.id === activeProjectId.value) || null;
+  });
+
   // Getters - All Projects (new)
   const projectCount = computed(() => projects.value.length);
 
@@ -78,19 +92,29 @@ export const useProjectStore = defineStore('project', () => {
     loading.value = true;
     error.value = null;
 
-    const result = await handleAsync(
-      async () => {
-        const projectData = await ProjectRepository.getProject(projectId);
-        currentProject.value = projectData || null;
-        return projectData;
-      },
-      { context: `Load project ${projectId}` }
-    );
-
-    const projectData = extractData(result);
+    let projectData;
+    try {
+      projectData = await ProjectRepository.getProject(projectId);
+      console.log('Repository getProject result for', projectId, ':', projectData);
+      if (projectData) {
+        currentProject.value = projectData;
+        currentProject.value.loadedFully = true;
+        console.log('loadProject direct success:', projectData);
+      }
+    } catch (err) {
+      console.error('loadProject error:', err);
+      projectData = null;
+    }
 
     if (!projectData) {
-      error.value = 'Project not found';
+      if (!currentProject.value.id) {
+        error.value = 'Project not found';
+      } else {
+        console.log(
+          'Load failed but fallback exists, keeping currentProject:',
+          currentProject.value.id
+        );
+      }
     }
 
     loading.value = false;
@@ -100,7 +124,12 @@ export const useProjectStore = defineStore('project', () => {
   function subscribeToProject(projectId) {
     const unsubscribe = ProjectRepository.subscribeToProject(projectId, (projectData) => {
       if (projectData) {
+        projectData.loadedFully = true;
         currentProject.value = projectData;
+        console.log(
+          'Subscription updated currentProject, loadedFully:',
+          currentProject.value.loadedFully
+        );
       }
     });
     subscriptions.value.push(unsubscribe);
@@ -112,7 +141,8 @@ export const useProjectStore = defineStore('project', () => {
   }
 
   function clearSubscriptions() {
-    subscriptions.value.forEach((unsubscribe) => {
+    subscriptions.value.forEach((sub) => {
+      const unsubscribe = sub.unsubscribe || sub;
       if (typeof unsubscribe === 'function') {
         unsubscribe();
       } else if (unsubscribe && typeof unsubscribe.unsubscribe === 'function') {
@@ -133,10 +163,82 @@ export const useProjectStore = defineStore('project', () => {
     clearSubscriptions();
   }
 
+  // Actions - Single Project (existing) - Add setActiveProject after loadProject
+
+  /**
+   * Sets the active project by ID, loading full details if needed and subscribing for real-time updates.
+   * Centralizes active project management as single source of truth.
+   * @param {string} id - Project ID to activate
+   * @returns {Promise<Object|null>} The active project data
+   */
+  async function setActiveProject(id) {
+    if (!id) {
+      activeProjectId.value = null;
+      resetProject(); // Clear current if no ID
+      return null;
+    }
+
+    if (activeProjectId.value === id && currentProject.value?.id === id) {
+      console.log('✅ Active project already set:', id);
+      return currentProject.value;
+    }
+
+    console.log('🔄 Setting active project:', id);
+
+    try {
+      // Load full project if not already loaded
+      if (currentProject.value?.id !== id) {
+        clearSubscriptions();
+        try {
+          await loadProject(id);
+        } catch (loadErr) {
+          console.error('Full load failed in setActiveProject:', loadErr);
+        }
+        if (!currentProject.value?.id) {
+          // Fallback to partial data from list as single source
+          const partial = projects.value.find((p) => p.id === id);
+          if (partial) {
+            currentProject.value = { ...partial, loadedFully: false };
+            console.log('🔄 Fallback to partial list data for active project:', id);
+            error.value = null;
+            console.log('Cleared error after fallback for project:', id);
+          } else {
+            console.warn('No partial data found for active project:', id);
+            error.value = 'Project not found - catastrophic failure';
+            activeProjectId.value = null;
+            return null;
+          }
+        } else {
+          currentProject.value.loadedFully = true;
+          error.value = null;
+        }
+      } else {
+        currentProject.value.loadedFully = true;
+      }
+
+      // Subscribe if not already (avoids duplicates)
+      if (!subscriptions.value.some((sub) => sub.projectId === id)) {
+        const unsubscribe = subscribeToProject(id);
+        subscriptions.value.push({ projectId: id, unsubscribe });
+      }
+
+      // Set active ID only AFTER data is ready (full or partial)
+      activeProjectId.value = id;
+      console.log('✅ Active project set and subscribed:', id);
+      return currentProject.value;
+    } catch (err) {
+      console.error('Failed to set active project:', err);
+      handleError(err, `Set active project ${id}`);
+      activeProjectId.value = null;
+      return null;
+    }
+  }
+
   // Actions - All Projects (new)
   /**
    * Initializes the real-time subscription to all projects.
    * Should be called once when the app starts (after authentication).
+   * Uses direct RTDB onValue for centralization in store (no repo dependency).
    */
   function initializeProjectsSubscription() {
     if (allProjectsUnsubscribe) {
@@ -146,20 +248,33 @@ export const useProjectStore = defineStore('project', () => {
 
     console.log('🔥 Initializing all projects subscription in store');
 
-    allProjectsUnsubscribe = ProjectRepository.subscribeToAll(
-      (updatedProjects) => {
-        console.log('📦 Store received projects update:', updatedProjects.length);
-        projects.value = [...updatedProjects];
+    const projectsRef = dbRef(firebaseCore.database, 'projects'); // Assume firebaseCore from configs
+    allProjectsUnsubscribe = onValue(
+      projectsRef,
+      (snap) => {
+        console.log(
+          '📦 Store received projects update from RTDB:',
+          snap.exists() ? Object.keys(snap.val() || {}).length : 0
+        );
+        if (snap.exists()) {
+          const updatedProjects = Object.entries(snap.val()).map(([id, p]) => ({ id, ...p })); // RTDB: Map entries to array with IDs
+          projects.value = updatedProjects; // Set reactive ref
+        } else {
+          projects.value = []; // Empty if no data
+        }
         projectsLoading.value = false;
         projectsInitialized.value = true;
       },
-      null, // sortFn
       (error) => {
         console.error('🚨 Store subscription error:', error);
         projectsLoading.value = false;
         handleError(error, 'Projects subscription error');
+        // Optional: Retry logic
+        setTimeout(initializeProjectsSubscription, 5000); // Retry after 5s on error
       }
     );
+
+    console.log('✅ RTDB subscription started - unsubscribe:', typeof allProjectsUnsubscribe);
   }
 
   /**
@@ -201,6 +316,95 @@ export const useProjectStore = defineStore('project', () => {
     );
   }
 
+  /**
+   * Creates a new project via the repository and logs the creation activity.
+   * Centralizes project creation with automatic logging for consistency.
+   * @param {Object} projectData - The project data to create
+   * @returns {Promise<Object|null>} The created project or null on failure
+   */
+  async function createAndLogProject(projectData) {
+    try {
+      const result = await ProjectRepository.createProject(projectData);
+      if (result && result.id) {
+        // Log the creation under the new project's context
+        await ActivityService.logEntityCreated(result.id, 'project', result.id, result.name);
+        console.log('Project created and logged:', result.id);
+        // Trigger subscription update if initialized (RTDB will reflect automatically)
+        if (projectsInitialized.value) {
+          // Optionally force a refresh if needed, but subscription handles it
+        }
+        return result;
+      } else {
+        console.warn('Project creation succeeded but no ID returned');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error in createAndLogProject:', error);
+      handleError(error, 'Project creation failed');
+      throw error;
+    }
+  }
+
+  /**
+   * Updates an existing project via the repository and logs the update activity.
+   * Centralizes project updates with automatic logging for consistency.
+   * Computes changes from the updates object for logging context.
+   * @param {string} id - The ID of the project to update
+   * @param {Object} updates - The fields to update on the project
+   * @returns {Promise<Object|null>} The updated project or null on failure
+   */
+  async function updateAndLogProject(id, updates) {
+    if (!id || !updates) {
+      console.warn('Invalid parameters for updateAndLogProject');
+      return null;
+    }
+
+    try {
+      // Perform the update
+      await ProjectRepository.updateProject(id, updates);
+
+      // Fetch the full updated project to get current name and confirm success
+      const updatedProject = await ProjectRepository.getProject(id);
+      if (!updatedProject) {
+        console.warn('Update succeeded but project not retrievable');
+        return null;
+      }
+
+      // Compute changes for logging (simple key list)
+      const changeKeys = Object.keys(updates);
+      const changes = changeKeys.length > 0 ? changeKeys.join(', ') : 'General update';
+
+      // Log the update under the project's context
+      await ActivityService.logEntityUpdated(
+        id,
+        'project',
+        id,
+        updatedProject.name,
+        { changedFields: changes },
+        { oldValues: {} } // Could compute full diff if needed, but keep simple
+      );
+
+      console.log('Project updated and logged:', id, 'Changes:', changes);
+
+      // Update store state if this is the active project
+      if (activeProjectId.value === id) {
+        currentProject.value = updatedProject;
+        currentProject.value.loadedFully = true;
+      }
+
+      // Trigger subscription update (RTDB will reflect automatically)
+      if (projectsInitialized.value) {
+        // No need for manual refresh; subscription handles it
+      }
+
+      return updatedProject;
+    } catch (error) {
+      console.error('Error in updateAndLogProject:', error);
+      handleError(error, `Project update failed for ${id}`);
+      throw error;
+    }
+  }
+
   return {
     // State - Single Project
     currentProject,
@@ -211,6 +415,7 @@ export const useProjectStore = defineStore('project', () => {
     projects,
     projectsLoading,
     projectsInitialized,
+    activeProjectId,
 
     // Getters - Single Project
     projectTeam,
@@ -220,9 +425,14 @@ export const useProjectStore = defineStore('project', () => {
     projectCount,
     activeProjects,
     projectsByPhase,
+    updateAndLogProject,
+
+    // Getters - Active Project
+    activeProject,
 
     // Actions - Single Project
     loadProject,
+    setActiveProject,
     subscribeToProject,
     updateProject,
     clearSubscriptions,
@@ -233,5 +443,6 @@ export const useProjectStore = defineStore('project', () => {
     cleanupProjectsSubscription,
     getProjectById,
     searchProjects,
+    createAndLogProject,
   };
 });

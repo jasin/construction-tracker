@@ -89,20 +89,20 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useToast } from 'primevue/usetoast';
+
 import Card from 'primevue/card';
 import ProgressSpinner from 'primevue/progressspinner';
-import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository';
 import ActivityService from '@/services/logging/ActivityService';
-import { handleError } from '../../utils/errorHandler';
 
-const toast = useToast();
+import { useProjectStore } from '@/stores/project';
+
+const projectStore = useProjectStore();
 
 const loading = ref(true);
-const projects = ref([]);
+
 const activities = ref([]);
 let activityUnsubscribe = null;
-let projectUnsubscribe = null;
+// Removed projectUnsubscribe - centralized in store
 
 /**
  * Computes grouped activities by projectId.
@@ -119,14 +119,15 @@ const groupedActivities = computed(() => {
 
 /**
  * Computes the top 4 projects with recent activity, sorted by recency and volume.
- * Derives per-project data like changes, updates, and documents.
- * @returns {Array} Array of enhanced project objects.
+ * Derives per-project data like changes, updates, and documents from store + activities.
+ * @returns {Array} Array of enhanced project objects from store.
  */
 const activeProjects = computed(() => {
   const now = Date.now();
   const yesterday = now - 24 * 60 * 60 * 1000;
 
-  return projects.value
+  const storeProjects = projectStore.activeProjects; // Use store as single source (reactive)
+  return storeProjects
     .map((project) => {
       const projActivities = groupedActivities.value[project.id] || [];
       if (!projActivities.length) return null;
@@ -157,53 +158,51 @@ const activeProjects = computed(() => {
 });
 
 /**
- * Loads projects and recent activities.
+ * Loads dashboard data from store (single source, reactive).
  * @async
  */
-const loadData = async () => {
-  try {
-    loading.value = true;
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const [projData, actData] = await Promise.all([
-      ProjectRepository.getAllProjects(),
-      ActivityService.getRecentActivities({ since: sevenDaysAgo }),
-    ]);
-    projects.value = projData;
-    activities.value = actData;
-  } catch (error) {
-    handleError(error, 'DashboardView.loadData');
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to load data. Please try again.',
-      life: 5000,
-    });
-  } finally {
-    loading.value = false;
-  }
+const loadData = () => {
+  loading.value = false;
 };
 
 /**
  * Sets up realtime subscription to recent activities.
+ * (Repo-based, as it's dashboard-specific; store for projects)
  */
-const setupSubscription = () => {
+const setupActivitySubscription = () => {
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   activityUnsubscribe = ActivityService.subscribeToRecentActivities(
     { since: sevenDaysAgo },
     (updatedActivities) => {
       activities.value = updatedActivities;
+      console.log('Dashboard activities updated:', updatedActivities.length); // Add log
     }
   );
 };
 
 /**
  * Sets up realtime subscription to projects.
+ * Centralized in store (no repo call - use store subscription)
  */
-const setupProjectSubscription = () => {
-  projectUnsubscribe = ProjectRepository.subscribeToAll((updatedProjects) => {
-    projects.value = updatedProjects;
-  });
-};
+/*const setupProjectSubscription = () => {
+  // No repo subscribe - use global store subscription (avoids duplicates)
+  // If needed for dashboard-specific, call store.initializeProjectsSubscription if not already
+  if (!projectStore.projectsInitialized) {
+    projectStore.initializeProjectsSubscription();
+    console.log('Dashboard triggered store project subscription');
+  }
+  // Watch store for updates (reactive)
+  const stopWatch = watch(
+    () => projectStore.projects,
+    () => {
+      console.log('Dashboard reacted to store projects update');
+      console.log('Dashboard using store.activeProjects:', projectStore.activeProjects.length);
+      loadData();
+    }
+  );
+  // Clean up watch on unmount
+  return () => stopWatch();
+};*/
 
 /**
  * Formats a timestamp as relative time ago.
@@ -256,18 +255,20 @@ const getActivityIcon = (action) => {
 };
 
 onMounted(async () => {
-  await loadData();
-  setupSubscription();
-  setupProjectSubscription();
+  loadData();
+  setupActivitySubscription();
+  //const stopProjectWatch = setupProjectSubscription(); // Returns cleanup
+  // Store stopProjectWatch if needed for unmount, but watch handles it
 });
 
 onUnmounted(() => {
   if (activityUnsubscribe) {
     activityUnsubscribe();
   }
-
-  if (projectUnsubscribe) {
-    projectUnsubscribe();
-  }
+  // Project sub is global in store, no cleanup here
 });
 </script>
+
+<style scoped>
+/* Existing styles - add if needed */
+</style>
