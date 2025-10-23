@@ -39,7 +39,7 @@
           <!-- Back to Dashboard (Header slot mimic: Top row when selected) -->
           <div
             v-if="selectedProject"
-            class="p-3 text-sm font-medium text-blue-600 cursor-pointer hover:bg-blue-50 border-b border-gray-200"
+            class="p-3 text-sm font-medium text-blue-600 cursor-pointer hover:bg-blue-50"
             @click.stop="resetToDashboard"
             role="option"
             aria-label="Back to Dashboard"
@@ -48,24 +48,17 @@
           </div>
 
           <!-- Grouped Suggestions (or show if no suggestions but back visible) -->
-          <template
-            v-if="suggestions.length > 0"
-            v-for="(group, groupIndex) in groupedSuggestions"
-            :key="groupIndex"
-          >
-            <div
-              class="p-2 font-semibold text-sm text-gray-700 bg-gray-50 border-b border-gray-200"
-              role="group"
-            >
+          <template v-for="(group, groupIndex) in groupedSuggestions" :key="groupIndex">
+            <div class="p-2 font-semibold text-sm text-gray-700 bg-white" role="group">
               {{ group.name }}
             </div>
             <template v-for="(item, itemIndex) in group.items" :key="itemIndex">
               <div
-                class="px-2 pl-8 py-2 text-xs text-gray-800 hover:bg-gray-50 cursor-pointer"
+                class="px-2 pl-8 py-2 text-xs text-gray-800 hover:bg-blue-50 cursor-pointer"
                 @click.stop="!isSelecting && handleSelectProject(item)"
                 :class="{
-                  'bg-blue-50 border-l-2 border-blue-500':
-                    item.id === highlightedIndex || item.id === selectedProject?.id,
+                  'bg-gray-50 border-l-2 border-gray-300': item.id === selectedProject?.id,
+                  'bg-blue-50 border-l-2 border-blue-500': item.id === highlightedId,
                   'opacity-50 cursor-not-allowed pointer-events-none': isSelecting,
                 }"
                 role="option"
@@ -79,21 +72,19 @@
           <!-- No Results or Empty State (hide if back visible) -->
           <div
             v-if="!selectedProject && suggestions.length === 0 && localQuery"
-            class="px-3 py-2 text-sm text-gray-500 border-t border-gray-200"
+            class="px-3 py-2 text-sm text-gray-500"
           >
             No matches found for "{{ localQuery }}".
           </div>
           <div
             v-else-if="!selectedProject && suggestions.length === 0 && !localQuery"
-            class="px-3 py-2 text-sm text-gray-500 border-t border-gray-200"
+            class="px-3 py-2 text-sm text-gray-500"
           >
             No projects yet—create one to get started.
           </div>
 
           <!-- Loading (if composable has it) -->
-          <div v-if="isLoading" class="px-3 py-2 text-sm text-gray-500 border-t border-gray-200">
-            Loading projects...
-          </div>
+          <div v-if="isLoading" class="px-3 py-2 text-sm text-gray-500">Loading projects...</div>
         </div>
       </div>
     </Teleport>
@@ -119,7 +110,7 @@ const inputRef = ref(null);
 const dropdownRef = ref(null);
 const localQuery = ref('');
 const isOpen = ref(false);
-const highlightedIndex = ref(null); // For keyboard nav
+const highlightedId = ref(null); // For keyboard nav
 const isLoading = ref(false); // If composable exposes loading
 const isSelecting = ref(false);
 
@@ -166,7 +157,7 @@ watch(
     if (newId !== oldId) {
       localQuery.value = '';
       isOpen.value = false;
-      highlightedIndex.value = null;
+      highlightedId.value = null;
       reset();
     }
   }
@@ -246,7 +237,9 @@ const handleBlur = () => {
 const handleEnter = async () => {
   const flatOptions = groupedSuggestions.value.flatMap((g) => g.items);
   const option =
-    highlightedIndex.value !== null ? flatOptions[highlightedIndex.value] : flatOptions[0];
+    highlightedId.value !== null
+      ? flatOptions.find((item) => item.id === highlightedId.value)
+      : flatOptions[0];
   if (option && !isSelecting.value) {
     await handleSelectProject(option);
   }
@@ -254,7 +247,7 @@ const handleEnter = async () => {
 
 const hideDropdown = () => {
   isOpen.value = false;
-  highlightedIndex.value = null;
+  highlightedId.value = null;
 };
 
 const toggleDropdown = () => {
@@ -308,7 +301,7 @@ const resetToDashboard = () => {
 
   localQuery.value = '';
   isOpen.value = false;
-  highlightedIndex.value = null;
+  highlightedId.value = null;
 
   console.log('Local reset complete');
 };
@@ -318,13 +311,23 @@ const handleKeydown = (e) => {
   const flatOptions = groupedSuggestions.value.flatMap((g) => g.items);
   const total = flatOptions.length;
   if (e.key === 'ArrowDown') {
-    highlightedIndex.value = (highlightedIndex.value + 1) % total;
+    let currentIdx = -1;
+    if (highlightedId.value !== null) {
+      currentIdx = flatOptions.findIndex((item) => item.id === highlightedId.value);
+    }
+    const nextIdx = (currentIdx + 1) % total;
+    highlightedId.value = flatOptions[nextIdx].id;
     e.preventDefault();
   } else if (e.key === 'ArrowUp') {
-    highlightedIndex.value = (highlightedIndex.value - 1 + total) % total;
+    let currentIdx = -1;
+    if (highlightedId.value !== null) {
+      currentIdx = flatOptions.findIndex((item) => item.id === highlightedId.value);
+    }
+    const prevIdx = currentIdx === -1 ? total - 1 : (currentIdx - 1 + total) % total;
+    highlightedId.value = flatOptions[prevIdx].id;
     e.preventDefault();
   }
-  const highlightedEl = dropdownRef.value?.querySelector(`[aria-selected="true"]`);
+  const highlightedEl = dropdownRef.value?.querySelector('.bg-blue-50');
   highlightedEl?.scrollIntoView({ block: 'nearest' });
 };
 
@@ -361,7 +364,7 @@ onUnmounted(() => {
 
 /* Group header: Matches #optiongroup */
 .group-header {
-  background-color: #f8fafc; /* PrimeVue light bg */
+  background-color: #ffffff; /* Consistent white bg */
   border-color: #e2e8f0; /* Gray-200 */
 }
 
@@ -374,7 +377,7 @@ div[class*='text-xs text-gray-800'] {
 /* Empty/loading: Neutral, padded like options */
 div[class*='text-gray-500'] {
   border-top-color: #e2e8f0;
-  background-color: #f8fafc;
+  background-color: #ffffff;
 }
 
 /* Back button: Exact match to #header slot */
