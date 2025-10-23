@@ -10,7 +10,6 @@ import {
   endAt,
   limitToFirst,
   onValue,
-  off,
 } from 'firebase/database';
 
 export function useProjectSearch({ groupByPhase = false, limit = 20 } = {}) {
@@ -161,8 +160,16 @@ export function useProjectSearch({ groupByPhase = false, limit = 20 } = {}) {
   );
 
   // Select project function
-  const selectProject = (project) => {
-    selected.value = project; // Full project from search
+  const selectProject = async (project) => {
+    if (!project || !project.id) {
+      console.log('Composable selectProject: Guarding null/undefined – skipping store');
+      selected.value = null; // Local clear only
+      return; // Don't call store
+    }
+
+    selected.value = project;
+    const projectStore = useProjectStore();
+    await projectStore.selectProject(project); // Full project from search
   };
 
   const reset = () => {

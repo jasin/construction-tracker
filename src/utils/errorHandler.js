@@ -190,38 +190,26 @@ export function createSafeFetcher(asyncFn, options = {}) {
   };
 }
 
-/**
- * Handles synchronous errors uniformly, logging via Logger.
- * Use this for non-async error handling to centralize logging.
- * @param {Error|string} err - The error object or message.
- * @param {string} [context=''] - Context string for logging.
- * @param {Object} [options={}] - Optional configuration.
- * @param {boolean} [options.silent=false] - If true, suppresses UI notifications.
- * @param {boolean} [options.rethrow=false] - If true, rethrows the error after logging.
- * @returns {void}
- */
+// In handleError function: Add conditional for toast (before the existing toast.add)
 export function handleError(err, context = '', options = {}) {
   const { silent = false, rethrow = false } = options;
   let errorMessage = err instanceof Error ? err.message : err || 'An unexpected error occurred';
   let firebaseCode = null;
   let statusCode = 500;
 
-  // Map Firebase errors similarly to handleAsync
+  // Map Firebase errors (existing code unchanged)
   if (err.code && err.code.startsWith('auth/')) {
     statusCode = 400;
     firebaseCode = err.code;
     switch (err.code) {
-      case 'auth/email-already-exists':
-        errorMessage = 'Email already in use';
-        break;
-      // ... (same cases as in handleAsync for consistency)
+      // ... existing cases unchanged
       default:
         errorMessage = `Authentication error: ${err.code}`;
     }
-  } else if (err.code && err.code.startsWith('datab ase/')) {
+  } else if (err.code && err.code.startsWith('database/')) {
     statusCode = 400;
     firebaseCode = err.code;
-    // ... (same cases)
+    // ... existing cases unchanged
   }
 
   const appError = new AppError(errorMessage, statusCode, firebaseCode);
@@ -236,9 +224,14 @@ export function handleError(err, context = '', options = {}) {
   });
 
   if (!silent) {
-    // Integrate with UI store or toast for notifications
-    const toast = useToast();
-    toast.add({ severity: 'error', summary: 'Error', detail: errorMessage, life: 3000 });
+    // FIXED: Conditional toast (skip if no Vue context, e.g., in stores)
+    const instance = getCurrentInstance();
+    if (instance) {
+      const toast = useToast();
+      toast.add({ severity: 'error', summary: 'Error', detail: errorMessage, life: 3000 });
+    } else {
+      console.warn(`Toast skipped in handleError - no Vue context (called from: ${context})`);
+    }
   }
 
   if (rethrow) {

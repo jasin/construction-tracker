@@ -65,7 +65,7 @@ export function useProject(projectId) {
   function cleanupProject() {
     projectStore.clearSubscriptions();
     constructionStore.clearSubscriptions();
-    projectStore.resetProject();
+    projectStore.resetActiveProject();
     constructionStore.resetConstructionData();
     activityStore.clearActivities();
   }

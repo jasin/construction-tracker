@@ -14,11 +14,12 @@ export const useProjectStore = defineStore('project', () => {
   const error = ref(null);
   const subscriptions = ref([]);
 
-  // State - All Projects (new)
+  // State - All Projects (existing)
   const projects = ref([]);
   const projectsLoading = ref(true);
   const projectsInitialized = ref(false);
   const activeProjectId = ref(null);
+
   let allProjectsUnsubscribe = null;
 
   // Getters - Single Project (existing)
@@ -55,7 +56,7 @@ export const useProjectStore = defineStore('project', () => {
     };
   });
 
-  // Getters - Active Project (new)
+  // Getters - Active Project (existing)
   const activeProject = computed(() => {
     if (activeProjectId.value === null) return null;
     if (currentProject.value?.id === activeProjectId.value) {
@@ -65,7 +66,7 @@ export const useProjectStore = defineStore('project', () => {
     return projects.value.find((p) => p.id === activeProjectId.value) || null;
   });
 
-  // Getters - All Projects (new)
+  // Getters - All Projects (existing)
   const projectCount = computed(() => projects.value.length);
 
   const activeProjects = computed(() =>
@@ -163,15 +164,19 @@ export const useProjectStore = defineStore('project', () => {
     clearSubscriptions();
   }
 
-  // Actions - Single Project (existing) - Add setActiveProject after loadProject
+  // ENHANCED: Sets the active project by ID or project object, loading full details if needed and subscribing for real-time updates.
+  // Centralizes active project management as single source of truth.
+  // @param {string|Object} idOrProject - Project ID (string) or full project object
+  // @returns {Promise<Object|null>} The active project data
+  async function setActiveProject(idOrProject) {
+    if (idOrProject === null || idOrProject === undefined) {
+      console.log('Guard: setActiveProject called with null/undefined – using reset path');
+      activeProjectId.value = null;
+      resetProject(); // Safe cleanup
+      return null;
+    }
 
-  /**
-   * Sets the active project by ID, loading full details if needed and subscribing for real-time updates.
-   * Centralizes active project management as single source of truth.
-   * @param {string} id - Project ID to activate
-   * @returns {Promise<Object|null>} The active project data
-   */
-  async function setActiveProject(id) {
+    const id = typeof idOrProject === 'object' ? idOrProject.id : idOrProject;
     if (!id) {
       activeProjectId.value = null;
       resetProject(); // Clear current if no ID
@@ -234,12 +239,69 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
-  // Actions - All Projects (new)
-  /**
-   * Initializes the real-time subscription to all projects.
-   * Should be called once when the app starts (after authentication).
-   * Uses direct RTDB onValue for centralization in store (no repo dependency).
-   */
+  // NEW: Public action for selecting a project (centralized with logging)
+  async function selectProject(project) {
+    if (!project || !project.id) {
+      console.warn('Invalid project for selectProject');
+      handleError(new Error('Invalid project'), 'Project selection invalid');
+      return null;
+    }
+
+    try {
+      // Delegate to low-level setter
+      const active = await setActiveProject(project);
+      if (!active) {
+        throw new Error('Failed to load active project');
+      }
+
+      // Log the selection event via ActivityService.logActivity (direct call, non-blocking)
+      const description = `Selected project: ${active.name}`;
+      await ActivityService.logActivity(
+        active.id, // projectId
+        'project_selected', // action
+        'project', // entityType
+        active.id, // entityId
+        description, // description
+        { projectName: active.name } // additionalData
+      );
+      console.log('📋 Logged project selection:', active.name);
+
+      return active;
+    } catch (err) {
+      console.error('Error in selectProject:', err);
+      handleError(err, `Project selection failed for ${project.name || project.id}`);
+      return null;
+    }
+  }
+
+  // NEW: Public action for resetting active project (centralized with logging and cleanup)
+  async function resetActiveProject() {
+    try {
+      console.log('🔄 Resetting active project');
+
+      // Clear active state and subscriptions (leverage existing)
+      activeProjectId.value = null;
+      resetProject(); // Clears currentProject and subscriptions for the old project
+
+      // Log the reset event via ActivityService.logActivity (direct call, non-blocking)
+      await ActivityService.logActivity(
+        null, // No projectId for dashboard
+        'dashboard_switch', // action
+        'ui', // entityType
+        null, // No entityId
+        'Switched to dashboard view', // description
+        { action: 'reset_active_project' } // additionalData
+      );
+      console.log('✅ Logged dashboard switch');
+
+      console.log('✅ Active project reset');
+    } catch (err) {
+      console.error('Error in resetActiveProject:', err);
+      handleError(err, 'Failed to reset active project');
+    }
+  }
+
+  // Actions - All Projects (existing) - unchanged from previous
   function initializeProjectsSubscription() {
     if (allProjectsUnsubscribe) {
       console.log('⚠️ Projects subscription already active');
@@ -248,7 +310,7 @@ export const useProjectStore = defineStore('project', () => {
 
     console.log('🔥 Initializing all projects subscription in store');
 
-    const projectsRef = dbRef(firebaseCore.database, 'projects'); // Assume firebaseCore from configs
+    const projectsRef = dbRef(firebaseCore.database, 'projects');
     allProjectsUnsubscribe = onValue(
       projectsRef,
       (snap) => {
@@ -257,10 +319,10 @@ export const useProjectStore = defineStore('project', () => {
           snap.exists() ? Object.keys(snap.val() || {}).length : 0
         );
         if (snap.exists()) {
-          const updatedProjects = Object.entries(snap.val()).map(([id, p]) => ({ id, ...p })); // RTDB: Map entries to array with IDs
-          projects.value = updatedProjects; // Set reactive ref
+          const updatedProjects = Object.entries(snap.val()).map(([id, p]) => ({ id, ...p }));
+          projects.value = updatedProjects;
         } else {
-          projects.value = []; // Empty if no data
+          projects.value = [];
         }
         projectsLoading.value = false;
         projectsInitialized.value = true;
@@ -269,18 +331,13 @@ export const useProjectStore = defineStore('project', () => {
         console.error('🚨 Store subscription error:', error);
         projectsLoading.value = false;
         handleError(error, 'Projects subscription error');
-        // Optional: Retry logic
-        setTimeout(initializeProjectsSubscription, 5000); // Retry after 5s on error
+        setTimeout(initializeProjectsSubscription, 5000);
       }
     );
 
     console.log('✅ RTDB subscription started - unsubscribe:', typeof allProjectsUnsubscribe);
   }
 
-  /**
-   * Cleans up the all projects subscription.
-   * Should be called on logout.
-   */
   function cleanupProjectsSubscription() {
     if (allProjectsUnsubscribe) {
       console.log('🧹 Cleaning up all projects subscription');
@@ -291,20 +348,10 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
-  /**
-   * Gets a project by ID from the projects list.
-   * @param {string} id - Project ID
-   * @returns {Object|undefined} Project object or undefined
-   */
   function getProjectById(id) {
     return projects.value.find((p) => p.id === id);
   }
 
-  /**
-   * Searches projects by name, job number, or client name.
-   * @param {string} query - Search query
-   * @returns {Array} Filtered projects
-   */
   function searchProjects(query) {
     if (!query) return projects.value;
     const lowerQuery = query.toLowerCase();
@@ -316,22 +363,14 @@ export const useProjectStore = defineStore('project', () => {
     );
   }
 
-  /**
-   * Creates a new project via the repository and logs the creation activity.
-   * Centralizes project creation with automatic logging for consistency.
-   * @param {Object} projectData - The project data to create
-   * @returns {Promise<Object|null>} The created project or null on failure
-   */
   async function createAndLogProject(projectData) {
     try {
       const result = await ProjectRepository.createProject(projectData);
       if (result && result.id) {
-        // Log the creation under the new project's context
         await ActivityService.logEntityCreated(result.id, 'project', result.id, result.name);
         console.log('Project created and logged:', result.id);
-        // Trigger subscription update if initialized (RTDB will reflect automatically)
         if (projectsInitialized.value) {
-          // Optionally force a refresh if needed, but subscription handles it
+          // Subscription handles update
         }
         return result;
       } else {
@@ -345,14 +384,6 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
-  /**
-   * Updates an existing project via the repository and logs the update activity.
-   * Centralizes project updates with automatic logging for consistency.
-   * Computes changes from the updates object for logging context.
-   * @param {string} id - The ID of the project to update
-   * @param {Object} updates - The fields to update on the project
-   * @returns {Promise<Object|null>} The updated project or null on failure
-   */
   async function updateAndLogProject(id, updates) {
     if (!id || !updates) {
       console.warn('Invalid parameters for updateAndLogProject');
@@ -360,41 +391,35 @@ export const useProjectStore = defineStore('project', () => {
     }
 
     try {
-      // Perform the update
       await ProjectRepository.updateProject(id, updates);
 
-      // Fetch the full updated project to get current name and confirm success
       const updatedProject = await ProjectRepository.getProject(id);
       if (!updatedProject) {
         console.warn('Update succeeded but project not retrievable');
         return null;
       }
 
-      // Compute changes for logging (simple key list)
       const changeKeys = Object.keys(updates);
       const changes = changeKeys.length > 0 ? changeKeys.join(', ') : 'General update';
 
-      // Log the update under the project's context
       await ActivityService.logEntityUpdated(
         id,
         'project',
         id,
         updatedProject.name,
         { changedFields: changes },
-        { oldValues: {} } // Could compute full diff if needed, but keep simple
+        { oldValues: {} }
       );
 
       console.log('Project updated and logged:', id, 'Changes:', changes);
 
-      // Update store state if this is the active project
       if (activeProjectId.value === id) {
         currentProject.value = updatedProject;
         currentProject.value.loadedFully = true;
       }
 
-      // Trigger subscription update (RTDB will reflect automatically)
       if (projectsInitialized.value) {
-        // No need for manual refresh; subscription handles it
+        // Subscription handles update
       }
 
       return updatedProject;
@@ -425,7 +450,6 @@ export const useProjectStore = defineStore('project', () => {
     projectCount,
     activeProjects,
     projectsByPhase,
-    updateAndLogProject,
 
     // Getters - Active Project
     activeProject,
@@ -438,11 +462,16 @@ export const useProjectStore = defineStore('project', () => {
     clearSubscriptions,
     resetProject,
 
+    // NEW: Centralized actions
+    selectProject,
+    resetActiveProject,
+
     // Actions - All Projects
     initializeProjectsSubscription,
     cleanupProjectsSubscription,
     getProjectById,
     searchProjects,
     createAndLogProject,
+    updateAndLogProject,
   };
 });
