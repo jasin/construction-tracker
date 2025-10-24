@@ -40,7 +40,10 @@
           <div
             v-if="selectedProject"
             class="p-3 text-sm font-medium text-blue-600 cursor-pointer hover:bg-blue-50"
-            :class="{ 'opacity-50 cursor-not-allowed pointer-events-none': isSelecting }"
+            :class="{
+              'opacity-50 cursor-not-allowed pointer-events-none':
+                isSelecting || uiStore.isProjectTransitioning,
+            }"
             @click.stop="resetToDashboard"
             role="option"
             aria-label="Back to Dashboard"
@@ -96,6 +99,7 @@
 import { computed, nextTick, onMounted, ref, watch, onUnmounted } from 'vue';
 import { useProjectSearch } from '@/composables/useProjectSearch';
 import { useProjectStore } from '@/stores';
+import { useUIStore } from '@/stores/ui';
 
 const props = defineProps({
   projectId: {
@@ -107,6 +111,7 @@ const props = defineProps({
 const emit = defineEmits(['project-selected', 'reset']);
 
 const projectStore = useProjectStore();
+const uiStore = useUIStore();
 const inputRef = ref(null);
 const dropdownRef = ref(null);
 const localQuery = ref('');
@@ -288,7 +293,7 @@ const toggleDropdown = () => {
  * - More defensive checks
  */
 const handleSelectProject = async (project) => {
-  if (!project || !project.id) {
+  if (!project || !project.id || uiStore.isProjectTransitioning) {
     console.warn('ProjectSelect: Invalid project:', project);
     return;
   }
@@ -336,6 +341,11 @@ const handleSelectProject = async (project) => {
  * - More defensive checks
  */
 const resetToDashboard = async () => {
+  if (uiStore.isProjectTransitioning) {
+    console.log('ProjectSelect: Global transition in progress, skipping');
+    return;
+  }
+
   if (isSelecting.value) {
     console.log('ProjectSelect: Reset in progress, skipping');
     return;

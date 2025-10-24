@@ -1,9 +1,10 @@
 / stores/iu.js;
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 export const useUIStore = defineStore('ui', () => {
   // State
+  const isProjectTransitioning = ref(false);
   const notifications = ref([]);
   const activeTab = ref('overview');
   const sidebarOpen = ref(false);
@@ -14,6 +15,11 @@ export const useUIStore = defineStore('ui', () => {
     activityFlyout: false,
     documentUploader: false,
   });
+
+  const setProjectTransitioning = (busy) => {
+    isProjectTransitioning.value = busy;
+    console.log('UIStore: Project transitioning:', busy);
+  };
 
   // Actions
   function addNotification(notification) {
@@ -66,6 +72,8 @@ export const useUIStore = defineStore('ui', () => {
     sidebarOpen.value = !sidebarOpen.value;
   }
 
+  const getProjectTransitioning = computed(() => isProjectTransitioning.value);
+
   return {
     // State
     notifications,
@@ -81,5 +89,8 @@ export const useUIStore = defineStore('ui', () => {
     openModal,
     closeModal,
     toggleSidebar,
+    isProjectTransitioning,
+    setProjectTransitioning,
+    getProjectTransitioning,
   };
 });

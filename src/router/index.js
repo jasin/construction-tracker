@@ -247,7 +247,7 @@ router.afterEach(async (to, from) => {
     }
   }
   // Case 2: URL has no project but store has one → Clear store
-  else if (!urlProjectId && storeProjectId) {
+  else if (!urlProjectId && storeProjectId && !from.path.startsWith('/project/')) {
     console.log('Router: Syncing store to dashboard (clearing active project)');
     try {
       // Pass false to prevent URL push (we're already at the target URL)

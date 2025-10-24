@@ -442,8 +442,8 @@ const saveProject = async () => {
     }
 
     const isEditing = !!props.projectId;
+    const operation = isEditing ? 'updated' : 'created';
     let result;
-    let operation = isEditing ? 'updated' : 'created';
 
     if (isEditing) {
       result = await projectStore.updateAndLogProject(props.projectId, formData);
@@ -455,12 +455,6 @@ const saveProject = async () => {
 
     if (result && result.id) {
       console.log(`Project ${operation}:`, result.id);
-      toast.add({
-        severity: 'success',
-        summary: 'Success',
-        detail: success.value,
-        life: 3000,
-      });
       emit('project-saved', result);
       emit('update:visible', false); // Close modal
       if (!isEditing) {
@@ -477,12 +471,6 @@ const saveProject = async () => {
   } catch (err) {
     loading.value = false;
     console.error('Project save error:', err);
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: err.message || `${operation} failed`,
-      life: 3000,
-    });
   } finally {
     loading.value = false; // Ensure button unloads
   }
