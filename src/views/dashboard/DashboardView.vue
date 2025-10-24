@@ -13,7 +13,7 @@
           v-for="project in activeProjects"
           :key="project.id"
           class="cursor-pointer hover:shadow-md transition-shadow"
-          @click="$router.push(`/project/${project.id}`)"
+          @click="handleProjectClick(project)"
         >
           <template #header>
             <div class="p-4 pb-0">
@@ -38,7 +38,7 @@
                   class="flex items-start gap-2 text-sm text-surface-600"
                 >
                   <span
-                    class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs"
+                    class="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs"
                     :class="getActivityIconClass(update.action)"
                   >
                     <i :class="getActivityIcon(update.action)"></i>
@@ -62,7 +62,7 @@
                   class="flex items-start gap-2 text-sm text-surface-600"
                 >
                   <span
-                    class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs"
+                    class="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs"
                     :class="getActivityIconClass(doc.action)"
                   >
                     <i :class="getActivityIcon(doc.action)"></i>
@@ -102,7 +102,6 @@ const loading = ref(true);
 
 const activities = ref([]);
 let activityUnsubscribe = null;
-// Removed projectUnsubscribe - centralized in store
 
 /**
  * Computes grouped activities by projectId.
@@ -175,34 +174,10 @@ const setupActivitySubscription = () => {
     { since: sevenDaysAgo },
     (updatedActivities) => {
       activities.value = updatedActivities;
-      console.log('Dashboard activities updated:', updatedActivities.length); // Add log
+      console.log('Dashboard activities updated:', updatedActivities.length);
     }
   );
 };
-
-/**
- * Sets up realtime subscription to projects.
- * Centralized in store (no repo call - use store subscription)
- */
-/*const setupProjectSubscription = () => {
-  // No repo subscribe - use global store subscription (avoids duplicates)
-  // If needed for dashboard-specific, call store.initializeProjectsSubscription if not already
-  if (!projectStore.projectsInitialized) {
-    projectStore.initializeProjectsSubscription();
-    console.log('Dashboard triggered store project subscription');
-  }
-  // Watch store for updates (reactive)
-  const stopWatch = watch(
-    () => projectStore.projects,
-    () => {
-      console.log('Dashboard reacted to store projects update');
-      console.log('Dashboard using store.activeProjects:', projectStore.activeProjects.length);
-      loadData();
-    }
-  );
-  // Clean up watch on unmount
-  return () => stopWatch();
-};*/
 
 /**
  * Formats a timestamp as relative time ago.
@@ -254,18 +229,26 @@ const getActivityIcon = (action) => {
   return iconMap[action] || 'pi pi-circle';
 };
 
+/**
+ * SIMPLIFIED: Handle project click - only call store, it handles URL
+ * @param {Object} project - The project to select
+ */
+const handleProjectClick = async (project) => {
+  console.log('DashboardView: Selecting project:', project.id);
+  // Store handles both state AND URL update
+  await projectStore.selectProject(project);
+  // That's it! No manual router.push needed
+};
+
 onMounted(async () => {
   loadData();
   setupActivitySubscription();
-  //const stopProjectWatch = setupProjectSubscription(); // Returns cleanup
-  // Store stopProjectWatch if needed for unmount, but watch handles it
 });
 
 onUnmounted(() => {
   if (activityUnsubscribe) {
     activityUnsubscribe();
   }
-  // Project sub is global in store, no cleanup here
 });
 </script>
 

@@ -6,6 +6,7 @@ import { handleError } from '../utils/errorHandler';
 import { ref as dbRef, onValue } from 'firebase/database';
 import firebaseCore from '@/services/firebase/core/FirebaseCore';
 import ActivityService from '@/services/logging/ActivityService.js';
+import router from '@/router'; // ADDED: Import router for URL updates
 
 export const useProjectStore = defineStore('project', () => {
   // State - Single Project (existing)
@@ -19,6 +20,8 @@ export const useProjectStore = defineStore('project', () => {
   const projectsLoading = ref(true);
   const projectsInitialized = ref(false);
   const activeProjectId = ref(null);
+  const isResetting = ref(false); // Flag for dedupe in resetActiveProject
+  const isSetting = ref(false); // Flag for dedupe in selectProject
 
   let allProjectsUnsubscribe = null;
 
@@ -239,19 +242,28 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
-  // NEW: Public action for selecting a project (centralized with logging)
+  // ENHANCED: Public action for selecting a project (centralized with logging and URL update)
   async function selectProject(project) {
-    if (!project || !project.id) {
-      console.warn('Invalid project for selectProject');
-      handleError(new Error('Invalid project'), 'Project selection invalid');
-      return null;
+    if (isSetting.value) {
+      console.log('Store: selectProject already in progress - skipping duplicate');
+      return false;
     }
 
+    isSetting.value = true;
+    console.log('Store: selectProject called for:', project?.id || project);
+
     try {
-      // Delegate to low-level setter
+      // Set the active project in store
       const active = await setActiveProject(project);
       if (!active) {
         throw new Error('Failed to load active project');
+      }
+
+      // ADDED: Update URL to match state (store is source of truth)
+      const targetPath = `/project/${active.id}`;
+      if (router.currentRoute.value.path !== targetPath) {
+        console.log('Store: Pushing URL to', targetPath);
+        await router.push(targetPath);
       }
 
       // Log the selection event via ActivityService.logActivity (direct call, non-blocking)
@@ -266,38 +278,63 @@ export const useProjectStore = defineStore('project', () => {
       );
       console.log('📋 Logged project selection:', active.name);
 
-      return active;
+      return true; // Success
     } catch (err) {
       console.error('Error in selectProject:', err);
       handleError(err, `Project selection failed for ${project.name || project.id}`);
-      return null;
+      return false;
+    } finally {
+      isSetting.value = false;
     }
   }
 
-  // NEW: Public action for resetting active project (centralized with logging and cleanup)
-  async function resetActiveProject() {
-    try {
-      console.log('🔄 Resetting active project');
+  // ENHANCED: Public action for resetting active project (centralized with logging and URL update)
+  async function resetActiveProject(pushUrl = true) {
+    if (isResetting.value) {
+      console.log('Store: Reset already in progress - skipping duplicate');
+      return;
+    }
 
+    if (!activeProjectId.value) {
+      console.log('Store: No active project to reset');
+      return;
+    }
+
+    isResetting.value = true;
+    const oldId = activeProjectId.value; // For logs
+    console.log('🔄 Resetting active project:', oldId);
+
+    try {
       // Clear active state and subscriptions (leverage existing)
       activeProjectId.value = null;
       resetProject(); // Clears currentProject and subscriptions for the old project
 
       // Log the reset event via ActivityService.logActivity (direct call, non-blocking)
       await ActivityService.logActivity(
-        null, // No projectId for dashboard
+        oldId, // projectId (old for context)
         'dashboard_switch', // action
         'ui', // entityType
         null, // No entityId
         'Switched to dashboard view', // description
-        { action: 'reset_active_project' } // additionalData
+        { action: 'reset_active_project', projectId: oldId } // additionalData
       );
       console.log('✅ Logged dashboard switch');
 
-      console.log('✅ Active project reset');
+      // ENHANCED: Update URL to match state (default true unless called from router guard)
+      if (pushUrl) {
+        const targetPath = '/';
+        if (router.currentRoute.value.path !== targetPath) {
+          console.log('Store: Pushing URL to dashboard');
+          await router.push(targetPath);
+        }
+      }
+
+      console.log('✅ Active project reset complete');
     } catch (err) {
       console.error('Error in resetActiveProject:', err);
       handleError(err, 'Failed to reset active project');
+    } finally {
+      isResetting.value = false; // Re-enable
     }
   }
 
@@ -462,9 +499,11 @@ export const useProjectStore = defineStore('project', () => {
     clearSubscriptions,
     resetProject,
 
-    // NEW: Centralized actions
+    // Centralized actions (handle both state and URL)
     selectProject,
     resetActiveProject,
+    isResetting, // Expose for dedupe guards
+    isSetting, // Expose for dedupe in select
 
     // Actions - All Projects
     initializeProjectsSubscription,

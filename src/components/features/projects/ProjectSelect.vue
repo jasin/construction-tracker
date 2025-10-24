@@ -40,6 +40,7 @@
           <div
             v-if="selectedProject"
             class="p-3 text-sm font-medium text-blue-600 cursor-pointer hover:bg-blue-50"
+            :class="{ 'opacity-50 cursor-not-allowed pointer-events-none': isSelecting }"
             @click.stop="resetToDashboard"
             role="option"
             aria-label="Back to Dashboard"
@@ -55,7 +56,7 @@
             <template v-for="(item, itemIndex) in group.items" :key="itemIndex">
               <div
                 class="px-2 pl-8 py-2 text-xs text-gray-800 hover:bg-blue-50 cursor-pointer"
-                @click.stop="!isSelecting && handleSelectProject(item)"
+                @click.stop="handleSelectProject(item)"
                 :class="{
                   'bg-gray-50 border-l-2 border-gray-300': item.id === selectedProject?.id,
                   'bg-blue-50 border-l-2 border-blue-500': item.id === highlightedId,
@@ -110,8 +111,8 @@ const inputRef = ref(null);
 const dropdownRef = ref(null);
 const localQuery = ref('');
 const isOpen = ref(false);
-const highlightedId = ref(null); // For keyboard nav
-const isLoading = ref(false); // If composable exposes loading
+const highlightedId = ref(null);
+const isLoading = ref(false);
 const isSelecting = ref(false);
 
 // Re-use composable (handles fuzzy, grouping, real-time Firebase, logging via ActivityService)
@@ -129,23 +130,21 @@ const {
 
 // Sync localQuery with composable (bidirectional, no normalization to avoid breaking composable)
 watch(localQuery, (val) => {
-  query.value = val; // Pass as-is; composable should handle case if needed
+  query.value = val;
 });
 watch(query, (val) => {
-  localQuery.value = val; // Direct sync
+  localQuery.value = val;
 });
 
-// Simplified Computed: Group suggestions with case-insensitive filter (no multi-word overkill)
+// Simplified Computed: Group suggestions with case-insensitive filter
 const groupedSuggestions = computed(() => {
-  const q = localQuery.value.toLowerCase().trim(); // Client normalize
+  const q = localQuery.value.toLowerCase().trim();
   if (suggestions.value.length === 0 || !q) return suggestions.value;
 
   return suggestions.value
     .map((group) => ({
       ...group,
-      items: group.items.filter(
-        (item) => item.name.toLowerCase().includes(q) // Simple case-insensitive substring
-      ),
+      items: group.items.filter((item) => item.name.toLowerCase().includes(q)),
     }))
     .filter((group) => group.items.length > 0);
 });
@@ -155,6 +154,13 @@ watch(
   () => props.projectId,
   (newId, oldId) => {
     if (newId !== oldId) {
+      // Skip reset if newId matches current selected
+      if (newId && newId === composableSelected.value?.id) {
+        console.log('ProjectSelect: Props ID matches current selected - skipping reset');
+        return;
+      }
+
+      console.log('ProjectSelect: Props project switch - resetting UI');
       localQuery.value = '';
       isOpen.value = false;
       highlightedId.value = null;
@@ -163,20 +169,35 @@ watch(
   }
 );
 
-// Simplified selectedProject: Direct from composable (no fallback to avoid loops; sync via handler)
+// Simplified selectedProject: Direct from composable
 const selectedProject = computed({
   get: () => composableSelected.value,
-  set: (val) => composableSelectProject(val), // Use composable for logging
+  set: (val) => {
+    if (val && val.id) {
+      composableSelectProject(val);
+    } else {
+      composableSelectProject(null);
+    }
+  },
 });
 
-// Sync activeProject to composable on change (fixes detail view selected)
+// Sync activeProject to composable on change
 watch(
   () => projectStore.activeProject,
-  (newProject) => {
+  async (newProject) => {
+    console.log('ProjectSelect: Store activeProject changed:', newProject ? newProject.id : 'null');
     if (newProject && newProject.id !== composableSelected.value?.id) {
+      console.log('ProjectSelect: Syncing active to composable:', newProject.id);
       composableSelected.value = newProject;
+      await nextTick();
+    } else if (!newProject) {
+      console.log('ProjectSelect: Clearing selected on store reset');
+      composableSelected.value = null;
+      reset();
+      await nextTick();
     }
-  }
+  },
+  { immediate: true, flush: 'sync' }
 );
 
 // Watch selected for reactivity
@@ -186,19 +207,17 @@ watch(selectedProject, (val) => {
   }
 });
 
-// Add watcher to sync localQuery from store (prevents desync/manual set)
+// Sync localQuery from store
 watch(
   () => projectStore.activeProject?.name,
   (newName) => {
     if (newName && !localQuery.value) {
-      localQuery.value = newName; // Sync on store change (no loop as guarded)
+      localQuery.value = newName;
     } else if (!projectStore.activeProjectId) {
-      localQuery.value = ''; // Clear on reset
+      localQuery.value = '';
     }
   }
 );
-
-// Remove any existing watch on activeProject if conflicting (keep only if needed for position)
 
 // Dropdown position
 const dropdownStyle = ref({});
@@ -261,49 +280,92 @@ const toggleDropdown = () => {
   }
 };
 
+/**
+ * FIXED: Improved project selection handler
+ * - Removed early return for already-selected projects (let store decide)
+ * - Better error handling
+ * - Always clears isSelecting flag
+ * - More defensive checks
+ */
 const handleSelectProject = async (project) => {
-  console.log('Selecting project:', project);
+  if (!project || !project.id) {
+    console.warn('ProjectSelect: Invalid project:', project);
+    return;
+  }
 
-  if (project.id === projectStore.activeProjectId || isSelecting.value) return;
+  // FIXED: Only guard against rapid double-clicks, not same project selection
+  if (isSelecting.value) {
+    console.log('ProjectSelect: Selection in progress, skipping');
+    return;
+  }
 
+  console.log('ProjectSelect: Selecting project:', project.id);
   isSelecting.value = true;
 
   try {
-    // Await centralized store call (handles set, subscribe, log)
+    // FIXED: Always call store, even if same project (store handles deduplication)
     const success = await projectStore.selectProject(project);
+
+    // Wait a tick for store state to propagate
+    await nextTick();
+
     if (success) {
-      // UI Updates after success (reactivity will sync query via watcher below)
+      // Sync composable
+      composableSelectProject(project);
+      localQuery.value = project.name;
       hideDropdown();
-      console.log('Selection complete, active ID:', projectStore.activeProjectId);
+      emit('project-selected', project);
+      console.log('ProjectSelect: Selection complete');
     } else {
-      console.warn('Selection failed, resetting query');
-      localQuery.value = '';
+      console.warn('ProjectSelect: Store selectProject returned false');
+      // Don't clear query on failure - let user retry
     }
   } catch (error) {
-    console.error('Select error:', error);
-    localQuery.value = '';
+    console.error('ProjectSelect: Selection error:', error);
+    // Don't clear query on error - let user retry
   } finally {
+    // CRITICAL: Always clear flag, even on error
     isSelecting.value = false;
   }
-
-  selectedProject.value = project; // Triggers setter
-  emit('project-selected', project); // Emit to parent
-  localQuery.value = project.name;
-  hideDropdown();
-  await projectStore.setActiveProject(project.id); // Store update
-  console.log('Selection complete, active ID:', projectStore.activeProjectId);
 };
 
-const resetToDashboard = () => {
-  console.log('Resetting to dashboard via store');
+/**
+ * FIXED: Improved dashboard reset
+ * - Better error handling
+ * - Always clears isSelecting flag
+ * - More defensive checks
+ */
+const resetToDashboard = async () => {
+  if (isSelecting.value) {
+    console.log('ProjectSelect: Reset in progress, skipping');
+    return;
+  }
 
-  projectStore.resetActiveProject();
+  console.log('ProjectSelect: Resetting to dashboard');
+  isSelecting.value = true;
 
-  localQuery.value = '';
-  isOpen.value = false;
-  highlightedId.value = null;
+  try {
+    // Reset store (which updates URL)
+    await projectStore.resetActiveProject(true);
 
-  console.log('Local reset complete');
+    // Wait for state to propagate
+    await nextTick();
+
+    // Clear local UI
+    localQuery.value = '';
+    isOpen.value = false;
+    highlightedId.value = null;
+    composableSelected.value = null;
+    reset();
+    emit('reset');
+
+    console.log('ProjectSelect: Reset complete');
+  } catch (error) {
+    console.error('ProjectSelect: Reset failed:', error);
+  } finally {
+    // CRITICAL: Always clear flag
+    isSelecting.value = false;
+  }
 };
 
 const handleKeydown = (e) => {
@@ -354,7 +416,7 @@ onUnmounted(() => {
 
 /* Dropdown: Mimic p-autocomplete-panel with subtle transition (no border) */
 .custom-project-select .p-autocomplete-panel {
-  opacity: 1; /* Default shown; v-show handles toggle */
+  opacity: 1;
 }
 
 /* Option hover/selected: Light gray/blue like PrimeVue */
@@ -364,13 +426,13 @@ onUnmounted(() => {
 
 /* Group header: Matches #optiongroup */
 .group-header {
-  background-color: #ffffff; /* Consistent white bg */
-  border-color: #e2e8f0; /* Gray-200 */
+  background-color: #ffffff;
+  border-color: #e2e8f0;
 }
 
 /* Indented options: Extra left padding under groups */
 div[class*='text-xs text-gray-800'] {
-  padding-left: 2rem; /* Indent by 0.5rem (8px) - adjust if needed */
+  padding-left: 2rem;
   transition: background-color 0.15s ease;
 }
 
@@ -387,19 +449,19 @@ div[class*='text-blue-600'] {
 }
 
 div[class*='text-blue-600']:hover {
-  background-color: #eff6ff; /* Blue-50 */
+  background-color: #eff6ff;
   border-bottom-color: #e2e8f0;
 }
 
 /* Focus ring on input: Matches PrimeVue */
 .p-inputtext:focus {
-  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25); /* Blue-500 ring */
+  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25);
 }
 
 /* Selected/highlighted: Subtle blue like PrimeVue */
 .bg-blue-50 {
-  border-left-color: #3b82f6; /* Blue-500 */
-  background-color: #eff6ff !important; /* Blue-50 */
+  border-left-color: #3b82f6;
+  background-color: #eff6ff !important;
 }
 
 /* Dropdown icon rotation and hover */

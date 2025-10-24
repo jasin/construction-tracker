@@ -73,7 +73,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onBeforeMount, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import { storeToRefs } from 'pinia';
@@ -90,7 +90,7 @@ import ChangeOrderRepository from '@/services/firebase/Repositories/ChangeOrderR
 import LoginView from '@/views/auth/LoginView.vue';
 import DashboardView from '@/views/dashboard/DashboardView.vue';
 import ProjectDetailView from '@/views/projects/ProjectDetailView.vue';
-import ProjectSelect from '@/components/features/projects/ProjectSelect.vue'; // Custom component import
+import ProjectSelect from '@/components/features/projects/ProjectSelect.vue';
 import Button from 'primevue/button';
 import Avatar from 'primevue/avatar';
 import Menu from 'primevue/menu';
@@ -128,11 +128,9 @@ const user = computed(() => authStore.user);
 
 // Event Handlers
 const handleProjectSelected = async (project) => {
-  // Optional: Additional logic post-select (e.g., toast for confirmation)
-  console.log('App: Project selected:', project.id); // Debug
+  console.log('App: Project selected:', project.id);
+  // Store already handled URL update via selectProject()
   await nextTick();
-  // Removed hideDropdown call - closes internally in ProjectSelect
-  // If needed, add toast: toast.add({ severity: 'info', summary: 'Switched to', detail: project.name, life: 2000 });
 };
 
 const handleProjectUpdated = async (project) => {
@@ -144,8 +142,7 @@ const handleProjectUpdated = async (project) => {
     life: 3000,
   });
   // Auto-activate the project after creation/update for better UX
-  await projectStore.setActiveProject(project.id);
-  // Custom component handles select/realtime update via composable
+  await projectStore.selectProject(project);
 };
 
 const handleTaskUpdated = (task) => {
@@ -328,28 +325,26 @@ const showContextMenu = (event) => {
   contextMenu.value.show(event);
 };
 
-// Watchers: Ensure view reactivity and sync
-watch(
-  () => projectStore.activeProjectId,
-  (newId, oldId) => {
-    if (newId !== oldId) {
-      console.log('App: Active project changed to', newId); // Debug
-      if (!newId) {
-        console.log('App: Reset to dashboard detected');
-        toast.add({
-          severity: 'info',
-          summary: 'Dashboard',
-          detail: 'Returned to overview',
-          life: 2000,
-        });
-      }
-    }
-  }
-);
+// REMOVED: Route watcher - router guard now handles URL → Store sync
+// The router.afterEach guard handles all external navigation (back button, bookmarks, direct URLs)
+// Components just call store methods which update both state and URL
 
 // Lifecycle Hooks
+onBeforeMount(async () => {
+  console.log('App: Starting early initAuth');
+  await authStore.initAuth();
+  console.log(
+    'App: Early init done, isAuth:',
+    authStore.isAuthenticated,
+    'loading:',
+    authStore.loading
+  );
+});
+
 onMounted(async () => {
   await authStore.initAuth();
+  console.log('App: Auth initialized, isAuth:', authStore.isAuthenticated);
+
   if (authStore.isAuthenticated) {
     projectStore.initializeProjectsSubscription();
   }
