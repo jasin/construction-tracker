@@ -226,7 +226,7 @@ router.afterEach(async (to, from) => {
   }
 
   // Skip if store operation is in progress (prevents loop from store's router.push)
-  if (projectStore.isSetting || projectStore.isResetting) {
+  if (projectStore.isSetting || projectStore.isResetting || projectStore.justReset) {
     console.log('Router: Store operation in progress, skipping sync to prevent loop');
     return;
   }
@@ -247,7 +247,7 @@ router.afterEach(async (to, from) => {
     }
   }
   // Case 2: URL has no project but store has one → Clear store
-  else if (!urlProjectId && storeProjectId && !from.path.startsWith('/project/')) {
+  else if (!urlProjectId && storeProjectId) {
     console.log('Router: Syncing store to dashboard (clearing active project)');
     try {
       // Pass false to prevent URL push (we're already at the target URL)
