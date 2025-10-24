@@ -6,7 +6,8 @@ import { handleError } from '../utils/errorHandler';
 import { ref as dbRef, onValue } from 'firebase/database';
 import firebaseCore from '@/services/firebase/core/FirebaseCore';
 import ActivityService from '@/services/logging/ActivityService.js';
-import router from '@/router'; // ADDED: Import router for URL updates
+import router from '@/router';
+import { useUIStore } from '@/stores/ui';
 
 export const useProjectStore = defineStore('project', () => {
   // State - Single Project (existing)
@@ -22,6 +23,7 @@ export const useProjectStore = defineStore('project', () => {
   const activeProjectId = ref(null);
   const isResetting = ref(false); // Flag for dedupe in resetActiveProject
   const isSetting = ref(false); // Flag for dedupe in selectProject
+  const justReset = ref(false);
 
   let allProjectsUnsubscribe = null;
 
@@ -244,11 +246,14 @@ export const useProjectStore = defineStore('project', () => {
 
   // ENHANCED: Public action for selecting a project (centralized with logging and URL update)
   async function selectProject(project) {
+    const uiStore = useUIStore();
+
     if (isSetting.value) {
       console.log('Store: selectProject already in progress - skipping duplicate');
       return false;
     }
 
+    uiStore.setProjectTransitioning(true);
     isSetting.value = true;
     console.log('Store: selectProject called for:', project?.id || project);
 
@@ -285,12 +290,15 @@ export const useProjectStore = defineStore('project', () => {
       return false;
     } finally {
       isSetting.value = false;
+      uiStore.setProjectTransitioning(false);
     }
   }
 
   // ENHANCED: Public action for resetting active project (centralized with logging and URL update)
   async function resetActiveProject(pushUrl = true) {
-    if (isResetting.value) {
+    const uiStore = useUIStore();
+
+    if (isResetting.value || uiStore.isProjectTransitioning) {
       console.log('Store: Reset already in progress - skipping duplicate');
       return;
     }
@@ -300,6 +308,7 @@ export const useProjectStore = defineStore('project', () => {
       return;
     }
 
+    uiStore.setProjectTransitioning(true);
     isResetting.value = true;
     const oldId = activeProjectId.value; // For logs
     console.log('🔄 Resetting active project:', oldId);
@@ -330,11 +339,16 @@ export const useProjectStore = defineStore('project', () => {
       }
 
       console.log('✅ Active project reset complete');
+      justReset.value = true;
+      setTimeout(() => {
+        justReset.value = false;
+      }, 500);
     } catch (err) {
       console.error('Error in resetActiveProject:', err);
       handleError(err, 'Failed to reset active project');
     } finally {
       isResetting.value = false; // Re-enable
+      uiStore.setProjectTransitioning(false);
     }
   }
 
@@ -512,5 +526,7 @@ export const useProjectStore = defineStore('project', () => {
     searchProjects,
     createAndLogProject,
     updateAndLogProject,
+
+    justReset,
   };
 });

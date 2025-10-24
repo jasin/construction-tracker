@@ -100,6 +100,7 @@ import ProjectDialog from './components/forms/ProjectDialog.vue';
 import TaskDialog from './components/forms/TaskDialog.vue';
 import RFIDialog from './components/forms/RFIDialog.vue';
 import ActivityFlyout from './components/widgets/ActivityFlyout.vue';
+import { next } from 'lodash-es';
 
 const router = useRouter();
 const projectStore = useProjectStore();
@@ -143,6 +144,7 @@ const handleProjectUpdated = async (project) => {
   });
   // Auto-activate the project after creation/update for better UX
   await projectStore.selectProject(project);
+  await nextTick();
 };
 
 const handleTaskUpdated = (task) => {
