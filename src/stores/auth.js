@@ -1,143 +1,177 @@
 // src/stores/auth.js
-import { defineStore } from 'pinia'
-import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'firebase/auth' // ES module imports
-import { signIn, logout } from '@/services/auth/authService' // ES module import
-import UserRepository from '@/services/firebase/Repositories/UserRepository' // Singleton import
+import { defineStore } from 'pinia';
+import {
+  getAuth,
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+  browserLocalPersistence,
+  setPersistence,
+} from 'firebase/auth';
+import { signIn, logout } from '@/services/auth/authService';
+import UserRepository from '@/services/firebase/Repositories/UserRepository';
+
+let authUnsubscribe = null; // Global for persistent listener
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null,
-    loading: false,
+    loading: true, // Start true: Wait for initial listener fire
     error: '',
     success: '',
     permissions: {},
   }),
 
-
-
   getters: {
     getPermissions(state) {
-      const role = state.user?.role || 'guest'  // Fallback role
+      const role = state.user?.role || 'guest';
       return {
         canManageProject: role === 'admin' || role === 'project-manager',
         canViewSubmittals: role !== 'foreman',
         canManageChangeOrders: role === 'admin' || role === 'project-manager',
         canCreateTasks: true,
-        canUploadDocuments: true
-      }
+        canUploadDocuments: true,
+      };
     },
     isAuthenticated: (state) => !!state.user,
   },
 
   actions: {
     /**
-     * Initializes auth listener and syncs user to RTDB.
-     * @returns {Promise<void>}
+     * Initializes persistent auth listener (one-time, idempotent).
+     * Sets local persistence for emulator/reloads.
+     * @returns {Promise<void>} Resolves when listener fires first time (state settled).
      */
     async initAuth() {
-      // Changed: Made async for await in sync
-      const auth = getAuth()
-      return new Promise((resolve, reject) => {
-        // Added: Reject for error propagation
-        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-          this.loading = true
+      const self = this; // Capture store context for callback
+
+      const auth = getAuth();
+
+      // Set persistence for dev/emulator (localStorage; survives reloads)
+      if (process.env.NODE_ENV === 'development') {
+        await setPersistence(auth, browserLocalPersistence);
+        console.log('Auth: Local persistence enabled for emulator');
+      }
+
+      // Idempotent: If listener active, resolve immediately
+      if (authUnsubscribe) {
+        console.log('Auth: Listener already active, skipping setup');
+        self.loading = false; // Ensure settled
+        return Promise.resolve();
+      }
+
+      return new Promise((resolve) => {
+        self.loading = true; // Explicit during setup
+
+        authUnsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
           try {
+            console.log('Auth: Listener fired, user:', firebaseUser ? firebaseUser.uid : 'null'); // Debug
+
             if (firebaseUser) {
-              let appUser = await UserRepository.getById(firebaseUser.uid)
+              let appUser = await UserRepository.getById(firebaseUser.uid);
               if (!appUser) {
                 appUser = await UserRepository.create({
-                  id: firebaseUser.uid, // Changed: Use uid as id for sync
+                  id: firebaseUser.uid,
                   email: firebaseUser.email,
                   name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
                   photo: firebaseUser.photoURL || null,
                   role: 'user',
-                  // Add other defaults per your user schema
-                })
+                });
               }
-              this.user = { ...firebaseUser, ...appUser } // Merged Auth and RTDB data
+              self.user = { ...firebaseUser, ...appUser }; // Set merged user
+
+              // FIXED: Inline permissions calculation (avoids getter in callback context)
+              const role = self.user.role || 'guest';
+              self.permissions = {
+                canManageProject: role === 'admin' || role === 'project-manager',
+                canViewSubmittals: role !== 'foreman',
+                canManageChangeOrders: role === 'admin' || role === 'project-manager',
+                canCreateTasks: true,
+                canUploadDocuments: true,
+              };
+
+              self.error = '';
+              self.success = 'User synced';
             } else {
-              this.user = null
+              self.user = null;
+              self.permissions = {}; // Reset
+              self.success = '';
             }
-            resolve()
+
+            self.loading = false; // Settled: Resolve on first fire
+            resolve(); // Promise done
           } catch (err) {
-            console.error('Auth init error:', err)
-            this.error = 'Failed to sync user.'
-            reject(new Error(`Auth init failed: ${err.message}`))
-          } finally {
-            this.loading = false
-            unsubscribe() // Changed: Unsubscribe after initial sync to avoid persistent listener; re-init if needed
+            console.error('Auth listener error:', err);
+            self.error = 'Failed to sync user'; // FIXED: Use self
+            self.loading = false; // FIXED: Use self
+            // FIXED: Log but don't reject (continue init)
+            console.warn('Auth: Listener error logged, continuing without reject');
           }
-        })
-      })
+        });
+
+        console.log('Auth: Persistent listener attached');
+      });
     },
 
-    /**
-     * Signs in with email/password and triggers sync.
-     * @param {string} email - User's email.
-     * @param {string} password - User's password.
-     * @returns {Promise<void>}
-     */
     async signIn(email, password) {
-      this.loading = true
-      this.error = ''
-      this.success = ''
+      this.loading = true;
+      this.error = '';
+      this.success = '';
       try {
-        const result = await signIn(email, password)
+        const result = await signIn(email, password);
         if (result.success) {
-          this.success = 'Successfully signed in!'
-          await this.initAuth() // Added: Trigger sync after sign-in
+          this.success = 'Successfully signed in!';
+          await this.initAuth(); // Listener auto-syncs
         } else {
-          throw new Error(result.error)
+          throw new Error(result.error);
         }
       } catch (err) {
-        this.error = 'An unexpected error occurred. Please try again.'
-        console.error('Login error:', err)
-        throw new Error(`Sign-in failed: ${err.message}`)
+        this.error = 'An unexpected error occurred. Please try again.';
+        console.error('Login error:', err);
+        throw err;
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
 
-    /**
-     * Signs in with Google and triggers sync.
-     * @returns {Promise<void>}
-     */
     async googleSignIn() {
-      // Added: New action for optional Google sign-in with sync
-      this.loading = true
-      this.error = ''
-      this.success = ''
+      this.loading = true;
+      this.error = '';
+      this.success = '';
       try {
-        const auth = getAuth()
-        const provider = new GoogleAuthProvider()
-        await signInWithPopup(auth, provider)
-        this.success = 'Successfully signed in with Google!'
-        await this.initAuth() // Added: Trigger sync after Google sign-in
+        const auth = getAuth();
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+        this.success = 'Successfully signed in with Google!';
+        await this.initAuth(); // Listener syncs
       } catch (err) {
-        this.error = 'Google sign-in failed.'
-        console.error('Google login error:', err)
-        throw new Error(`Google sign-in failed: ${err.message}`)
+        this.error = 'Google sign-in failed.';
+        console.error('Google login error:', err);
+        throw err;
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
 
-    /**
-     * Logs out the current user.
-     * @returns {Promise<void>}
-     */
     async logout() {
-      this.loading = true
+      this.loading = true;
       try {
-        await logout()
-        this.user = null
+        await logout();
+        if (authUnsubscribe) {
+          authUnsubscribe();
+          authUnsubscribe = null;
+          console.log('Auth: Listener unsubscribed on logout');
+        }
+        this.user = null;
+        this.permissions = {};
+        this.success = 'Logged out successfully';
       } catch (err) {
-        this.error = 'Logout failed.'
-        console.error('Logout error:', err)
-        throw new Error(`Logout failed: ${err.message}`)
+        this.error = 'Logout failed.';
+        console.error('Logout error:', err);
+        throw err;
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
   },
-})
+});

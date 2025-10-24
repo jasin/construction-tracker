@@ -1,9 +1,10 @@
 // router.js
 import { createRouter, createWebHistory } from 'vue-router';
 import { requireAuth, requireRole, redirectIfAuthenticated } from './guards';
+import { useProjectStore, useAuthStore } from '@/stores';
 
 // Existing components
-import ProjectDashboard from '@/views/projects/ProjectDetailView.vue';
+import ProjectDetailView from '@/views/projects/ProjectDetailView.vue';
 import LoginPage from '@/views/auth/LoginView.vue';
 import UserDashboard from '@/views/dashboard/DashboardView.vue';
 import TasksPage from '@/views/tasks/TaskListView.vue';
@@ -15,7 +16,7 @@ import UserManagement from '@/views/admin/UserManagementView.vue';
 const PlaceholderPage = {
   template: `
     <div class="h-full flex flex-col bg-white">
-      <div class="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
+      <div class="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
         <h1 class="text-2xl font-bold text-gray-900">{{ title }}</h1>
         <p class="text-sm text-gray-500 mt-1">{{ description }}</p>
       </div>
@@ -53,9 +54,9 @@ const routes = [
   // Project routes
   {
     path: '/project/:projectId',
-    name: 'ProjectDashboard',
-    component: ProjectDashboard,
-    props: true,
+    name: 'ProjectDetail',
+    component: ProjectDetailView,
+    props: (route) => ({ projectId: route.params.projectId }),
     beforeEnter: requireAuth,
   },
   {
@@ -207,6 +208,59 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+// ENHANCED: Global guard to sync URL → Store for external navigation only
+// This handles: back/forward buttons, bookmarks, direct URL access
+// It does NOT trigger when store pushes URL (prevents loops)
+router.afterEach(async (to, from) => {
+  const projectStore = useProjectStore();
+  const authStore = useAuthStore();
+
+  console.log('Router afterEach: Navigation from', from.path, 'to', to.path);
+
+  // Skip if not authenticated (guard already redirected to login)
+  if (!authStore.isAuthenticated) {
+    console.log('Router: Not authenticated, skipping sync');
+    return;
+  }
+
+  // Skip if store operation is in progress (prevents loop from store's router.push)
+  if (projectStore.isSetting || projectStore.isResetting) {
+    console.log('Router: Store operation in progress, skipping sync to prevent loop');
+    return;
+  }
+
+  const urlProjectId = to.params.projectId ?? null;
+  const storeProjectId = projectStore.activeProjectId;
+
+  // Case 1: URL has project but store doesn't match → Sync store to URL
+  if (urlProjectId && urlProjectId !== storeProjectId) {
+    console.log('Router: Syncing store to URL project:', urlProjectId);
+    try {
+      await projectStore.setActiveProject(urlProjectId);
+      console.log('✅ Router: Store synced to URL');
+    } catch (error) {
+      console.error('Router: Failed to sync store to URL:', error);
+      // Optionally redirect to dashboard on error
+      router.replace('/');
+    }
+  }
+  // Case 2: URL has no project but store has one → Clear store
+  else if (!urlProjectId && storeProjectId) {
+    console.log('Router: Syncing store to dashboard (clearing active project)');
+    try {
+      // Pass false to prevent URL push (we're already at the target URL)
+      await projectStore.resetActiveProject(false);
+      console.log('✅ Router: Store cleared for dashboard');
+    } catch (error) {
+      console.error('Router: Failed to clear store:', error);
+    }
+  }
+  // Case 3: URL and store already match → No action needed
+  else {
+    console.log('Router: URL and store already in sync');
+  }
 });
 
 export default router;
