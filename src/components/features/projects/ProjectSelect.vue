@@ -97,9 +97,12 @@
 
 <script setup>
 import { computed, nextTick, onMounted, ref, watch, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router'; // FIXED: Import for navigation
 import { useProjectSearch } from '@/composables/useProjectSearch';
 import { useProjectStore } from '@/stores';
 import { useUIStore } from '@/stores/ui';
+
+const router = useRouter(); // FIXED: Instance for navigation
 
 const props = defineProps({
   projectId: {
@@ -154,26 +157,6 @@ const groupedSuggestions = computed(() => {
     .filter((group) => group.items.length > 0);
 });
 
-// Watch for project switch (props from App.vue): Clear to prevent flashing/stale
-watch(
-  () => props.projectId,
-  (newId, oldId) => {
-    if (newId !== oldId) {
-      // Skip reset if newId matches current selected
-      if (newId && newId === composableSelected.value?.id) {
-        console.log('ProjectSelect: Props ID matches current selected - skipping reset');
-        return;
-      }
-
-      console.log('ProjectSelect: Props project switch - resetting UI');
-      localQuery.value = '';
-      isOpen.value = false;
-      highlightedId.value = null;
-      reset();
-    }
-  }
-);
-
 // Simplified selectedProject: Direct from composable
 const selectedProject = computed({
   get: () => composableSelected.value,
@@ -202,11 +185,12 @@ watch(
       await nextTick();
     }
   },
-  { immediate: true, flush: 'sync' }
+  { immediate: true, flush: 'post' }
 );
 
 // Watch selected for reactivity
 watch(selectedProject, (val) => {
+  // FIXED: Ensured proper syntax (arrow function closed)
   if (val && isOpen.value) {
     nextTick(updatePosition);
   }
@@ -334,49 +318,66 @@ const handleSelectProject = async (project) => {
   }
 };
 
-/**
- * FIXED: Improved dashboard reset
- * - Better error handling
- * - Always clears isSelecting flag
- * - More defensive checks
- */
+// ============================================
+// FIXED resetToDashboard() function
+// File: components/features/projects/ProjectSelect.vue
+// Replace your existing function with this
+// ============================================
 const resetToDashboard = async () => {
-  if (uiStore.isProjectTransitioning) {
-    console.log('ProjectSelect: Global transition in progress, skipping');
+  if (isSelecting.value || uiStore.isProjectTransitioning) {
+    console.log('⏸️ Reset blocked - operation in progress');
     return;
   }
 
-  if (isSelecting.value) {
-    console.log('ProjectSelect: Reset in progress, skipping');
-    return;
-  }
-
-  console.log('ProjectSelect: Resetting to dashboard');
+  console.log('🔄 ProjectSelect: Resetting to dashboard');
   isSelecting.value = true;
 
   try {
-    // Reset store (which updates URL)
-    await projectStore.resetActiveProject(true);
+    // Store handles: state clearing + navigation + logging
+    const success = await projectStore.resetActiveProject();
 
-    // Wait for state to propagate
-    await nextTick();
+    if (success) {
+      // Clear local UI state after successful store reset
+      localQuery.value = '';
+      composableSelected.value = null;
+      hideDropdown();
+      reset();
 
-    // Clear local UI
-    localQuery.value = '';
-    isOpen.value = false;
-    highlightedId.value = null;
-    composableSelected.value = null;
-    reset();
-    emit('reset');
-
-    console.log('ProjectSelect: Reset complete');
+      console.log('✅ Dashboard reset complete');
+    } else {
+      console.warn('⚠️ Store reset returned false');
+    }
   } catch (error) {
-    console.error('ProjectSelect: Reset failed:', error);
+    console.error('❌ ProjectSelect: Reset error:', error);
   } finally {
-    // CRITICAL: Always clear flag
     isSelecting.value = false;
   }
 };
+
+// ============================================
+// OPTIONAL: Simplified watchers (remove conflicts)
+// Remove the props.projectId watcher if you have one
+// Keep only this single source of truth watcher:
+// ============================================
+
+watch(
+  () => projectStore.activeProject,
+  async (newProject) => {
+    console.log('📊 Store changed:', newProject?.id || 'null');
+
+    if (newProject) {
+      composableSelected.value = newProject;
+      localQuery.value = newProject.name;
+    } else {
+      composableSelected.value = null;
+      localQuery.value = '';
+      reset();
+    }
+
+    await nextTick();
+  },
+  { immediate: true, flush: 'post' }
+);
 
 const handleKeydown = (e) => {
   if (!isOpen.value) return;
