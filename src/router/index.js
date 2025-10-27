@@ -251,7 +251,7 @@ router.afterEach(async (to, from) => {
     console.log('Router: Syncing store to dashboard (clearing active project)');
     try {
       // Pass false to prevent URL push (we're already at the target URL)
-      await projectStore.resetActiveProject(false);
+      await projectStore.setActiveProject(null);
       console.log('✅ Router: Store cleared for dashboard');
     } catch (error) {
       console.error('Router: Failed to clear store:', error);

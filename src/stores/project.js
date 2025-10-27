@@ -1,9 +1,9 @@
 // stores/project.js
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository';
 import { handleError } from '../utils/errorHandler';
-import { ref as dbRef, onValue } from 'firebase/database';
+import { ref as dbRef, onValue, get } from 'firebase/database';
 import firebaseCore from '@/services/firebase/core/FirebaseCore';
 import ActivityService from '@/services/logging/ActivityService.js';
 import router from '@/router';
@@ -147,20 +147,24 @@ export const useProjectStore = defineStore('project', () => {
   }
 
   function clearSubscriptions() {
-    subscriptions.value.forEach((sub) => {
-      const unsubscribe = sub.unsubscribe || sub;
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      } else if (unsubscribe && typeof unsubscribe.unsubscribe === 'function') {
-        unsubscribe.unsubscribe();
-      } else {
-        handleError(
-          new Error('Invalid subscribe type'),
-          'clearSubscriptions - Invalid unsubscribe'
-        );
-      }
-    });
-    subscriptions.value = [];
+    if (!subscriptions.value || !Array.isArray(subscriptions.value)) {
+      console.log('ℹ️ No valid subscriptions array to clear');
+      subscriptions.value = [];
+      return;
+    }
+
+    console.log('🧹 Clearing', subscriptions.value.length, 'subscriptions');
+    // FIXED: Filter functions before forEach (safe call)
+    subscriptions.value
+      .filter((s) => typeof s === 'function')
+      .forEach((unsub) => {
+        try {
+          unsub();
+        } catch (err) {
+          console.warn('Unsubscribe call failed:', err);
+        }
+      });
+    subscriptions.value = []; // Reset to empty array
   }
 
   function resetProject() {
@@ -294,61 +298,56 @@ export const useProjectStore = defineStore('project', () => {
     }
   }
 
-  // ENHANCED: Public action for resetting active project (centralized with logging and URL update)
-  async function resetActiveProject(pushUrl = true) {
-    const uiStore = useUIStore();
+  async function resetActiveProject() {
+    const uiStore = useUIStore(); // ADD THIS
 
-    if (isResetting.value || uiStore.isProjectTransitioning) {
-      console.log('Store: Reset already in progress - skipping duplicate');
-      return;
+    if (isResetting.value) {
+      console.log('⏸️ Reset already in progress - skipping');
+      return false;
     }
 
-    if (!activeProjectId.value) {
-      console.log('Store: No active project to reset');
-      return;
-    }
-
-    uiStore.setProjectTransitioning(true);
+    uiStore.setProjectTransitioning(true); // ADD THIS
     isResetting.value = true;
-    const oldId = activeProjectId.value; // For logs
-    console.log('🔄 Resetting active project:', oldId);
+    console.log('🔄 Starting resetActiveProject');
 
     try {
-      // Clear active state and subscriptions (leverage existing)
+      // ... existing subscription cleanup code ...
+
+      // Reset core state (existing)
       activeProjectId.value = null;
-      resetProject(); // Clears currentProject and subscriptions for the old project
+      currentProject.value = null;
+      loading.value = false;
+      error.value = null;
+      justReset.value = true;
 
-      // Log the reset event via ActivityService.logActivity (direct call, non-blocking)
-      await ActivityService.logActivity(
-        oldId, // projectId (old for context)
-        'dashboard_switch', // action
-        'ui', // entityType
-        null, // No entityId
-        'Switched to dashboard view', // description
-        { action: 'reset_active_project', projectId: oldId } // additionalData
-      );
-      console.log('✅ Logged dashboard switch');
+      // ADD THESE 3 LINES:
+      await nextTick(); // Wait for reactivity
 
-      // ENHANCED: Update URL to match state (default true unless called from router guard)
-      if (pushUrl) {
-        const targetPath = '/';
-        if (router.currentRoute.value.path !== targetPath) {
-          console.log('Store: Pushing URL to dashboard');
-          await router.push(targetPath);
-        }
+      if (router.currentRoute.value.path !== '/') {
+        console.log('Store: Navigating to dashboard');
+        await router.push('/');
       }
 
-      console.log('✅ Active project reset complete');
-      justReset.value = true;
-      setTimeout(() => {
-        justReset.value = false;
-      }, 500);
+      // ADD THIS: Log the deselection
+      await ActivityService.logActivity(
+        null,
+        'project_deselected',
+        'project',
+        null,
+        'Returned to dashboard',
+        {}
+      );
+
+      console.log('✅ resetActiveProject completed');
+      return true;
     } catch (err) {
-      console.error('Error in resetActiveProject:', err);
-      handleError(err, 'Failed to reset active project');
+      console.error('❌ resetActiveProject failed:', err);
+      handleError(err, 'Project reset failed');
+      return false;
     } finally {
-      isResetting.value = false; // Re-enable
-      uiStore.setProjectTransitioning(false);
+      // MOVE THESE HERE (was after try, before catch):
+      isResetting.value = false;
+      uiStore.setProjectTransitioning(false); // ADD THIS
     }
   }
 
@@ -372,6 +371,7 @@ export const useProjectStore = defineStore('project', () => {
         if (snap.exists()) {
           const updatedProjects = Object.entries(snap.val()).map(([id, p]) => ({ id, ...p }));
           projects.value = updatedProjects;
+          console.log('📦 Store projects updated:', projects.value.length, 'projects');
         } else {
           projects.value = [];
         }
@@ -420,9 +420,24 @@ export const useProjectStore = defineStore('project', () => {
       if (result && result.id) {
         await ActivityService.logEntityCreated(result.id, 'project', result.id, result.name);
         console.log('Project created and logged:', result.id);
-        if (projectsInitialized.value) {
-          // Subscription handles update
+
+        if (!projectsInitialized.value) {
+          console.log('🆕 Projects not initialized post-creation - forcing init');
+          initializeProjectsSubscription();
+        } else {
+          // ADD: Manual trigger to force subscription snapshot (safe no-op if up-to-date)
+          const projectsRef = dbRef(firebaseCore.database, 'projects');
+          get(projectsRef)
+            .then((snap) => {
+              console.log('🔄 Manual post-creation refresh triggered');
+              if (snap.exists()) {
+                const updatedProjects = Object.entries(snap.val()).map(([id, p]) => ({ id, ...p }));
+                projects.value = updatedProjects;
+              }
+            })
+            .catch((error) => console.error('Manula refresh failed:', error));
         }
+
         return result;
       } else {
         console.warn('Project creation succeeded but no ID returned');
@@ -464,13 +479,24 @@ export const useProjectStore = defineStore('project', () => {
 
       console.log('Project updated and logged:', id, 'Changes:', changes);
 
-      if (activeProjectId.value === id) {
-        currentProject.value = updatedProject;
-        currentProject.value.loadedFully = true;
-      }
-
-      if (projectsInitialized.value) {
-        // Subscription handles update
+      if (!projectsInitialized.value) {
+        console.log('🆕 Projects not initialized post-update - forcing init');
+        initializeProjectsSubscription();
+      } else {
+        // ADD: Manual trigger to force subscription snapshot (safe, no-op if up-to-date)
+        const projectsRef = dbRef(firebaseCore.database, 'projects');
+        get(projectsRef)
+          .then((snap) => {
+            console.log('🔄 Manual post-update refresh triggered');
+            if (snap.exists()) {
+              const updatedProjects = Object.entries(snap.val()).map(([pid, p]) => ({
+                id: pid,
+                ...p,
+              }));
+              projects.value = updatedProjects; // Direct set for immediate reactivity
+            }
+          })
+          .catch((err) => console.error('Manual refresh failed:', err));
       }
 
       return updatedProject;
