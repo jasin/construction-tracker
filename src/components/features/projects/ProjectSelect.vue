@@ -97,19 +97,9 @@
 
 <script setup>
 import { computed, nextTick, onMounted, ref, watch, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router'; // FIXED: Import for navigation
 import { useProjectSearch } from '@/composables/useProjectSearch';
 import { useProjectStore } from '@/stores';
 import { useUIStore } from '@/stores/ui';
-
-const router = useRouter(); // FIXED: Instance for navigation
-
-const props = defineProps({
-  projectId: {
-    type: String,
-    default: null,
-  },
-});
 
 const emit = defineEmits(['project-selected', 'reset']);
 
