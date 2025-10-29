@@ -186,16 +186,16 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
-import { Button, ProgressSpinner } from 'primevue'
-import DocumentDisplay from './DocumentDisplay.vue'
-import DocumentUploader from '@/components/features/documents/DocumentUploader.vue'
-import DocumentViewer from '@/components/features/documents/DocumentViewer.vue'
-import AttachExistingModal from '@/components/modals/AttachExistingModal.vue'
-import firebaseService from '@/services/firebase/firebaseService'
-import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
-import { formatFileSize } from '@/utils/index'
-import AttatchmentRepository from '../../services/firebase/Repositories/AttatchmentRepository'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { Button, ProgressSpinner } from 'primevue';
+import DocumentDisplay from './DocumentDisplay.vue';
+import DocumentUploader from '@/components/features/documents/DocumentUploader.vue';
+import DocumentViewer from '@/components/features/documents/DocumentViewer.vue';
+import AttachExistingModal from '@/components/modals/AttachExistingModal.vue';
+import firebaseService from '@/services/firebase/firebaseService';
+import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository';
+import { formatFileSize } from '@/utils/index';
+import AttatchmentRepository from '../../services/firebase/Repositories/AttatchmentRepository';
 
 // Props
 const props = defineProps({
@@ -211,7 +211,8 @@ const props = defineProps({
   },
   projectId: {
     type: String,
-    required: true,
+    required: false,
+    default: null,
   },
 
   // Display options
@@ -232,7 +233,7 @@ const props = defineProps({
     type: Boolean,
     default: true,
   },
-})
+});
 
 // Emits
 const emit = defineEmits([
@@ -240,60 +241,60 @@ const emit = defineEmits([
   'attachment-uploaded',
   'attachment-detached',
   'error',
-])
+]);
 
 // Reactive state
-const attachments = ref([])
-const loading = ref(true)
-const error = ref('')
+const attachments = ref([]);
+const loading = ref(true);
+const error = ref('');
 
 // UI state
-const showUploader = ref(false)
-const showAttachExisting = ref(false)
-const showViewer = ref(false)
-const selectedDocument = ref(null)
+const showUploader = ref(false);
+const showAttachExisting = ref(false);
+const showViewer = ref(false);
+const selectedDocument = ref(null);
 
 // Real-time subscription
-let attachmentsSubscription = null
+let attachmentsSubscription = null;
 
 // Computed
 const attachmentStats = computed(() => ({
   count: attachments.value.length,
   totalSize: attachments.value.reduce((sum, doc) => sum + (doc.fileSize || 0), 0),
-}))
+}));
 
-const attachedDocumentIds = computed(() => attachments.value.map((doc) => doc.id))
+const attachedDocumentIds = computed(() => attachments.value.map((doc) => doc.id));
 
 // Methods
 const loadAttachments = async () => {
   try {
-    loading.value = true
-    error.value = ''
+    loading.value = true;
+    error.value = '';
 
     const attachmentData = await AttatchmentRepository.getEntityAttachments(
       props.entityType,
-      props.entityId,
-    )
+      props.entityId
+    );
 
-    attachments.value = attachmentData
+    attachments.value = attachmentData;
 
     // Emit change event
     emit('attachments-changed', {
       count: attachmentData.length,
       totalSize: attachmentStats.value.totalSize,
       attachments: attachmentData,
-    })
+    });
   } catch (err) {
-    console.error('Error loading attachments:', err)
-    error.value = 'Failed to load attachments'
-    emit('error', err)
+    console.error('Error loading attachments:', err);
+    error.value = 'Failed to load attachments';
+    emit('error', err);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const setupRealtimeListener = () => {
-  if (!props.enableRealtime) return
+  if (!props.enableRealtime || !props.projectId) return;
 
   // Subscribe to documents where linkedEntityId matches our entityId
   // This is a simplified version - you might want to create a specific
@@ -305,109 +306,109 @@ const setupRealtimeListener = () => {
         (doc) =>
           doc.linkedEntityType === props.entityType &&
           doc.linkedEntityId === props.entityId &&
-          doc.isAttachment === true,
-      )
+          doc.isAttachment === true
+      );
 
-      attachments.value = entityAttachments
+      attachments.value = entityAttachments;
 
       emit('attachments-changed', {
         count: entityAttachments.length,
         totalSize: attachmentStats.value.totalSize,
         attachments: entityAttachments,
-      })
-    },
-  )
-}
+      });
+    }
+  );
+};
 
 const handleDocumentClick = (document) => {
-  selectedDocument.value = document
-  showViewer.value = true
-}
+  selectedDocument.value = document;
+  showViewer.value = true;
+};
 
 const handleDocumentAction = ({ action, document }) => {
   switch (action) {
     case 'view':
-      handleDocumentClick(document)
-      break
+      handleDocumentClick(document);
+      break;
     case 'download':
       if (document.googleDriveFileId) {
-        const downloadUrl = `https://drive.google.com/uc?export=download&id=${document.googleDriveFileId}`
-        window.open(downloadUrl, '_blank')
+        const downloadUrl = `https://drive.google.com/uc?export=download&id=${document.googleDriveFileId}`;
+        window.open(downloadUrl, '_blank');
       }
-      break
+      break;
     case 'drive':
       if (document.googleDriveLink) {
-        window.open(document.googleDriveLink, '_blank')
+        window.open(document.googleDriveLink, '_blank');
       }
-      break
+      break;
   }
-}
+};
 
 const handleDocumentUploaded = async (newDocument) => {
   try {
     // Link the uploaded document to our entity
-    await firebaseService.attachDocumentToEntity(newDocument.id, props.entityType, props.entityId)
+    await firebaseService.attachDocumentToEntity(newDocument.id, props.entityType, props.entityId);
 
     // Refresh attachments if not using real-time
     if (!props.enableRealtime) {
-      await loadAttachments()
+      await loadAttachments();
     }
 
-    emit('attachment-uploaded', newDocument)
-    showUploader.value = false
+    emit('attachment-uploaded', newDocument);
+    showUploader.value = false;
   } catch (err) {
-    console.error('Error linking uploaded document:', err)
-    error.value = 'Failed to attach uploaded document'
+    console.error('Error linking uploaded document:', err);
+    error.value = 'Failed to attach uploaded document';
   }
-}
+};
 
 const handleDocumentsAttached = async (documentIds) => {
   try {
     // Attach each selected document
     await Promise.all(
       documentIds.map((docId) =>
-        firebaseService.attachDocumentToEntity(docId, props.entityType, props.entityId),
-      ),
-    )
+        firebaseService.attachDocumentToEntity(docId, props.entityType, props.entityId)
+      )
+    );
 
     // Refresh attachments if not using real-time
     if (!props.enableRealtime) {
-      await loadAttachments()
+      await loadAttachments();
     }
 
-    showAttachExisting.value = false
+    showAttachExisting.value = false;
   } catch (err) {
-    console.error('Error attaching existing documents:', err)
-    error.value = 'Failed to attach documents'
+    console.error('Error attaching existing documents:', err);
+    error.value = 'Failed to attach documents';
   }
-}
+};
 
 const handleDetach = async (document) => {
   if (!confirm(`Detach "${document.name}" from this ${formatEntityType(props.entityType)}?`)) {
-    return
+    return;
   }
 
   try {
-    await firebaseService.detachDocumentFromEntity(document.id, props.entityType, props.entityId)
+    await firebaseService.detachDocumentFromEntity(document.id, props.entityType, props.entityId);
 
     // Refresh attachments if not using real-time
     if (!props.enableRealtime) {
-      await loadAttachments()
+      await loadAttachments();
     }
 
-    emit('attachment-detached', document)
+    emit('attachment-detached', document);
   } catch (err) {
-    console.error('Error detaching document:', err)
-    error.value = 'Failed to detach document'
+    console.error('Error detaching document:', err);
+    error.value = 'Failed to detach document';
   }
-}
+};
 
 const handleDocumentUpdated = (updatedDocument) => {
-  const index = attachments.value.findIndex((doc) => doc.id === updatedDocument.id)
+  const index = attachments.value.findIndex((doc) => doc.id === updatedDocument.id);
   if (index !== -1) {
-    attachments.value[index] = updatedDocument
+    attachments.value[index] = updatedDocument;
   }
-}
+};
 
 // Helper methods
 const formatEntityType = (type) => {
@@ -415,33 +416,43 @@ const formatEntityType = (type) => {
     rfi: 'RFI',
     submittal: 'Submittal',
     changeOrder: 'Change Order',
-  }
-  return typeMap[type] || type
-}
+  };
+  return typeMap[type] || type;
+};
 
 const getDefaultCategory = () => {
   const categoryMap = {
     rfi: 'rfis',
     submittal: 'submittals',
     changeOrder: 'changeOrders',
-  }
-  return categoryMap[props.entityType] || 'correspondence'
-}
+  };
+  return categoryMap[props.entityType] || 'correspondence';
+};
 
 // Lifecycle
 onMounted(async () => {
-  await loadAttachments()
+  await loadAttachments();
 
   if (props.enableRealtime) {
-    setupRealtimeListener()
+    setupRealtimeListener();
   }
-})
+});
 
 onBeforeUnmount(() => {
-  if (attachmentsSubscription) {
-    firebaseService.unsubscribe(attachmentsSubscription)
+  if (attachmentsSubscription && typeof attachmentsSubscription === 'function') {
+    try {
+      attachmentsSubscription();
+    } catch (err) {
+      console.error('Error unsubscribing from attachments:', err);
+    }
+  } else if (attachmentsSubscription) {
+    try {
+      firebaseService.unsubscribe(attachmentsSubscription);
+    } catch (err) {
+      console.error('Error unsubscribing from attachments:', err);
+    }
   }
-})
+});
 
 // Watch for entity changes
 watch(
@@ -449,18 +460,26 @@ watch(
   async () => {
     // Clean up old subscription
     if (attachmentsSubscription) {
-      firebaseService.unsubscribe(attachmentsSubscription)
-      attachmentsSubscription = null
+      try {
+        if (typeof attachmentsSubscription === 'function') {
+          attachmentsSubscription();
+        } else {
+          firebaseService.unsubscribe(attachmentsSubscription);
+        }
+      } catch (err) {
+        console.error('Error unsubscribing during watch:', err);
+      }
+      attachmentsSubscription = null;
     }
 
     // Reload for new entity
-    await loadAttachments()
+    await loadAttachments();
 
     if (props.enableRealtime) {
-      setupRealtimeListener()
+      setupRealtimeListener();
     }
-  },
-)
+  }
+);
 </script>
 
 <style scoped></style>

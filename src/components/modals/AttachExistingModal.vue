@@ -183,12 +183,12 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
-import { Dialog, Button, InputText, ProgressSpinner } from 'primevue'
-import { DOCUMENT_CATEGORIES, getDocumentIcon } from '@/constants/documentCategories'
-import DocumentStatusBadge from '@/components/features/documents/DocumentStatusBadge.vue'
-import firebaseService from '@/services/firebase/firebaseService'
-import { formatFileSize, formatTimeAgo } from '@/utils/index'
+import { ref, computed, watch, onMounted } from 'vue';
+import { Dialog, Button, InputText, ProgressSpinner } from 'primevue';
+import { DOCUMENT_CATEGORIES, getDocumentIcon } from '@/constants/documentCategories';
+import DocumentStatusBadge from '@/components/features/documents/DocumentStatusBadge.vue';
+import firebaseService from '@/services/firebase/firebaseService';
+import { formatFileSize, formatTimeAgo } from '@/utils/index';
 
 // Props
 const props = defineProps({
@@ -198,7 +198,8 @@ const props = defineProps({
   },
   projectId: {
     type: String,
-    required: true,
+    required: false,
+    default: null,
   },
   entityType: {
     type: String,
@@ -213,19 +214,19 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
-})
+});
 
 // Emits
-const emit = defineEmits(['update:visible', 'documents-attached'])
+const emit = defineEmits(['update:visible', 'documents-attached']);
 
 // Reactive state
-const loading = ref(false)
-const processing = ref(false)
-const error = ref('')
-const searchQuery = ref('')
-const activeQuickFilter = ref(null)
-const allDocuments = ref([])
-const selectedDocuments = ref(new Set())
+const loading = ref(false);
+const processing = ref(false);
+const error = ref('');
+const searchQuery = ref('');
+const activeQuickFilter = ref(null);
+const allDocuments = ref([]);
+const selectedDocuments = ref(new Set());
 
 // Quick filters
 const quickFilters = [
@@ -234,145 +235,145 @@ const quickFilters = [
   { key: 'large', label: 'Large Files (>5MB)', minSize: 5 * 1024 * 1024 },
   { key: 'images', label: 'Images', types: ['.jpg', '.jpeg', '.png', '.gif'] },
   { key: 'pdfs', label: 'PDFs', types: ['.pdf'] },
-]
+];
 
 // Computed
 const isVisible = computed({
   get: () => props.visible,
   set: (value) => emit('update:visible', value),
-})
+});
 
 const availableDocuments = computed(() => {
   return allDocuments.value.filter(
-    (doc) => !props.excludedDocumentIds.includes(doc.id) && !doc.isAttachment, // Don't include documents that are already attachments
-  )
-})
+    (doc) => !props.excludedDocumentIds.includes(doc.id) && !doc.isAttachment // Don't include documents that are already attachments
+  );
+});
 
 const filteredDocuments = computed(() => {
-  let docs = [...availableDocuments.value]
+  let docs = [...availableDocuments.value];
 
   // Apply search filter
   if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
+    const query = searchQuery.value.toLowerCase();
     docs = docs.filter(
       (doc) =>
         doc.name?.toLowerCase().includes(query) ||
         doc.description?.toLowerCase().includes(query) ||
-        doc.tags?.some((tag) => tag.toLowerCase().includes(query)),
-    )
+        doc.tags?.some((tag) => tag.toLowerCase().includes(query))
+    );
   }
 
   // Apply quick filter
   if (activeQuickFilter.value) {
-    const filter = quickFilters.find((f) => f.key === activeQuickFilter.value)
+    const filter = quickFilters.find((f) => f.key === activeQuickFilter.value);
     if (filter) {
       if (filter.days) {
-        const cutoff = new Date(Date.now() - filter.days * 24 * 60 * 60 * 1000)
-        docs = docs.filter((doc) => new Date(doc.uploadedAt) > cutoff)
+        const cutoff = new Date(Date.now() - filter.days * 24 * 60 * 60 * 1000);
+        docs = docs.filter((doc) => new Date(doc.uploadedAt) > cutoff);
       }
       if (filter.status) {
-        docs = docs.filter((doc) => doc.status === filter.status)
+        docs = docs.filter((doc) => doc.status === filter.status);
       }
       if (filter.minSize) {
-        docs = docs.filter((doc) => (doc.fileSize || 0) > filter.minSize)
+        docs = docs.filter((doc) => (doc.fileSize || 0) > filter.minSize);
       }
       if (filter.types) {
         docs = docs.filter((doc) => {
-          const ext = '.' + (doc.name?.split('.').pop()?.toLowerCase() || '')
-          return filter.types.includes(ext)
-        })
+          const ext = '.' + (doc.name?.split('.').pop()?.toLowerCase() || '');
+          return filter.types.includes(ext);
+        });
       }
     }
   }
 
   // Sort by upload date (newest first)
-  return docs.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))
-})
+  return docs.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
+});
 
 const selectedTotalSize = computed(() => {
   return Array.from(selectedDocuments.value).reduce((total, docId) => {
-    const doc = allDocuments.value.find((d) => d.id === docId)
-    return total + (doc?.fileSize || 0)
-  }, 0)
-})
+    const doc = allDocuments.value.find((d) => d.id === docId);
+    return total + (doc?.fileSize || 0);
+  }, 0);
+});
 
 // Methods
 const loadAvailableDocuments = async () => {
   try {
-    loading.value = true
-    error.value = ''
+    loading.value = true;
+    error.value = '';
 
     const documents = await firebaseService.getDocumentsByProject(props.projectId, {
       attachmentsOnly: false, // Only get non-attachment documents
-    })
+    });
 
-    allDocuments.value = documents
+    allDocuments.value = documents;
   } catch (err) {
-    console.error('Error loading available documents:', err)
-    error.value = err.message || 'Failed to load documents'
+    console.error('Error loading available documents:', err);
+    error.value = err.message || 'Failed to load documents';
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const toggleDocumentSelection = (document) => {
-  const newSelection = new Set(selectedDocuments.value)
+  const newSelection = new Set(selectedDocuments.value);
 
   if (newSelection.has(document.id)) {
-    newSelection.delete(document.id)
+    newSelection.delete(document.id);
   } else {
-    newSelection.add(document.id)
+    newSelection.add(document.id);
   }
 
-  selectedDocuments.value = newSelection
-}
+  selectedDocuments.value = newSelection;
+};
 
 const clearSelection = () => {
-  selectedDocuments.value = new Set()
-}
+  selectedDocuments.value = new Set();
+};
 
 const applyQuickFilter = (filter) => {
   if (activeQuickFilter.value === filter.key) {
-    clearQuickFilter()
+    clearQuickFilter();
   } else {
-    activeQuickFilter.value = filter.key
+    activeQuickFilter.value = filter.key;
   }
-}
+};
 
 const clearQuickFilter = () => {
-  activeQuickFilter.value = null
-}
+  activeQuickFilter.value = null;
+};
 
 const attachSelectedDocuments = async () => {
-  if (selectedDocuments.value.size === 0) return
+  if (selectedDocuments.value.size === 0) return;
 
   try {
-    processing.value = true
+    processing.value = true;
 
-    const documentIds = Array.from(selectedDocuments.value)
+    const documentIds = Array.from(selectedDocuments.value);
 
     // Emit the selected document IDs back to parent
-    emit('documents-attached', documentIds)
+    emit('documents-attached', documentIds);
 
     // Close modal
-    closeModal()
+    closeModal();
   } catch (err) {
-    console.error('Error attaching documents:', err)
-    error.value = err.message || 'Failed to attach documents'
+    console.error('Error attaching documents:', err);
+    error.value = err.message || 'Failed to attach documents';
   } finally {
-    processing.value = false
+    processing.value = false;
   }
-}
+};
 
 const closeModal = () => {
   // Reset state
-  selectedDocuments.value = new Set()
-  searchQuery.value = ''
-  activeQuickFilter.value = null
-  error.value = ''
+  selectedDocuments.value = new Set();
+  searchQuery.value = '';
+  activeQuickFilter.value = null;
+  error.value = '';
 
-  emit('update:visible', false)
-}
+  emit('update:visible', false);
+};
 
 // Helper methods
 const formatEntityType = (type) => {
@@ -380,53 +381,53 @@ const formatEntityType = (type) => {
     rfi: 'RFI',
     submittal: 'Submittal',
     changeOrder: 'Change Order',
-  }
-  return typeMap[type] || type
-}
+  };
+  return typeMap[type] || type;
+};
 
 const getCategoryLabel = (category) => {
-  const config = DOCUMENT_CATEGORIES[category]
-  return config ? config.label : category || 'Uncategorized'
-}
+  const config = DOCUMENT_CATEGORIES[category];
+  return config ? config.label : category || 'Uncategorized';
+};
 
 // Lifecycle
 onMounted(() => {
   if (props.visible) {
-    loadAvailableDocuments()
+    loadAvailableDocuments();
   }
-})
+});
 
 // Watch for visibility changes
 watch(
   () => props.visible,
   (newVal) => {
     if (newVal) {
-      loadAvailableDocuments()
+      loadAvailableDocuments();
     } else {
       // Reset when closing
-      selectedDocuments.value = new Set()
-      searchQuery.value = ''
-      activeQuickFilter.value = null
-      error.value = ''
+      selectedDocuments.value = new Set();
+      searchQuery.value = '';
+      activeQuickFilter.value = null;
+      error.value = '';
     }
-  },
-)
+  }
+);
 
 // Watch for excluded documents changes
 watch(
   () => props.excludedDocumentIds,
   () => {
     // Clear selection of any now-excluded documents
-    const newSelection = new Set()
+    const newSelection = new Set();
     selectedDocuments.value.forEach((docId) => {
       if (!props.excludedDocumentIds.includes(docId)) {
-        newSelection.add(docId)
+        newSelection.add(docId);
       }
-    })
-    selectedDocuments.value = newSelection
+    });
+    selectedDocuments.value = newSelection;
   },
-  { deep: true },
-)
+  { deep: true }
+);
 </script>
 
 <style scoped>
