@@ -248,7 +248,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch } from 'vue';
 import {
   Dialog,
   Button,
@@ -258,10 +258,10 @@ import {
   InputChips,
   ProgressBar,
   ProgressSpinner,
-} from 'primevue'
-import firebaseService from '@/services/firebase/firebaseService'
-import googleDriveService from '@/services/api/googleDriveService'
-import { DOCUMENT_CATEGORIES } from '@/constants/documentCategories'
+} from 'primevue';
+import firebaseService from '@/services/firebase/firebaseService';
+import googleDriveService from '@/services/api/googleDriveService';
+import { DOCUMENT_CATEGORIES } from '@/constants/documentCategories';
 
 // Props
 const props = defineProps({
@@ -271,7 +271,8 @@ const props = defineProps({
   },
   projectId: {
     type: String,
-    required: true,
+    required: false,
+    default: null,
   },
   category: {
     type: String,
@@ -281,45 +282,45 @@ const props = defineProps({
     type: Object,
     default: null,
   },
-})
+});
 
 // Emits
-const emit = defineEmits(['update:visible', 'document-uploaded'])
+const emit = defineEmits(['update:visible', 'document-uploaded']);
 
 // Reactive state
-const uploadMode = ref('single')
-const selectedFiles = ref([])
-const selectedCategory = ref(props.category)
-const selectedSubfolder = ref(null)
-const description = ref('')
-const tags = ref([])
-const versionNotes = ref('')
-const isDragging = ref(false)
-const uploading = ref(false)
-const uploadProgress = ref({})
-const uploadedCount = ref(0)
-const currentUploadFile = ref('')
-const error = ref('')
-const success = ref('')
-const errors = ref({})
-const fileInput = ref(null)
+const uploadMode = ref('single');
+const selectedFiles = ref([]);
+const selectedCategory = ref(props.category);
+const selectedSubfolder = ref(null);
+const description = ref('');
+const tags = ref([]);
+const versionNotes = ref('');
+const isDragging = ref(false);
+const uploading = ref(false);
+const uploadProgress = ref({});
+const uploadedCount = ref(0);
+const currentUploadFile = ref('');
+const error = ref('');
+const success = ref('');
+const errors = ref({});
+const fileInput = ref(null);
 
 // Helper functions
 const formatFileSize = (bytes) => {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
 
 const getDocumentIcon = (filename, category = null) => {
-  const extension = filename.split('.').pop().toLowerCase()
+  const extension = filename.split('.').pop().toLowerCase();
 
   // Use category icon if available
   if (category) {
-    const config = DOCUMENT_CATEGORIES[category]
-    if (config) return config.icon
+    const config = DOCUMENT_CATEGORIES[category];
+    if (config) return config.icon;
   }
 
   // Default icons by file type
@@ -336,64 +337,64 @@ const getDocumentIcon = (filename, category = null) => {
     dwg: 'pi pi-map',
     txt: 'pi pi-file',
     csv: 'pi pi-table',
-  }
+  };
 
-  return iconMap[extension] || 'pi pi-file'
-}
+  return iconMap[extension] || 'pi pi-file';
+};
 
 const isValidFileType = (filename, category) => {
-  const validTypes = getValidFileTypes(category)
-  if (validTypes.length === 0) return true // No restrictions
+  const validTypes = getValidFileTypes(category);
+  if (validTypes.length === 0) return true; // No restrictions
 
-  const extension = '.' + filename.split('.').pop().toLowerCase()
-  return validTypes.includes(extension)
-}
+  const extension = '.' + filename.split('.').pop().toLowerCase();
+  return validTypes.includes(extension);
+};
 
 const getValidFileTypes = (category) => {
-  const config = DOCUMENT_CATEGORIES[category]
-  return config ? config.allowedTypes : []
-}
+  const config = DOCUMENT_CATEGORIES[category];
+  return config ? config.allowedTypes : [];
+};
 
 const getMaxFileSize = (category) => {
-  const config = DOCUMENT_CATEGORIES[category]
-  return config ? config.maxFileSize : 25 * 1024 * 1024 // Default 25MB
-}
+  const config = DOCUMENT_CATEGORIES[category];
+  return config ? config.maxFileSize : 25 * 1024 * 1024; // Default 25MB
+};
 
 // Computed
 const isVisible = computed({
   get: () => props.visible,
   set: (value) => emit('update:visible', value),
-})
+});
 
-const isUpdate = computed(() => !!props.existingDocument)
+const isUpdate = computed(() => !!props.existingDocument);
 
 const categoryOptions = computed(() => {
   return Object.entries(DOCUMENT_CATEGORIES).map(([key, config]) => ({
     label: config.label,
     value: key,
-  }))
-})
+  }));
+});
 
 const selectedCategoryConfig = computed(() => {
-  return selectedCategory.value ? DOCUMENT_CATEGORIES[selectedCategory.value] : null
-})
+  return selectedCategory.value ? DOCUMENT_CATEGORIES[selectedCategory.value] : null;
+});
 
 const subfolderOptions = computed(() => {
-  if (!selectedCategoryConfig.value?.subfolders) return []
+  if (!selectedCategoryConfig.value?.subfolders) return [];
 
   return Object.entries(selectedCategoryConfig.value.subfolders).map(([key, label]) => ({
     label,
     value: key,
-  }))
-})
+  }));
+});
 
 const acceptedFileTypes = computed(() => {
-  if (!selectedCategoryConfig.value) return '*'
-  return selectedCategoryConfig.value.allowedTypes.join(',')
-})
+  if (!selectedCategoryConfig.value) return '*';
+  return selectedCategoryConfig.value.allowedTypes.join(',');
+});
 
 const validationWarnings = computed(() => {
-  const warnings = []
+  const warnings = [];
 
   selectedFiles.value.forEach((file) => {
     // Check file type
@@ -401,23 +402,23 @@ const validationWarnings = computed(() => {
       warnings.push({
         file: file.name,
         message: `File type not allowed for ${selectedCategoryConfig.value.label}`,
-      })
+      });
     }
 
     // Check file size
     const maxSize = selectedCategory.value
       ? getMaxFileSize(selectedCategory.value)
-      : 50 * 1024 * 1024
+      : 50 * 1024 * 1024;
     if (file.size > maxSize) {
       warnings.push({
         file: file.name,
         message: `File size (${formatFileSize(file.size)}) exceeds maximum allowed (${formatFileSize(maxSize)})`,
-      })
+      });
     }
-  })
+  });
 
-  return warnings
-})
+  return warnings;
+});
 
 const canUpload = computed(() => {
   return (
@@ -425,81 +426,81 @@ const canUpload = computed(() => {
     selectedCategory.value &&
     validationWarnings.value.length === 0 &&
     !uploading.value
-  )
-})
+  );
+});
 
 // Methods
 const handleFileSelect = (event) => {
-  const files = Array.from(event.target.files)
-  addFiles(files)
-}
+  const files = Array.from(event.target.files);
+  addFiles(files);
+};
 
 const handleDrop = (event) => {
-  event.preventDefault()
-  isDragging.value = false
+  event.preventDefault();
+  isDragging.value = false;
 
-  const files = Array.from(event.dataTransfer.files)
-  addFiles(files)
-}
+  const files = Array.from(event.dataTransfer.files);
+  addFiles(files);
+};
 
 const addFiles = (files) => {
   if (uploadMode.value === 'single') {
-    selectedFiles.value = files.slice(0, 1)
+    selectedFiles.value = files.slice(0, 1);
   } else {
-    selectedFiles.value = [...selectedFiles.value, ...files]
+    selectedFiles.value = [...selectedFiles.value, ...files];
   }
 
   // Reset file input
   if (fileInput.value) {
-    fileInput.value.value = ''
+    fileInput.value.value = '';
   }
-}
+};
 
 const removeFile = (index) => {
-  selectedFiles.value.splice(index, 1)
-}
+  selectedFiles.value.splice(index, 1);
+};
 
 const getFileIcon = (filename) => {
-  return getDocumentIcon(filename, selectedCategory.value)
-}
+  return getDocumentIcon(filename, selectedCategory.value);
+};
 
 const validateForm = () => {
-  errors.value = {}
+  errors.value = {};
 
   if (!selectedCategory.value) {
-    errors.value.category = 'Please select a category'
+    errors.value.category = 'Please select a category';
   }
 
   if (selectedFiles.value.length === 0) {
-    errors.value.files = 'Please select at least one file'
+    errors.value.files = 'Please select at least one file';
   }
 
-  return Object.keys(errors.value).length === 0
-}
+  return Object.keys(errors.value).length === 0;
+};
 
 const uploadFiles = async () => {
   if (!validateForm()) {
-    return
+    return;
   }
 
-  uploading.value = true
-  uploadedCount.value = 0
-  uploadProgress.value = {}
-  error.value = ''
-  success.value = ''
+  uploading.value = true;
+  uploadedCount.value = 0;
+  uploadProgress.value = {};
+  error.value = '';
+  success.value = '';
 
   try {
     // Initialize Google Drive if needed
     if (!googleDriveService.isSignedIn()) {
-      await googleDriveService.signIn()
+      await googleDriveService.signIn();
     }
 
-    const uploadedDocuments = []
+    const uploadedDocuments = [];
 
     for (let i = 0; i < selectedFiles.value.length; i++) {
-      const file = selectedFiles.value[i]
-      currentUploadFile.value = file.name
-      uploadProgress.value[i] = 0
+      const file = selectedFiles.value[i];
+      currentUploadFile.value = file.name;
+      uploadProgress.value[i] = 0;
 
       try {
         // Upload to Google Drive
@@ -509,10 +510,10 @@ const uploadFiles = async () => {
           {
             name: file.name,
             description: description.value,
-          },
-        )
+          }
+        );
 
-        uploadProgress.value[i] = 50
+        uploadProgress.value[i] = 50;
 
         // Create document record in Firebase
         const documentData = {
@@ -531,7 +532,7 @@ const uploadFiles = async () => {
 
           // Status
           status: selectedCategoryConfig.value?.requiresApproval ? 'pending' : 'approved',
-        }
+        };
 
         // Handle version updates
         if (isUpdate.value) {
@@ -547,91 +548,91 @@ const uploadFiles = async () => {
               description: description.value,
               versionNotes: versionNotes.value,
               tags: tags.value,
-            },
-          )
-          uploadedDocuments.push(updatedDoc)
+            }
+          );
+          uploadedDocuments.push(updatedDoc);
         } else {
-          const newDoc = await firebaseService.createDocument(documentData)
-          uploadedDocuments.push(newDoc)
+          const newDoc = await firebaseService.createDocument(documentData);
+          uploadedDocuments.push(newDoc);
         }
 
-        uploadProgress.value[i] = 100
-        uploadedCount.value++
+        uploadProgress.value[i] = 100;
+        uploadedCount.value++;
       } catch (fileError) {
-        console.error(`Error uploading ${file.name}:`, fileError)
-        uploadProgress.value[i] = -1 // Error state
-        throw new Error(`Failed to upload ${file.name}: ${fileError.message}`)
+        console.error(`Error uploading ${file.name}:`, fileError);
+        uploadProgress.value[i] = -1; // Error state
+        throw new Error(`Failed to upload ${file.name}: ${fileError.message}`);
       }
     }
 
     // Success
-    const fileCount = uploadedDocuments.length
-    success.value = `Successfully uploaded ${fileCount} document${fileCount > 1 ? 's' : ''}`
+    const fileCount = uploadedDocuments.length;
+    success.value = `Successfully uploaded ${fileCount} document${fileCount > 1 ? 's' : ''}`;
 
     // Emit events
     uploadedDocuments.forEach((doc) => {
-      emit('document-uploaded', doc)
-    })
+      emit('document-uploaded', doc);
+    });
 
     // Reset form after successful upload
     setTimeout(() => {
-      resetForm()
-      closeDialog()
-    }, 2000)
+      resetForm();
+      closeDialog();
+    }, 2000);
   } catch (err) {
-    console.error('Upload error:', err)
-    error.value = err.message || 'Failed to upload documents'
+    console.error('Upload error:', err);
+    error.value = err.message || 'Failed to upload documents';
   } finally {
-    uploading.value = false
-    currentUploadFile.value = ''
+    uploading.value = false;
+    currentUploadFile.value = '';
   }
-}
+};
 
 const resetForm = () => {
-  selectedFiles.value = []
-  selectedCategory.value = props.category
-  selectedSubfolder.value = null
-  description.value = ''
-  tags.value = []
-  versionNotes.value = ''
-  uploadProgress.value = {}
-  uploadedCount.value = 0
-  error.value = ''
-  success.value = ''
-  errors.value = {}
-}
+  selectedFiles.value = [];
+  selectedCategory.value = props.category;
+  selectedSubfolder.value = null;
+  description.value = '';
+  tags.value = [];
+  versionNotes.value = '';
+  uploadProgress.value = {};
+  uploadedCount.value = 0;
+  error.value = '';
+  success.value = '';
+  errors.value = {};
+};
 
 const closeDialog = () => {
   if (!uploading.value) {
-    resetForm()
-    emit('update:visible', false)
+    resetForm();
+    emit('update:visible', false);
   }
-}
+};
 
 // Watch for prop changes
 watch(
   () => props.visible,
   (newVal) => {
     if (newVal) {
-      resetForm()
+      resetForm();
       if (props.existingDocument) {
         // Pre-fill form for updates
-        selectedCategory.value = props.existingDocument.category
-        description.value = props.existingDocument.description || ''
-        tags.value = props.existingDocument.tags || []
+        selectedCategory.value = props.existingDocument.category;
+        description.value = props.existingDocument.description || '';
+        tags.value = props.existingDocument.tags || [];
       }
     }
-  },
-)
+  }
+);
 
 watch(
   () => props.category,
   (newCategory) => {
     if (newCategory) {
-      selectedCategory.value = newCategory
+      selectedCategory.value = newCategory;
     }
-  },
-)
+  }
+);
 </script>
 
 <style scoped>
