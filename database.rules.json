@@ -3,7 +3,7 @@
     ".read": true,
     ".write": true,
     "tasks": {
-      ".indexOn": ["projectId"]
+      ".indexOn": ["projectId", "assignedTo"]
     },
     "activityLog": {
       ".indexOn": ["projectId", "timestamp"]

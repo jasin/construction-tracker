@@ -299,36 +299,35 @@ export const useProjectStore = defineStore('project', () => {
   }
 
   async function resetActiveProject() {
-    const uiStore = useUIStore(); // ADD THIS
+    const uiStore = useUIStore();
 
     if (isResetting.value) {
-      console.log('⏸️ Reset already in progress - skipping');
       return false;
     }
 
-    uiStore.setProjectTransitioning(true); // ADD THIS
+    uiStore.setProjectTransitioning(true);
     isResetting.value = true;
-    console.log('🔄 Starting resetActiveProject');
 
     try {
-      // ... existing subscription cleanup code ...
+      // Clear subscriptions first
+      clearSubscriptions();
 
-      // Reset core state (existing)
+      // Reset core state
       activeProjectId.value = null;
       currentProject.value = null;
       loading.value = false;
       error.value = null;
       justReset.value = true;
 
-      // ADD THESE 3 LINES:
-      await nextTick(); // Wait for reactivity
+      // CRITICAL: Wait for reactivity to propagate
+      await nextTick();
 
+      // Navigate to dashboard if needed
       if (router.currentRoute.value.path !== '/') {
-        console.log('Store: Navigating to dashboard');
         await router.push('/');
       }
 
-      // ADD THIS: Log the deselection
+      // Log the deselection
       await ActivityService.logActivity(
         null,
         'project_deselected',
@@ -338,16 +337,14 @@ export const useProjectStore = defineStore('project', () => {
         {}
       );
 
-      console.log('✅ resetActiveProject completed');
       return true;
     } catch (err) {
-      console.error('❌ resetActiveProject failed:', err);
+      console.error('resetActiveProject failed:', err);
       handleError(err, 'Project reset failed');
       return false;
     } finally {
-      // MOVE THESE HERE (was after try, before catch):
       isResetting.value = false;
-      uiStore.setProjectTransitioning(false); // ADD THIS
+      uiStore.setProjectTransitioning(false);
     }
   }
 

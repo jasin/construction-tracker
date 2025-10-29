@@ -8,6 +8,29 @@
       <p class="text-surface-600 mb-6">
         Monitor active projects, track progress, and manage construction operations
       </p>
+
+      <!-- User Tasks Section -->
+      <div class="mb-8">
+        <Card>
+          <template #content>
+            <TaskList
+              :tasks="taskStore.userActiveTasks"
+              :loading="taskStore.userTasksLoading"
+              title="My Tasks"
+              empty-message="No tasks assigned to you"
+              :show-create-button="true"
+              :show-project-name="true"
+              sort-by="dueDate"
+              @task-click="handleTaskClick"
+              @create-task="handleCreateTask"
+              @toggle-complete="handleToggleComplete"
+            />
+          </template>
+        </Card>
+      </div>
+
+      <!-- Active Projects Section -->
+      <h2 class="text-xl font-semibold text-surface-900 mb-4">Recent Project Activity</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         <Card
           v-for="project in activeProjects"
@@ -84,6 +107,14 @@
         No active projects with recent activity
       </div>
     </div>
+
+    <!-- Task Dialog -->
+    <TaskDialog
+      v-model:visible="taskDialogVisible"
+      :task="selectedTask"
+      :project-id="null"
+      @task-saved="handleTaskSaved"
+    />
   </div>
 </template>
 
@@ -95,13 +126,23 @@ import ProgressSpinner from 'primevue/progressspinner';
 import ActivityService from '@/services/logging/ActivityService';
 
 import { useProjectStore } from '@/stores/project';
+import { useTaskStore } from '@/stores/task';
+import { useUIStore } from '@/stores/ui';
+import TaskList from '@/components/lists/TaskList.vue';
+import TaskDialog from '@/components/forms/TaskDialog.vue';
 
 const projectStore = useProjectStore();
+const taskStore = useTaskStore();
+const uiStore = useUIStore();
 
 const loading = ref(true);
 
 const activities = ref([]);
 let activityUnsubscribe = null;
+
+// Task dialog state
+const taskDialogVisible = ref(false);
+const selectedTask = ref(null);
 
 /**
  * Computes grouped activities by projectId.
@@ -240,15 +281,67 @@ const handleProjectClick = async (project) => {
   // That's it! No manual router.push needed
 };
 
+/**
+ * Handle task click - open task dialog for editing
+ * @param {Object} task - The task to edit
+ */
+const handleTaskClick = (task) => {
+  console.log('DashboardView: Task clicked:', task.id);
+  selectedTask.value = task;
+  taskDialogVisible.value = true;
+};
+
+/**
+ * Handle create task - open task dialog for new task
+ */
+const handleCreateTask = () => {
+  console.log('DashboardView: Creating new task');
+  selectedTask.value = null;
+  taskDialogVisible.value = true;
+};
+
+/**
+ * Handle toggle task completion
+ * @param {Object} task - The task to toggle
+ */
+const handleToggleComplete = async (task) => {
+  console.log('DashboardView: Toggling task completion:', task.id);
+
+  if (task.status === 'complete') {
+    // Reopen the task
+    await taskStore.reopenTask(task.id);
+  } else {
+    // Mark as complete
+    await taskStore.completeTask(task.id);
+  }
+};
+
+/**
+ * Handle task saved from dialog
+ * @param {Object} task - The saved task
+ */
+const handleTaskSaved = (task) => {
+  console.log('DashboardView: Task saved:', task);
+  taskDialogVisible.value = false;
+  selectedTask.value = null;
+  // Task subscriptions will auto-update the list
+};
+
 onMounted(async () => {
   loadData();
   setupActivitySubscription();
+
+  // Initialize user tasks subscription
+  taskStore.initializeUserTasksSubscription();
 });
 
 onUnmounted(() => {
   if (activityUnsubscribe) {
     activityUnsubscribe();
   }
+
+  // Cleanup task subscriptions
+  taskStore.cleanupUserTasksSubscription();
 });
 </script>
 
