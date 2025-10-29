@@ -315,31 +315,32 @@ const handleSelectProject = async (project) => {
 // ============================================
 const resetToDashboard = async () => {
   if (isSelecting.value || uiStore.isProjectTransitioning) {
-    console.log('⏸️ Reset blocked - operation in progress');
     return;
   }
 
-  console.log('🔄 ProjectSelect: Resetting to dashboard');
   isSelecting.value = true;
 
   try {
-    // Store handles: state clearing + navigation + logging
     const success = await projectStore.resetActiveProject();
 
     if (success) {
+      // CRITICAL: Wait for store reactivity to propagate BEFORE clearing local state
+      await nextTick();
+
       // Clear local UI state after successful store reset
       localQuery.value = '';
       composableSelected.value = null;
       hideDropdown();
       reset();
 
-      console.log('✅ Dashboard reset complete');
-    } else {
-      console.warn('⚠️ Store reset returned false');
+      // CRITICAL: Wait for component reactivity after clearing state
+      await nextTick();
     }
   } catch (error) {
-    console.error('❌ ProjectSelect: Reset error:', error);
+    console.error('ProjectSelect reset error:', error);
   } finally {
+    // CRITICAL: Wait before clearing the guard flag
+    await nextTick();
     isSelecting.value = false;
   }
 };
@@ -353,8 +354,6 @@ const resetToDashboard = async () => {
 watch(
   () => projectStore.activeProject,
   async (newProject) => {
-    console.log('📊 Store changed:', newProject?.id || 'null');
-
     if (newProject) {
       composableSelected.value = newProject;
       localQuery.value = newProject.name;
