@@ -377,9 +377,27 @@ export const useTaskStore = defineStore('task', () => {
    * @returns {Promise<Object|null>} Updated task or null on failure
    */
   async function reopenTask(taskId) {
+    // Load the task to check its current status
+    const task = await loadTask(taskId);
+
+    if (!task) {
+      console.error('Cannot reopen task - task not found:', taskId);
+      return null;
+    }
+
+    // If already in todo or in-progress, just clear completedAt
+    if (task.status === 'todo' || task.status === 'in-progress') {
+      return await updateTask(taskId, {
+        completedAt: null,
+        progress: task.status === 'in-progress' ? task.progress || 50 : 0,
+      });
+    }
+
+    // Otherwise transition to in-progress (not todo) since user was working on it
     return await updateTask(taskId, {
-      status: 'todo',
+      status: 'in-progress',
       completedAt: null,
+      progress: 50,
     });
   }
 

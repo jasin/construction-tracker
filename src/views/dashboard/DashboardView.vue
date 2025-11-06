@@ -12,18 +12,35 @@
       <!-- User Tasks Section -->
       <div class="mb-8">
         <Card>
+          <template #header>
+            <div class="flex justify-between items-center p-4 pb-0">
+              <h3 class="text-lg font-semibold text-surface-900">My Tasks</h3>
+              <Button
+                icon="pi pi-cog"
+                severity="secondary"
+                text
+                rounded
+                @click="showTaskSettings = true"
+                v-tooltip.left="'Task Display Settings'"
+              />
+            </div>
+          </template>
           <template #content>
             <TaskList
-              :tasks="taskStore.userActiveTasks"
+              :tasks="taskStore.userTasks"
               :loading="taskStore.userTasksLoading"
-              title="My Tasks"
+              title=""
               empty-message="No tasks assigned to you"
               :show-create-button="true"
               :show-project-name="true"
-              sort-by="dueDate"
+              sort-by="priority"
+              :filter-completed-tasks="true"
               @task-click="handleTaskClick"
               @create-task="handleCreateTask"
               @toggle-complete="handleToggleComplete"
+              @status-change="handleStatusChange"
+              @edit-task="handleEditTask"
+              @delete-task="handleDeleteTask"
             />
           </template>
         </Card>
@@ -115,25 +132,122 @@
       :project-id="null"
       @task-saved="handleTaskSaved"
     />
+
+    <!-- Task Settings Dialog -->
+    <Dialog
+      v-model:visible="showTaskSettings"
+      modal
+      header="Task Display Settings"
+      :style="{ width: '500px' }"
+    >
+      <div class="space-y-6">
+        <!-- Completed Tasks Filter -->
+        <div class="settings-section">
+          <h4 class="text-sm font-semibold text-surface-900 mb-3">Completed Tasks</h4>
+
+          <div class="flex items-center justify-between mb-3">
+            <label class="text-sm text-surface-700">Filter completed tasks</label>
+            <InputSwitch v-model="completedTasksEnabled" />
+          </div>
+
+          <div v-if="completedTasksEnabled" class="ml-4 space-y-3">
+            <div>
+              <label class="block text-sm text-surface-700 mb-2">
+                Show completed tasks from the last
+              </label>
+              <div class="flex items-center gap-2">
+                <InputNumber
+                  v-model="completedTasksDays"
+                  :min="1"
+                  :max="365"
+                  :step="1"
+                  class="w-24"
+                  suffix=" days"
+                />
+                <span class="text-sm text-surface-600">days</span>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              <Button
+                v-for="preset in dayPresets"
+                :key="preset.value"
+                :label="preset.label"
+                size="small"
+                :severity="completedTasksDays === preset.value ? 'primary' : 'secondary'"
+                outlined
+                @click="completedTasksDays = preset.value"
+              />
+            </div>
+
+            <p class="text-xs text-surface-500 mt-2">
+              <i class="pi pi-info-circle mr-1"></i>
+              Completed tasks older than {{ completedTasksDays }} day{{
+                completedTasksDays !== 1 ? 's' : ''
+              }}
+              (based on completion date) will be hidden from the list
+            </p>
+          </div>
+
+          <div v-else class="ml-4">
+            <p class="text-xs text-surface-500">
+              <i class="pi pi-info-circle mr-1"></i>
+              All completed tasks will be shown regardless of age
+            </p>
+          </div>
+        </div>
+
+        <!-- Visual Separator -->
+        <div class="border-t border-surface-200"></div>
+
+        <!-- Info Section -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <p class="text-sm text-blue-800">
+            <i class="pi pi-lightbulb mr-2"></i>
+            <strong>Task Order:</strong> Tasks are displayed in priority order (Critical, High,
+            Medium, Low) with completed tasks shown last.
+          </p>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-between">
+          <Button label="Reset to Defaults" severity="secondary" text @click="resetToDefaults" />
+          <div class="flex gap-2">
+            <Button label="Cancel" severity="secondary" outlined @click="cancelSettings" />
+            <Button label="Save" @click="saveSettings" />
+          </div>
+        </div>
+      </template>
+    </Dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useToast } from 'primevue/usetoast';
 
 import Card from 'primevue/card';
+import Button from 'primevue/button';
+import Dialog from 'primevue/dialog';
+import InputSwitch from 'primevue/inputswitch';
+import InputNumber from 'primevue/inputnumber';
 import ProgressSpinner from 'primevue/progressspinner';
 import ActivityService from '@/services/logging/ActivityService';
 
 import { useProjectStore } from '@/stores/project';
 import { useTaskStore } from '@/stores/task';
 import { useUIStore } from '@/stores/ui';
+import { useUserSettingsStore } from '@/stores/userSettings';
 import TaskList from '@/components/lists/TaskList.vue';
 import TaskDialog from '@/components/forms/TaskDialog.vue';
+
+const toast = useToast();
 
 const projectStore = useProjectStore();
 const taskStore = useTaskStore();
 const uiStore = useUIStore();
+const userSettingsStore = useUserSettingsStore();
 
 const loading = ref(true);
 
@@ -143,6 +257,21 @@ let activityUnsubscribe = null;
 // Task dialog state
 const taskDialogVisible = ref(false);
 const selectedTask = ref(null);
+
+// Task settings dialog state
+const showTaskSettings = ref(false);
+const completedTasksEnabled = ref(false); // Default to disabled - show all completed tasks
+const completedTasksDays = ref(7);
+
+// Day presets for quick selection
+const dayPresets = [
+  { label: '1 Day', value: 1 },
+  { label: '3 Days', value: 3 },
+  { label: '1 Week', value: 7 },
+  { label: '2 Weeks', value: 14 },
+  { label: '1 Month', value: 30 },
+  { label: '3 Months', value: 90 },
+];
 
 /**
  * Computes grouped activities by projectId.
@@ -307,12 +436,40 @@ const handleCreateTask = () => {
 const handleToggleComplete = async (task) => {
   console.log('DashboardView: Toggling task completion:', task.id);
 
-  if (task.status === 'complete') {
-    // Reopen the task
-    await taskStore.reopenTask(task.id);
-  } else {
-    // Mark as complete
-    await taskStore.completeTask(task.id);
+  try {
+    if (task.status === 'complete') {
+      // Reopen the task
+      const result = await taskStore.reopenTask(task.id);
+      if (result) {
+        toast.add({
+          severity: 'success',
+          summary: 'Task Reopened',
+          detail: `"${task.title}" has been reopened`,
+          life: 3000,
+        });
+      }
+    } else {
+      // Mark as complete - this will trigger dependency validation in TaskRepository
+      const result = await taskStore.completeTask(task.id);
+      if (result) {
+        toast.add({
+          severity: 'success',
+          summary: 'Task Completed',
+          detail: `"${task.title}" has been marked as complete`,
+          life: 3000,
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error toggling task completion:', error);
+
+    // Show error toast with the validation message
+    toast.add({
+      severity: 'error',
+      summary: 'Cannot Complete Task',
+      detail: error.message || 'An error occurred while updating the task',
+      life: 6000,
+    });
   }
 };
 
@@ -327,12 +484,124 @@ const handleTaskSaved = (task) => {
   // Task subscriptions will auto-update the list
 };
 
+/**
+ * Handle status change from TaskList
+ * @param {Object} payload - { task, newStatus }
+ */
+const handleStatusChange = async ({ task, newStatus }) => {
+  console.log('DashboardView: Changing task status:', task.id, 'to', newStatus);
+
+  try {
+    const result = await taskStore.updateTask(task.id, { status: newStatus });
+    if (result) {
+      toast.add({
+        severity: 'success',
+        summary: 'Status Updated',
+        detail: `"${task.title}" status changed to ${newStatus}`,
+        life: 3000,
+      });
+    }
+  } catch (error) {
+    console.error('Error changing task status:', error);
+
+    toast.add({
+      severity: 'error',
+      summary: 'Status Change Failed',
+      detail: error.message || 'An error occurred while updating the task status',
+      life: 6000,
+    });
+  }
+};
+
+/**
+ * Handle edit task from TaskList hover action
+ * @param {Object} task - The task to edit
+ */
+const handleEditTask = (task) => {
+  console.log('DashboardView: Editing task:', task.id);
+  selectedTask.value = task;
+  taskDialogVisible.value = true;
+};
+
+/**
+ * Handle delete task from TaskList hover action
+ * @param {Object} task - The task to delete
+ */
+const handleDeleteTask = async (task) => {
+  console.log('DashboardView: Deleting task:', task.id);
+
+  // Show confirmation dialog
+  if (!confirm(`Are you sure you want to delete "${task.title}"?`)) {
+    return;
+  }
+
+  try {
+    const result = await taskStore.deleteTask(task.id);
+    if (result) {
+      toast.add({
+        severity: 'success',
+        summary: 'Task Deleted',
+        detail: `"${task.title}" has been deleted`,
+        life: 3000,
+      });
+    }
+  } catch (error) {
+    console.error('Error deleting task:', error);
+
+    toast.add({
+      severity: 'error',
+      summary: 'Delete Failed',
+      detail: error.message || 'An error occurred while deleting the task',
+      life: 5000,
+    });
+  }
+};
+
+/**
+ * Load settings from user settings store
+ */
+const loadSettings = () => {
+  completedTasksEnabled.value = userSettingsStore.settings.completedTasksFilter.enabled;
+  completedTasksDays.value = userSettingsStore.settings.completedTasksFilter.timePeriod;
+};
+
+/**
+ * Save settings to user settings store
+ */
+const saveSettings = () => {
+  userSettingsStore.updateCompletedTasksFilter({
+    enabled: completedTasksEnabled.value,
+    timePeriod: completedTasksDays.value,
+  });
+  showTaskSettings.value = false;
+};
+
+/**
+ * Cancel settings changes and revert to stored values
+ */
+const cancelSettings = () => {
+  loadSettings();
+  showTaskSettings.value = false;
+};
+
+/**
+ * Reset settings to defaults
+ */
+const resetToDefaults = () => {
+  completedTasksEnabled.value = false; // Disabled by default
+  completedTasksDays.value = 7;
+};
+
 onMounted(async () => {
   loadData();
   setupActivitySubscription();
 
   // Initialize user tasks subscription
   taskStore.initializeUserTasksSubscription();
+
+  // Load user settings
+  userSettingsStore.loadSettings();
+  loadSettings();
 });
 
 onUnmounted(() => {
@@ -346,5 +615,15 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Existing styles - add if needed */
+.space-y-6 > * + * {
+  margin-top: 1.5rem;
+}
+
+.space-y-3 > * + * {
+  margin-top: 0.75rem;
+}
+
+.settings-section {
+  padding: 0.5rem 0;
+}
 </style>

@@ -1,39 +1,43 @@
 // src/services/firebase/core/FirebaseCore.js
-import { database } from '@/configs/firebase'
-import { getCurrentUserId, getCurrentUserName } from '@/services/auth/authService'
+import { database } from '@/configs/firebase';
+import { getCurrentUserId, getCurrentUserName } from '@/services/auth/authService';
 
 /**
  * Core Firebase utilities and connection management
  */
 class FirebaseCore {
   constructor() {
-    this.database = database
+    this.database = database;
   }
 
   /**
    * Get current user ID with fallback
    */
   getCurrentUserId() {
-    return getCurrentUserId() || 'system'
+    return getCurrentUserId() || 'system';
   }
 
   /**
    * Get current user name with fallback
    */
   getCurrentUserName() {
-    return getCurrentUserName() || 'System'
+    return getCurrentUserName() || 'System';
   }
 
   /**
    * Add creation metadata to data
    */
   addCreateMetadata(data) {
+    const timestamp = new Date().toISOString();
     return {
       ...data,
-      createdAt: new Date().toISOString(),
+      createdAt: timestamp,
+      updatedAt: timestamp, // Set updatedAt on creation so new entities have a timestamp
       createdBy: this.getCurrentUserId(),
       createdByName: this.getCurrentUserName(),
-    }
+      updatedBy: this.getCurrentUserId(),
+      updatedByName: this.getCurrentUserName(),
+    };
   }
 
   /**
@@ -45,18 +49,18 @@ class FirebaseCore {
       updatedAt: new Date().toISOString(),
       updatedBy: this.getCurrentUserId(),
       updatedByName: this.getCurrentUserName(),
-    }
+    };
   }
 
   /**
    * Generate a consistent error for logging
    */
   createError(operation, entityType, originalError) {
-    const error = new Error(`${operation} ${entityType} failed: ${originalError.message}`)
-    error.originalError = originalError
-    error.operation = operation
-    error.entityType = entityType
-    return error
+    const error = new Error(`${operation} ${entityType} failed: ${originalError.message}`);
+    error.originalError = originalError;
+    error.operation = operation;
+    error.entityType = entityType;
+    return error;
   }
 
   /**
@@ -69,8 +73,8 @@ class FirebaseCore {
       entityId,
       data: data ? Object.keys(data) : null,
       timestamp: new Date().toISOString(),
-    })
+    });
   }
 }
 
-export default new FirebaseCore()
+export default new FirebaseCore();

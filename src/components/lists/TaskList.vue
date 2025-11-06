@@ -26,31 +26,77 @@
         :key="task.id"
         class="task-item"
         :class="getTaskStatusClass(task)"
+        :data-priority="task.priority"
+        :data-status="task.status"
         @click="handleTaskClick(task)"
       >
         <div class="task-header">
-          <div class="task-title-row">
-            <Checkbox
-              v-model="task.status"
-              :binary="false"
-              :value="'complete'"
-              @click.stop="handleToggleComplete(task)"
-              class="task-checkbox"
-            />
-            <span class="task-title" :class="{ 'line-through': task.status === 'complete' }">
-              {{ task.title }}
-            </span>
+          <!-- Status Icon with Dropdown -->
+          <div class="status-control" @click.stop>
+            <button
+              class="status-icon-button"
+              :class="`status-${task.status}`"
+              @click="handleStatusIconClick(task)"
+              :title="getStatusTooltip(task)"
+            >
+              <i :class="getStatusIcon(task)"></i>
+            </button>
+            <button
+              class="status-dropdown-button"
+              @click="toggleStatusDropdown(task)"
+              :title="'Change status'"
+            >
+              <i class="pi pi-chevron-down text-xs"></i>
+            </button>
+
+            <!-- Status Dropdown Menu -->
+            <div v-if="activeDropdown === task.id" class="status-dropdown-menu" @click.stop>
+              <div
+                v-for="status in statusOptions"
+                :key="status.value"
+                class="status-menu-item"
+                :class="{ active: task.status === status.value }"
+                @click="handleStatusChange(task, status.value)"
+              >
+                <i :class="getStatusIconForValue(status.value)"></i>
+                <span>{{ status.label }}</span>
+                <i v-if="task.status === status.value" class="pi pi-check ml-auto"></i>
+              </div>
+            </div>
           </div>
-          <div class="task-badges">
-            <Tag
-              :value="formatPriority(task.priority)"
-              :severity="getPrioritySeverity(task.priority)"
-              class="text-xs"
+
+          <!-- Task Title -->
+          <span class="task-title" :class="{ 'line-through': task.status === 'complete' }">
+            {{ task.title }}
+          </span>
+
+          <!-- Priority Badge (only for critical/high) -->
+          <Tag
+            v-if="task.priority === 'critical' || task.priority === 'high'"
+            :value="formatPriority(task.priority)"
+            :severity="getPrioritySeverity(task.priority)"
+            class="task-priority-badge"
+          />
+
+          <!-- Hover Actions -->
+          <div class="task-hover-actions">
+            <Button
+              icon="pi pi-pencil"
+              severity="secondary"
+              text
+              rounded
+              size="small"
+              @click.stop="handleEditTask(task)"
+              v-tooltip.top="'Edit task'"
             />
-            <Tag
-              :value="formatStatus(task.status)"
-              :severity="getStatusSeverity(task.status)"
-              class="text-xs"
+            <Button
+              icon="pi pi-trash"
+              severity="danger"
+              text
+              rounded
+              size="small"
+              @click.stop="handleDeleteTask(task)"
+              v-tooltip.top="'Delete task'"
             />
           </div>
         </div>
@@ -60,9 +106,9 @@
         </div>
 
         <div class="task-meta">
-          <div v-if="task.assignedToName" class="meta-item">
+          <div v-if="task.assignedToName || task.assignedTo" class="meta-item">
             <i class="pi pi-user text-xs"></i>
-            <span>{{ task.assignedToName }}</span>
+            <span>{{ task.assignedToName || task.assignedTo || 'Unassigned' }}</span>
           </div>
 
           <div v-if="task.dueDate" class="meta-item" :class="getDueDateClass(task)">
@@ -87,7 +133,49 @@
           </div>
         </div>
 
-        <div v-if="task.progress !== undefined && task.progress !== null" class="task-progress">
+        <!-- Dependency Status -->
+        <div v-if="hasDependencies(task)" class="dependency-section" @click.stop>
+          <div class="dependency-header">
+            <div class="flex items-center gap-2">
+              <i class="pi pi-link text-xs text-surface-600"></i>
+              <span class="text-xs font-medium text-surface-700">Dependencies</span>
+            </div>
+            <span class="text-xs text-surface-600">
+              {{ getDependencyStatus(task).complete }}/{{ getDependencyStatus(task).total }}
+              complete
+            </span>
+          </div>
+
+          <ProgressBar
+            :value="getDependencyStatus(task).percentage"
+            :show-value="false"
+            class="h-2 mt-1"
+            :severity="getDependencyProgressSeverity(task)"
+          />
+
+          <!-- Blocked Warning -->
+          <div
+            v-if="!getDependencyStatus(task).allComplete && task.status !== 'complete'"
+            class="blocked-warning"
+          >
+            <i class="pi pi-exclamation-circle text-xs"></i>
+            <span class="text-xs"> Blocked by: {{ getBlockedByText(task) }} </span>
+          </div>
+
+          <!-- Ready Badge -->
+          <div
+            v-else-if="getDependencyStatus(task).allComplete && task.status !== 'complete'"
+            class="ready-badge"
+          >
+            <i class="pi pi-check-circle text-xs"></i>
+            <span class="text-xs">All dependencies complete - ready to finish!</span>
+          </div>
+        </div>
+
+        <div
+          v-if="hasDependencies(task) && task.progress !== undefined && task.progress !== null"
+          class="task-progress"
+        >
           <ProgressBar :value="task.progress" :show-value="true" class="h-2" />
         </div>
       </li>
@@ -96,13 +184,19 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useProjectStore } from '@/stores/project';
+import { useUserSettingsStore } from '@/stores/userSettings';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
-import Checkbox from 'primevue/checkbox';
 import ProgressBar from 'primevue/progressbar';
 import ProgressSpinner from 'primevue/progressspinner';
+import {
+  calculateDependencyStatus,
+  canTransitionToStatus,
+  getIncompleteDependencies,
+} from '@/utils/taskDependencies';
+import { TASK_STATUSES } from '@/constants';
 
 // Props
 const props = defineProps({
@@ -132,34 +226,116 @@ const props = defineProps({
   },
   sortBy: {
     type: String,
-    default: 'dueDate', // 'dueDate', 'priority', 'status', 'title'
+    default: 'priority', // 'dueDate', 'priority', 'status', 'title'
+  },
+  filterCompletedTasks: {
+    type: Boolean,
+    default: true, // Enable filtering by default
   },
 });
 
 // Emits
-const emit = defineEmits(['task-click', 'create-task', 'toggle-complete']);
+const emit = defineEmits([
+  'task-click',
+  'create-task',
+  'toggle-complete',
+  'status-change',
+  'edit-task',
+  'delete-task',
+]);
 
-// Store
+// Local state
+const activeDropdown = ref(null);
+
+// Status options for dropdown
+const statusOptions = [
+  { label: 'To Do', value: TASK_STATUSES.TODO },
+  { label: 'In Progress', value: TASK_STATUSES.IN_PROGRESS },
+  { label: 'Review', value: TASK_STATUSES.REVIEW },
+  { label: 'On Hold', value: TASK_STATUSES.ON_HOLD },
+  { label: 'Complete', value: TASK_STATUSES.COMPLETE },
+];
+
+// Stores
 const projectStore = useProjectStore();
+const userSettingsStore = useUserSettingsStore();
 
 // Computed
-const sortedTasks = computed(() => {
+const filteredTasks = computed(() => {
   if (!props.tasks || props.tasks.length === 0) return [];
 
-  const tasksCopy = [...props.tasks];
+  // Filter completed tasks based on settings
+  if (props.filterCompletedTasks && userSettingsStore.completedTasksFilterEnabled) {
+    const cutoffDate = userSettingsStore.getCompletedTasksCutoffDate();
+
+    if (cutoffDate) {
+      return props.tasks.filter((task) => {
+        // Always show non-completed tasks
+        if (task.status !== 'complete') return true;
+
+        // For completed tasks, check if they were completed within the time period
+        // Use completedAt first (most accurate), then fallback to updatedAt, then show by default
+        let completionDate = null;
+
+        if (task.completedAt) {
+          // completedAt is the most accurate date for when task was marked complete
+          completionDate = new Date(task.completedAt);
+        } else if (task.updatedAt) {
+          // Fallback to updatedAt for tasks that might have been completed before we added completedAt
+          completionDate = new Date(task.updatedAt);
+        } else {
+          // No completion date found - show it by default (legacy tasks)
+          return true;
+        }
+
+        // Filter based on the cutoff date
+        return completionDate >= cutoffDate;
+      });
+    }
+  }
+
+  return props.tasks;
+});
+
+const sortedTasks = computed(() => {
+  if (!filteredTasks.value || filteredTasks.value.length === 0) return [];
+
+  const tasksCopy = [...filteredTasks.value];
 
   return tasksCopy.sort((a, b) => {
-    // First, sort by completion status (incomplete first)
-    if (a.status === 'complete' && b.status !== 'complete') return 1;
-    if (a.status !== 'complete' && b.status === 'complete') return -1;
+    // Primary sort: by status order (active statuses before completed)
+    // Order: todo -> in-progress -> review -> on-hold -> complete -> cancelled
+    const statusOrder = {
+      todo: 0,
+      'in-progress': 1,
+      review: 2,
+      'on-hold': 3,
+      complete: 4,
+      cancelled: 5,
+    };
+    const aStatusOrder = statusOrder[a.status] ?? 0;
+    const bStatusOrder = statusOrder[b.status] ?? 0;
+    if (aStatusOrder !== bStatusOrder) return aStatusOrder - bStatusOrder;
 
-    // Then apply the requested sort
+    // Secondary sort: For non-completed tasks, sort by priority then by sortBy prop
+    // For completed tasks, sort by completion date (most recent first)
+    if (a.status === 'complete' && b.status === 'complete') {
+      // Get completion date - use completedAt first (most accurate), then updatedAt, then createdAt
+      const aCompleted = new Date(a.completedAt || a.updatedAt || a.createdAt || 0);
+      const bCompleted = new Date(b.completedAt || b.updatedAt || b.createdAt || 0);
+      return bCompleted - aCompleted; // Most recently completed first
+    }
+
+    // For non-completed tasks, first sort by priority
+    const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+    const aPriority = priorityOrder[a.priority] ?? 2;
+    const bPriority = priorityOrder[b.priority] ?? 2;
+    if (aPriority !== bPriority) return aPriority - bPriority;
+
+    // Then apply the requested secondary sort
     switch (props.sortBy) {
       case 'priority': {
-        const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-        const aPriority = priorityOrder[a.priority] ?? 2;
-        const bPriority = priorityOrder[b.priority] ?? 2;
-        if (aPriority !== bPriority) return aPriority - bPriority;
+        // Already sorted by priority above
         break;
       }
 
@@ -167,14 +343,6 @@ const sortedTasks = computed(() => {
         const aDate = a.dueDate ? new Date(a.dueDate) : new Date('2099-12-31');
         const bDate = b.dueDate ? new Date(b.dueDate) : new Date('2099-12-31');
         if (aDate.getTime() !== bDate.getTime()) return aDate - bDate;
-        break;
-      }
-
-      case 'status': {
-        const statusOrder = { 'todo': 0, 'in-progress': 1, 'review': 2, 'complete': 3, 'cancelled': 4 };
-        const aStatus = statusOrder[a.status] ?? 1;
-        const bStatus = statusOrder[b.status] ?? 1;
-        if (aStatus !== bStatus) return aStatus - bStatus;
         break;
       }
 
@@ -186,7 +354,13 @@ const sortedTasks = computed(() => {
       }
     }
 
-    // Final tiebreaker: created date (newest first)
+    // Final tiebreaker: due date, then created date (newest first)
+    if (a.dueDate && b.dueDate) {
+      const aDue = new Date(a.dueDate);
+      const bDue = new Date(b.dueDate);
+      if (aDue.getTime() !== bDue.getTime()) return aDue - bDue;
+    }
+
     const aCreated = new Date(a.createdAt || 0);
     const bCreated = new Date(b.createdAt || 0);
     return bCreated - aCreated;
@@ -228,11 +402,11 @@ const getPrioritySeverity = (priority) => {
 
 const formatStatus = (status) => {
   const statusMap = {
-    'todo': 'To Do',
+    todo: 'To Do',
     'in-progress': 'In Progress',
-    'review': 'Review',
-    'complete': 'Complete',
-    'cancelled': 'Cancelled',
+    review: 'Review',
+    complete: 'Complete',
+    cancelled: 'Cancelled',
     'on-hold': 'On Hold',
   };
   return statusMap[status] || status;
@@ -240,11 +414,11 @@ const formatStatus = (status) => {
 
 const getStatusSeverity = (status) => {
   const severityMap = {
-    'todo': 'secondary',
+    todo: 'secondary',
     'in-progress': 'info',
-    'review': 'warn',
-    'complete': 'success',
-    'cancelled': 'danger',
+    review: 'warn',
+    complete: 'success',
+    cancelled: 'danger',
     'on-hold': 'secondary',
   };
   return severityMap[status] || 'secondary';
@@ -312,6 +486,129 @@ const getProjectName = (projectId) => {
   const project = projectStore.getProjectById(projectId);
   return project ? project.name : 'Unknown Project';
 };
+
+// Dependency helper methods
+const hasDependencies = (task) => {
+  return task.dependencies && Array.isArray(task.dependencies) && task.dependencies.length > 0;
+};
+
+const getDependencyStatus = (task) => {
+  if (!hasDependencies(task)) {
+    return {
+      complete: 0,
+      total: 0,
+      percentage: 100,
+      allComplete: true,
+      incompleteDeps: [],
+    };
+  }
+
+  return calculateDependencyStatus(task, props.tasks);
+};
+
+const getDependencyProgressSeverity = (task) => {
+  const status = getDependencyStatus(task);
+  const percentage = status.percentage;
+
+  if (percentage === 100) return 'success';
+  if (percentage >= 67) return 'info';
+  if (percentage >= 34) return 'warn';
+  return 'danger';
+};
+
+const getBlockedByText = (task) => {
+  const incompleteDeps = getIncompleteDependencies(task, props.tasks);
+
+  if (incompleteDeps.length === 0) return '';
+  if (incompleteDeps.length === 1) return incompleteDeps[0].title;
+  if (incompleteDeps.length === 2) {
+    return `${incompleteDeps[0].title}, ${incompleteDeps[1].title}`;
+  }
+
+  return `${incompleteDeps[0].title} and ${incompleteDeps.length - 1} other${incompleteDeps.length - 1 > 1 ? 's' : ''}`;
+};
+
+// Status Icon Methods
+const getStatusIcon = (task) => {
+  const iconMap = {
+    [TASK_STATUSES.TODO]: 'pi pi-circle',
+    [TASK_STATUSES.IN_PROGRESS]: 'pi pi-circle-fill',
+    [TASK_STATUSES.REVIEW]: 'pi pi-eye',
+    [TASK_STATUSES.ON_HOLD]: 'pi pi-pause-circle',
+    [TASK_STATUSES.COMPLETE]: 'pi pi-check-circle',
+  };
+  return iconMap[task.status] || 'pi pi-circle';
+};
+
+const getStatusIconForValue = (status) => {
+  const iconMap = {
+    [TASK_STATUSES.TODO]: 'pi pi-circle',
+    [TASK_STATUSES.IN_PROGRESS]: 'pi pi-circle-fill',
+    [TASK_STATUSES.REVIEW]: 'pi pi-eye',
+    [TASK_STATUSES.ON_HOLD]: 'pi pi-pause-circle',
+    [TASK_STATUSES.COMPLETE]: 'pi pi-check-circle',
+  };
+  return iconMap[status] || 'pi pi-circle';
+};
+
+const getStatusTooltip = (task) => {
+  const tooltipMap = {
+    [TASK_STATUSES.TODO]: 'Click to start (move to In Progress)',
+    [TASK_STATUSES.IN_PROGRESS]: 'Click to complete',
+    [TASK_STATUSES.REVIEW]: 'Click to complete',
+    [TASK_STATUSES.ON_HOLD]: 'Click to resume (move to In Progress)',
+    [TASK_STATUSES.COMPLETE]: 'Completed (use dropdown to change status)',
+  };
+  return tooltipMap[task.status] || 'Click to change status';
+};
+
+// Status progression: TODO → IN_PROGRESS → COMPLETE
+// Special cases: REVIEW → COMPLETE, ON_HOLD → IN_PROGRESS, COMPLETE → IN_PROGRESS
+const handleStatusIconClick = (task) => {
+  // Don't allow reopening completed tasks via icon click - they're locked
+  if (task.status === TASK_STATUSES.COMPLETE) {
+    return; // Locked - must use dropdown to change status
+  }
+
+  let nextStatus;
+
+  switch (task.status) {
+    case TASK_STATUSES.TODO:
+      nextStatus = TASK_STATUSES.IN_PROGRESS;
+      break;
+    case TASK_STATUSES.IN_PROGRESS:
+      nextStatus = TASK_STATUSES.COMPLETE;
+      break;
+    case TASK_STATUSES.REVIEW:
+      nextStatus = TASK_STATUSES.COMPLETE;
+      break;
+    case TASK_STATUSES.ON_HOLD:
+      nextStatus = TASK_STATUSES.IN_PROGRESS;
+      break;
+    default:
+      nextStatus = TASK_STATUSES.IN_PROGRESS;
+  }
+
+  handleStatusChange(task, nextStatus);
+  activeDropdown.value = null; // Close dropdown if open
+};
+
+const toggleStatusDropdown = (task) => {
+  activeDropdown.value = activeDropdown.value === task.id ? null : task.id;
+};
+
+const handleStatusChange = (task, newStatus) => {
+  activeDropdown.value = null; // Close dropdown
+  emit('status-change', { task, newStatus });
+};
+
+const handleEditTask = (task) => {
+  emit('edit-task', task);
+};
+
+const handleDeleteTask = (task) => {
+  emit('delete-task', task);
+};
 </script>
 
 <style scoped>
@@ -351,6 +648,37 @@ const getProjectName = (projectId) => {
   background-color: #ffffff;
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
+}
+
+/* Priority-based left border */
+.task-item[data-priority='critical'] {
+  border-left: 4px solid #dc2626;
+}
+
+.task-item[data-priority='high'] {
+  border-left: 4px solid #f59e0b;
+}
+
+.task-item[data-priority='medium'] {
+  border-left: 4px solid #3b82f6;
+}
+
+.task-item[data-priority='low'] {
+  border-left: 4px solid #9ca3af;
+}
+
+/* Status-based styling */
+.task-item[data-status='in-progress'] {
+  background-color: #eff6ff;
+}
+
+.task-item[data-status='complete'] {
+  opacity: 0.7;
+}
+
+.task-item[data-status='on-hold'] {
+  background-color: #fef9c3;
 }
 
 .task-item:hover {
@@ -358,33 +686,26 @@ const getProjectName = (projectId) => {
   border-color: #d1d5db;
 }
 
-.task-item.task-completed {
-  background-color: #f9fafb;
-  opacity: 0.7;
+.task-item[data-status='complete']:hover {
+  opacity: 1;
 }
 
-.task-item.task-overdue {
-  border-left: 4px solid #ef4444;
+.task-item.task-overdue:not([data-status='complete']) {
+  border-left-width: 4px;
+  border-left-color: #ef4444 !important;
+}
+
+/* Show hover actions on hover */
+.task-item:hover .task-hover-actions {
+  opacity: 1;
+  visibility: visible;
 }
 
 .task-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 0.5rem;
-  gap: 0.5rem;
-}
-
-.task-title-row {
-  display: flex;
   align-items: center;
   gap: 0.75rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.task-checkbox {
-  flex-shrink: 0;
+  margin-bottom: 0.75rem;
 }
 
 .task-title {
@@ -392,6 +713,8 @@ const getProjectName = (projectId) => {
   color: #111827;
   font-size: 0.95rem;
   word-break: break-word;
+  flex: 1;
+  min-width: 0;
 }
 
 .task-title.line-through {
@@ -399,10 +722,132 @@ const getProjectName = (projectId) => {
   color: #6b7280;
 }
 
-.task-badges {
-  display: flex;
-  gap: 0.5rem;
+.task-priority-badge {
   flex-shrink: 0;
+  font-size: 0.75rem !important;
+  padding: 0.25rem 0.5rem !important;
+}
+
+/* Status Control */
+.status-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.status-icon-button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 6px 0 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-size: 18px;
+}
+
+.status-icon-button:hover {
+  background-color: #f3f4f6;
+}
+
+.status-icon-button.status-todo {
+  color: #9ca3af;
+}
+
+.status-icon-button.status-in-progress {
+  color: #3b82f6;
+}
+
+.status-icon-button.status-review {
+  color: #f59e0b;
+}
+
+.status-icon-button.status-on-hold {
+  color: #eab308;
+}
+
+.status-icon-button.status-complete {
+  color: #22c55e;
+}
+
+.status-dropdown-button {
+  width: 20px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 0 6px 6px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: #6b7280;
+}
+
+.status-dropdown-button:hover {
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+.status-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: 100;
+  min-width: 180px;
+  overflow: hidden;
+}
+
+.status-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  font-size: 0.875rem;
+}
+
+.status-menu-item:hover {
+  background-color: #f3f4f6;
+}
+
+.status-menu-item.active {
+  background-color: #eff6ff;
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.status-menu-item i:first-child {
+  width: 18px;
+  text-align: center;
+}
+
+.status-menu-item .pi-check {
+  color: #22c55e;
+}
+
+/* Hover Actions */
+.task-hover-actions {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  margin-left: auto;
 }
 
 .task-description {
@@ -434,6 +879,46 @@ const getProjectName = (projectId) => {
   margin-top: 0.5rem;
 }
 
+.dependency-section {
+  margin-left: 2.25rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background-color: #f9fafb;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.dependency-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.blocked-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: #fef2f2;
+  border-left: 3px solid #ef4444;
+  border-radius: 4px;
+  color: #991b1b;
+}
+
+.ready-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: #f0fdf4;
+  border-left: 3px solid #22c55e;
+  border-radius: 4px;
+  color: #166534;
+}
+
 @media (max-width: 768px) {
   .task-header {
     flex-direction: column;
@@ -447,6 +932,10 @@ const getProjectName = (projectId) => {
   .task-meta {
     flex-direction: column;
     gap: 0.375rem;
+  }
+
+  .dependency-section {
+    margin-left: 0;
   }
 }
 </style>

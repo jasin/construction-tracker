@@ -13,7 +13,7 @@ export const PROJECT_SCHEMA = {
   endDate: 'date',
   address: 'string',
   description: 'string',
-}
+};
 
 export const TASK_SCHEMA = {
   title: 'string',
@@ -28,7 +28,9 @@ export const TASK_SCHEMA = {
   progress: 'number',
   category: 'string',
   dependencies: 'array',
-}
+  startedAt: 'date',
+  completedAt: 'date',
+};
 
 export const CLIENT_SCHEMA = {
   name: 'string',
@@ -37,7 +39,7 @@ export const CLIENT_SCHEMA = {
   phone: 'string',
   address: 'string',
   notes: 'string',
-}
+};
 
 export const USER_SCHEMA = {
   name: 'string',
@@ -45,7 +47,7 @@ export const USER_SCHEMA = {
   role: 'string',
   phone: 'string',
   active: 'boolean',
-}
+};
 
 export const RFI_SCHEMA = {
   title: 'string',
@@ -59,7 +61,7 @@ export const RFI_SCHEMA = {
   response: 'string',
   attachment: 'array',
   attachmentCount: 'number',
-}
+};
 
 export const SUBMITTAL_SCHEMA = {
   title: 'string',
@@ -72,7 +74,7 @@ export const SUBMITTAL_SCHEMA = {
   comments: 'string',
   attachment: 'array',
   attachmentCount: 'number',
-}
+};
 
 export const CHANGE_ORDER_SCHEMA = {
   title: 'string',
@@ -87,7 +89,7 @@ export const CHANGE_ORDER_SCHEMA = {
   billable: 'boolean',
   attachment: 'array',
   attachmentCount: 'number',
-}
+};
 
 export const DOCUMENT_SCHEMA = {
   name: 'string',
@@ -106,7 +108,7 @@ export const DOCUMENT_SCHEMA = {
   linkedEntityType: 'string',
   linkedEntityId: 'string',
   isAttachment: 'boolean',
-}
+};
 
 export const ATTACHMENT_SCHEMA = {
   name: 'string',
@@ -131,4 +133,4 @@ export const ATTACHMENT_SCHEMA = {
   previousVersions: 'array', // Array of previous version info
   virusScanStatus: 'string', // 'pending', 'clean', 'infected', 'error'
   extractedText: 'string', // OCR/extracted text for search
-}
+};
