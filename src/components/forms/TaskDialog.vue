@@ -235,8 +235,54 @@
               class="w-full"
               display="chip"
               :max-selected-labels="3"
-            />
-            <small class="text-surface-600">Tasks that must be completed first</small>
+              :filter="true"
+              @change="validateTaskDependencies"
+            >
+              <template #option="slotProps">
+                <div class="flex items-center justify-between w-full gap-2">
+                  <span class="flex-1 truncate">{{ slotProps.option.title }}</span>
+                  <Tag
+                    v-if="slotProps.option.status === 'complete'"
+                    value="Complete"
+                    severity="success"
+                    class="text-xs"
+                  />
+                  <Tag
+                    v-else-if="slotProps.option.status === 'in-progress'"
+                    value="In Progress"
+                    severity="info"
+                    class="text-xs"
+                  />
+                  <Tag v-else value="To Do" severity="secondary" class="text-xs" />
+                </div>
+              </template>
+            </MultiSelect>
+            <small class="text-surface-600"
+              >Select tasks that must be completed before this task can finish</small
+            >
+
+            <!-- Validation Messages -->
+            <Message
+              v-if="dependencyErrors.length > 0"
+              severity="error"
+              :closable="false"
+              class="mt-2"
+            >
+              <ul class="list-disc pl-4 mb-0">
+                <li v-for="(err, idx) in dependencyErrors" :key="idx">{{ err }}</li>
+              </ul>
+            </Message>
+
+            <Message
+              v-if="dependencyWarnings.length > 0 && dependencyErrors.length === 0"
+              severity="warn"
+              :closable="false"
+              class="mt-2"
+            >
+              <ul class="list-disc pl-4 mb-0">
+                <li v-for="(warn, idx) in dependencyWarnings" :key="idx">{{ warn }}</li>
+              </ul>
+            </Message>
           </div>
         </template>
 
@@ -299,6 +345,11 @@ import Message from 'primevue/message';
 import EntityAttachments from '@/components/widgets/EntityAttachments.vue';
 import UserRepository from '@/services/firebase/Repositories/UserRepository';
 import TaskRepository from '@/services/firebase/Repositories/TaskRepository';
+import {
+  wouldCreateCircularDependency,
+  validateDependencies,
+  calculateDependencyStatus,
+} from '@/utils/taskDependencies';
 
 // Props
 const props = defineProps({
@@ -358,12 +409,29 @@ const filteredAvailableTasks = computed(() => {
 
   tasks = tasks.filter((task) => task && task.id && task.title);
 
+  // Exclude self-reference
   if (props.task?.id) {
     tasks = tasks.filter((task) => task.id !== props.task.id);
   }
 
-  return tasks;
+  // Exclude tasks that would create circular dependencies
+  if (props.task?.id) {
+    tasks = tasks.filter((task) => {
+      return !wouldCreateCircularDependency(props.task.id, task.id, props.availableTasks);
+    });
+  }
+
+  // Sort: completed tasks first, then by title
+  return tasks.sort((a, b) => {
+    if (a.status === 'complete' && b.status !== 'complete') return -1;
+    if (a.status !== 'complete' && b.status === 'complete') return 1;
+    return (a.title || '').localeCompare(b.title || '');
+  });
 });
+
+// Dependency validation warnings
+const dependencyWarnings = ref([]);
+const dependencyErrors = ref([]);
 
 // Form data
 const form = ref({
@@ -468,7 +536,32 @@ const loadTaskData = () => {
   }
 };
 
-// Validation
+// Dependency validation
+const validateTaskDependencies = () => {
+  dependencyErrors.value = [];
+  dependencyWarnings.value = [];
+
+  if (!form.value.dependencies || form.value.dependencies.length === 0) {
+    return;
+  }
+
+  // Validate dependencies using utility function
+  const validation = validateDependencies(
+    props.task?.id || 'new-task',
+    form.value.dependencies,
+    props.availableTasks
+  );
+
+  if (!validation.valid) {
+    dependencyErrors.value = validation.errors;
+  }
+
+  if (validation.warnings.length > 0) {
+    dependencyWarnings.value = validation.warnings;
+  }
+};
+
+// Form validation
 const validateForm = () => {
   errors.value = {};
 
@@ -478,6 +571,13 @@ const validateForm = () => {
 
   if (taskType.value === 'project' && !form.value.projectId) {
     errors.value.projectId = 'Project is required for project tasks';
+  }
+
+  // Validate dependencies
+  validateTaskDependencies();
+
+  if (dependencyErrors.value.length > 0) {
+    errors.value.dependencies = 'Please fix dependency errors';
   }
 
   return Object.keys(errors.value).length === 0;
@@ -589,6 +689,8 @@ const resetForm = () => {
     dependencies: [],
   };
   errors.value = {};
+  dependencyErrors.value = [];
+  dependencyWarnings.value = [];
   taskType.value = props.projectId ? 'project' : 'quick';
 };
 

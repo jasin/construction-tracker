@@ -1,9 +1,9 @@
 // src/services/firebase/repositories/TaskRepository.js
-import BaseRepository from '../core/BaseRepository'
-import ActivityService from '@/services/logging/ActivityService'
-import firebaseCore from '../core/FirebaseCore'
-import { CrudMixin } from '../mixins/CrudMixin'
-import { RealtimeMixin } from '../mixins/RealtimeMixin'
+import BaseRepository from '../core/BaseRepository';
+import ActivityService from '@/services/logging/ActivityService';
+import firebaseCore from '../core/FirebaseCore';
+import { CrudMixin } from '../mixins/CrudMixin';
+import { RealtimeMixin } from '../mixins/RealtimeMixin';
 import {
   ref,
   query,
@@ -14,8 +14,13 @@ import {
   set,
   get,
   remove,
-} from 'firebase/database'
-import { TASK_SCHEMA } from '../schemas'
+} from 'firebase/database';
+import { TASK_SCHEMA } from '../schemas';
+import {
+  canTransitionToStatus,
+  getDependentTasks,
+  calculateDependencyStatus,
+} from '@/utils/taskDependencies';
 
 /**
  * Task Repository - handles all task-related Firebase operations
@@ -23,7 +28,7 @@ import { TASK_SCHEMA } from '../schemas'
  */
 class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   constructor() {
-    super('tasks')
+    super('tasks');
   }
 
   /**
@@ -32,9 +37,9 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   async createTask(taskData) {
     try {
       // Tasks can be independent of projects, so only require title
-      const validation = this.validateData(taskData, ['title'])
+      const validation = this.validateData(taskData, ['title']);
       if (!validation.isValid) {
-        throw new Error(`Validation failed: ${Object.values(validation.errors).join(', ')}`)
+        throw new Error(`Validation failed: ${Object.values(validation.errors).join(', ')}`);
       }
 
       // Add task-specific defaults
@@ -46,19 +51,24 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         progress: validation.cleanData.progress || 0,
         completedAt: null,
         tags: validation.cleanData.tags || [],
-      }
+      };
 
-      const newTask = await this.create(taskDataWithDefaults, TASK_SCHEMA)
+      const newTask = await this.create(taskDataWithDefaults, TASK_SCHEMA);
 
       // Only log activity if task is associated with a project
       if (newTask.projectId) {
-        await ActivityService.logEntityCreated(newTask.projectId, 'task', newTask.id, newTask.title)
+        await ActivityService.logEntityCreated(
+          newTask.projectId,
+          'task',
+          newTask.id,
+          newTask.title
+        );
       }
 
-      return newTask
+      return newTask;
     } catch (error) {
-      console.error('Error creating task:', error)
-      throw error
+      console.error('Error creating task:', error);
+      throw error;
     }
   }
 
@@ -67,9 +77,9 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getAllTasks() {
     try {
-      return await this.getAll()
+      return await this.getAll();
     } catch (error) {
-      console.error('Error getting all tasks:', error)
+      console.error('Error getting all tasks:', error);
     }
   }
 
@@ -78,46 +88,46 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getTasksByProject(projectId, filters = {}) {
     try {
-      let tasks = await this.getByField('projectId', projectId)
+      let tasks = await this.getByField('projectId', projectId);
 
       // Apply filters
       if (filters.status && filters.status.length > 0) {
-        tasks = tasks.filter((task) => filters.status.includes(task.status))
+        tasks = tasks.filter((task) => filters.status.includes(task.status));
       }
 
       if (filters.assignedTo) {
-        tasks = tasks.filter((task) => task.assignedTo === filters.assignedTo)
+        tasks = tasks.filter((task) => task.assignedTo === filters.assignedTo);
       }
 
       if (filters.priority && filters.priority.length > 0) {
-        tasks = tasks.filter((task) => filters.priority.includes(task.priority))
+        tasks = tasks.filter((task) => filters.priority.includes(task.priority));
       }
 
       if (filters.dueDateFrom) {
         tasks = tasks.filter(
-          (task) => task.dueDate && new Date(task.dueDate) >= new Date(filters.dueDateFrom),
-        )
+          (task) => task.dueDate && new Date(task.dueDate) >= new Date(filters.dueDateFrom)
+        );
       }
 
       if (filters.dueDateTo) {
         tasks = tasks.filter(
-          (task) => task.dueDate && new Date(task.dueDate) <= new Date(filters.dueDateTo),
-        )
+          (task) => task.dueDate && new Date(task.dueDate) <= new Date(filters.dueDateTo)
+        );
       }
 
       if (filters.tags && filters.tags.length > 0) {
         tasks = tasks.filter(
-          (task) => task.tags && task.tags.some((tag) => filters.tags.includes(tag)),
-        )
+          (task) => task.tags && task.tags.some((tag) => filters.tags.includes(tag))
+        );
       }
 
       // Apply sorting
-      tasks = this.sortTasks(tasks, filters.sortBy || 'priority', filters.sortDirection || 'asc')
+      tasks = this.sortTasks(tasks, filters.sortBy || 'priority', filters.sortDirection || 'asc');
 
-      return tasks
+      return tasks;
     } catch (error) {
-      console.error('Error getting tasks by project:', error)
-      throw error
+      console.error('Error getting tasks by project:', error);
+      throw error;
     }
   }
 
@@ -126,25 +136,25 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getTasksByUser(userId, filters = {}) {
     try {
-      let tasks = await this.getByField('assignedTo', userId)
+      let tasks = await this.getByField('assignedTo', userId);
 
       // Apply status filter if provided
       if (filters.status && filters.status.length > 0) {
-        tasks = tasks.filter((task) => filters.status.includes(task.status))
+        tasks = tasks.filter((task) => filters.status.includes(task.status));
       }
 
       // Apply project filter if provided
       if (filters.projectId) {
-        tasks = tasks.filter((task) => task.projectId === filters.projectId)
+        tasks = tasks.filter((task) => task.projectId === filters.projectId);
       }
 
       // Sort by due date and priority
-      tasks = this.sortTasks(tasks, 'dueDate', 'asc')
+      tasks = this.sortTasks(tasks, 'dueDate', 'asc');
 
-      return tasks
+      return tasks;
     } catch (error) {
-      console.error('Error getting tasks by user:', error)
-      throw error
+      console.error('Error getting tasks by user:', error);
+      throw error;
     }
   }
 
@@ -153,9 +163,9 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getOverdueTasks(projectId = null) {
     try {
-      let tasks = projectId ? await this.getTasksByProject(projectId) : await this.getAll()
+      let tasks = projectId ? await this.getTasksByProject(projectId) : await this.getAll();
 
-      const now = new Date()
+      const now = new Date();
 
       return tasks
         .filter((task) => {
@@ -164,12 +174,12 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
             new Date(task.dueDate) < now &&
             task.status !== 'complete' &&
             task.status !== 'cancelled'
-          )
+          );
         })
-        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
     } catch (error) {
-      console.error('Error getting overdue tasks:', error)
-      throw error
+      console.error('Error getting overdue tasks:', error);
+      throw error;
     }
   }
 
@@ -178,25 +188,25 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getTasksDueSoon(days = 7, projectId = null) {
     try {
-      let tasks = projectId ? await this.getTasksByProject(projectId) : await this.getAll()
+      let tasks = projectId ? await this.getTasksByProject(projectId) : await this.getAll();
 
-      const now = new Date()
-      const futureDate = new Date()
-      futureDate.setDate(now.getDate() + days)
+      const now = new Date();
+      const futureDate = new Date();
+      futureDate.setDate(now.getDate() + days);
 
       return tasks
         .filter((task) => {
           if (!task.dueDate || task.status === 'complete' || task.status === 'cancelled') {
-            return false
+            return false;
           }
 
-          const dueDate = new Date(task.dueDate)
-          return dueDate >= now && dueDate <= futureDate
+          const dueDate = new Date(task.dueDate);
+          return dueDate >= now && dueDate <= futureDate;
         })
-        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+        .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
     } catch (error) {
-      console.error('Error getting tasks due soon:', error)
-      throw error
+      console.error('Error getting tasks due soon:', error);
+      throw error;
     }
   }
 
@@ -205,23 +215,49 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async updateTask(taskId, updates) {
     try {
-      const originalTask = await this.getById(taskId)
+      const originalTask = await this.getById(taskId);
       if (!originalTask) {
-        throw new Error('Task not found')
+        throw new Error('Task not found');
+      }
+
+      // Validate status transition if status is being changed
+      if (updates.status && updates.status !== originalTask.status) {
+        // Get all tasks for dependency validation
+        const allTasks = await this.getAll();
+
+        // Check if status transition is allowed based on dependencies
+        const validation = canTransitionToStatus(
+          { ...originalTask, ...updates },
+          updates.status,
+          allTasks
+        );
+
+        if (!validation.allowed) {
+          throw new Error(validation.reason);
+        }
       }
 
       // Handle completion logic
       if (updates.status === 'complete' && originalTask.status !== 'complete') {
-        updates.completedAt = new Date().toISOString()
-        updates.progress = 100
+        updates.completedAt = new Date().toISOString();
+        updates.progress = 100;
       }
 
       // Handle reopening task
       if (originalTask.status === 'complete' && updates.status !== 'complete') {
-        updates.completedAt = null
+        updates.completedAt = null;
       }
 
-      const result = await this.update(taskId, updates, TASK_SCHEMA)
+      // Handle transition to in-progress (set startedAt timestamp)
+      if (
+        updates.status === 'in-progress' &&
+        originalTask.status !== 'in-progress' &&
+        !originalTask.startedAt
+      ) {
+        updates.startedAt = new Date().toISOString();
+      }
+
+      const result = await this.update(taskId, updates, TASK_SCHEMA);
 
       // Log significant updates (only if task has projectId)
       if (updates.status && updates.status !== originalTask.status && originalTask.projectId) {
@@ -231,8 +267,8 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           taskId,
           originalTask.title,
           originalTask.status,
-          updates.status,
-        )
+          updates.status
+        );
       }
 
       if (
@@ -249,8 +285,8 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           {
             previousAssignee: originalTask.assignedTo,
             newAssignee: updates.assignedTo,
-          },
-        )
+          }
+        );
       }
 
       if (
@@ -267,14 +303,14 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           {
             oldPriority: originalTask.priority,
             newPriority: updates.priority,
-          },
-        )
+          }
+        );
       }
 
-      return result
+      return result;
     } catch (error) {
-      console.error('Error updating task:', error)
-      throw error
+      console.error('Error updating task:', error);
+      throw error;
     }
   }
 
@@ -283,26 +319,26 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async deleteTask(taskId) {
     try {
-      const task = await this.getById(taskId)
+      const task = await this.getById(taskId);
       if (!task) {
-        throw new Error('Task not found')
+        throw new Error('Task not found');
       }
 
       // Delete task comments first
-      await this.deleteTaskComments(taskId)
+      await this.deleteTaskComments(taskId);
 
       // Delete the task
-      await this.delete(taskId)
+      await this.delete(taskId);
 
       // Log activity (only if task has projectId)
       if (task.projectId) {
-        await ActivityService.logEntityDeleted(task.projectId, 'task', taskId, task.title)
+        await ActivityService.logEntityDeleted(task.projectId, 'task', taskId, task.title);
       }
 
-      return { success: true, id: taskId }
+      return { success: true, id: taskId };
     } catch (error) {
-      console.error('Error deleting task:', error)
-      throw error
+      console.error('Error deleting task:', error);
+      throw error;
     }
   }
 
@@ -311,9 +347,9 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async searchTasks(searchTerm, projectId = null) {
     try {
-      let tasks = projectId ? await this.getTasksByProject(projectId) : await this.getAll()
+      let tasks = projectId ? await this.getTasksByProject(projectId) : await this.getAll();
 
-      const term = searchTerm.toLowerCase().trim()
+      const term = searchTerm.toLowerCase().trim();
 
       return tasks.filter((task) => {
         return (
@@ -321,11 +357,11 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           task.description?.toLowerCase().includes(term) ||
           task.assignedToName?.toLowerCase().includes(term) ||
           task.tags?.some((tag) => tag.toLowerCase().includes(term))
-        )
-      })
+        );
+      });
     } catch (error) {
-      console.error('Error searching tasks:', error)
-      throw error
+      console.error('Error searching tasks:', error);
+      throw error;
     }
   }
 
@@ -334,9 +370,9 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getTaskStatistics(projectId = null) {
     try {
-      let tasks = projectId ? await this.getTasksByProject(projectId) : await this.getAll()
+      let tasks = projectId ? await this.getTasksByProject(projectId) : await this.getAll();
 
-      const now = new Date()
+      const now = new Date();
 
       const stats = {
         total: tasks.length,
@@ -350,7 +386,7 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
             new Date(t.dueDate) < now &&
             t.status !== 'complete' &&
             t.status !== 'cancelled'
-          )
+          );
         }).length,
         byPriority: {
           critical: tasks.filter((t) => t.priority === 'critical').length,
@@ -363,27 +399,27 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         totalActualHours: tasks.reduce((sum, task) => sum + (task.actualHours || 0), 0),
         averageProgress: 0,
         completionRate: 0,
-      }
+      };
 
       // Count by assignee
       tasks.forEach((task) => {
         if (task.assignedToName) {
-          const assignee = task.assignedToName
-          stats.byAssignee[assignee] = (stats.byAssignee[assignee] || 0) + 1
+          const assignee = task.assignedToName;
+          stats.byAssignee[assignee] = (stats.byAssignee[assignee] || 0) + 1;
         }
-      })
+      });
 
       // Calculate averages
       if (tasks.length > 0) {
         stats.averageProgress =
-          tasks.reduce((sum, task) => sum + (task.progress || 0), 0) / tasks.length
-        stats.completionRate = (stats.completed / stats.total) * 100
+          tasks.reduce((sum, task) => sum + (task.progress || 0), 0) / tasks.length;
+        stats.completionRate = (stats.completed / stats.total) * 100;
       }
 
-      return stats
+      return stats;
     } catch (error) {
-      console.error('Error getting task statistics:', error)
-      throw error
+      console.error('Error getting task statistics:', error);
+      throw error;
     }
   }
 
@@ -394,9 +430,9 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async addTaskComment(taskId, comment, additionalData = {}) {
     try {
-      const task = await this.getById(taskId)
+      const task = await this.getById(taskId);
       if (!task) {
-        throw new Error('Task not found')
+        throw new Error('Task not found');
       }
 
       const commentData = {
@@ -406,12 +442,12 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         createdByName: firebaseCore.getCurrentUserName(),
         createdAt: new Date().toISOString(),
         ...additionalData,
-      }
+      };
 
-      const commentsRef = ref(firebaseCore.database, `taskComments/${taskId}`)
-      const newCommentRef = push(commentsRef)
+      const commentsRef = ref(firebaseCore.database, `taskComments/${taskId}`);
+      const newCommentRef = push(commentsRef);
 
-      await set(newCommentRef, commentData)
+      await set(newCommentRef, commentData);
 
       // Log activity (only if task has projectId)
       if (task.projectId) {
@@ -421,14 +457,14 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           'task',
           taskId,
           `Added comment to task: ${task.title}`,
-          { commentId: newCommentRef.key },
-        )
+          { commentId: newCommentRef.key }
+        );
       }
 
-      return { id: newCommentRef.key, ...commentData }
+      return { id: newCommentRef.key, ...commentData };
     } catch (error) {
-      console.error('Error adding task comment:', error)
-      throw error
+      console.error('Error adding task comment:', error);
+      throw error;
     }
   }
 
@@ -437,17 +473,17 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getTaskComments(taskId) {
     try {
-      const commentsRef = ref(firebaseCore.database, `taskComments/${taskId}`)
-      const snapshot = await get(commentsRef)
+      const commentsRef = ref(firebaseCore.database, `taskComments/${taskId}`);
+      const snapshot = await get(commentsRef);
 
-      if (!snapshot.exists()) return []
+      if (!snapshot.exists()) return [];
 
       return Object.entries(snapshot.val())
         .map(([id, data]) => ({ id, ...data }))
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     } catch (error) {
-      console.error('Error getting task comments:', error)
-      throw error
+      console.error('Error getting task comments:', error);
+      throw error;
     }
   }
 
@@ -456,12 +492,12 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async deleteTaskComments(taskId) {
     try {
-      const commentsRef = ref(firebaseCore.database, `taskComments/${taskId}`)
-      await remove(commentsRef)
-      return true
+      const commentsRef = ref(firebaseCore.database, `taskComments/${taskId}`);
+      await remove(commentsRef);
+      return true;
     } catch (error) {
-      console.error('Error deleting task comments:', error)
-      throw error
+      console.error('Error deleting task comments:', error);
+      throw error;
     }
   }
 
@@ -472,7 +508,7 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async bulkUpdateTasks(taskIds, updates) {
     try {
-      const results = await this.bulkUpdate(taskIds, updates)
+      const results = await this.bulkUpdate(taskIds, updates);
 
       // Log bulk activity
       await ActivityService.logBulkActivity(
@@ -480,13 +516,13 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         'task',
         taskIds,
         `Bulk updated ${taskIds.length} tasks`,
-        { updates, taskCount: taskIds.length },
-      )
+        { updates, taskCount: taskIds.length }
+      );
 
-      return results
+      return results;
     } catch (error) {
-      console.error('Error in bulk update tasks:', error)
-      throw error
+      console.error('Error in bulk update tasks:', error);
+      throw error;
     }
   }
 
@@ -499,9 +535,9 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         assignedTo: userId,
         assignedToName: userName,
         assignedAt: new Date().toISOString(),
-      }
+      };
 
-      const results = await this.bulkUpdate(taskIds, updates)
+      const results = await this.bulkUpdate(taskIds, updates);
 
       // Log bulk assignment
       await ActivityService.logBulkActivity(
@@ -509,13 +545,13 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         'task',
         taskIds,
         `Bulk assigned ${taskIds.length} tasks to ${userName}`,
-        { assignedTo: userId, assignedToName: userName },
-      )
+        { assignedTo: userId, assignedToName: userName }
+      );
 
-      return results
+      return results;
     } catch (error) {
-      console.error('Error in bulk assign tasks:', error)
-      throw error
+      console.error('Error in bulk assign tasks:', error);
+      throw error;
     }
   }
 
@@ -530,9 +566,9 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           completedAt: new Date().toISOString(),
           progress: 100,
         }),
-      }
+      };
 
-      const results = await this.bulkUpdate(taskIds, updates)
+      const results = await this.bulkUpdate(taskIds, updates);
 
       // Log bulk status update
       await ActivityService.logBulkActivity(
@@ -540,13 +576,13 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         'task',
         taskIds,
         `Bulk updated ${taskIds.length} tasks to ${status} status`,
-        { newStatus: status },
-      )
+        { newStatus: status }
+      );
 
-      return results
+      return results;
     } catch (error) {
-      console.error('Error in bulk update task status:', error)
-      throw error
+      console.error('Error in bulk update task status:', error);
+      throw error;
     }
   }
 
@@ -557,23 +593,23 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   subscribeToTasksByProject(projectId, callback) {
     try {
-      const tasksRef = ref(firebaseCore.database, this.collectionName)
-      const projectTasksQuery = query(tasksRef, orderByChild('projectId'), equalTo(projectId))
+      const tasksRef = ref(firebaseCore.database, this.collectionName);
+      const projectTasksQuery = query(tasksRef, orderByChild('projectId'), equalTo(projectId));
 
       onValue(projectTasksQuery, (snapshot) => {
         const tasks = snapshot.exists()
           ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
-          : []
+          : [];
 
         // Sort by due date and priority
-        const sortedTasks = this.sortTasks(tasks, 'priority', 'asc')
-        callback(sortedTasks)
-      })
+        const sortedTasks = this.sortTasks(tasks, 'priority', 'asc');
+        callback(sortedTasks);
+      });
 
-      return projectTasksQuery
+      return projectTasksQuery;
     } catch (error) {
-      console.error('Error subscribing to tasks by project:', error)
-      throw error
+      console.error('Error subscribing to tasks by project:', error);
+      throw error;
     }
   }
 
@@ -582,23 +618,23 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   subscribeToTasksByUser(userId, callback) {
     try {
-      const tasksRef = ref(firebaseCore.database, this.collectionName)
-      const userTasksQuery = query(tasksRef, orderByChild('assignedTo'), equalTo(userId))
+      const tasksRef = ref(firebaseCore.database, this.collectionName);
+      const userTasksQuery = query(tasksRef, orderByChild('assignedTo'), equalTo(userId));
 
       onValue(userTasksQuery, (snapshot) => {
         const tasks = snapshot.exists()
           ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
-          : []
+          : [];
 
         // Sort by due date and priority
-        const sortedTasks = this.sortTasks(tasks, 'dueDate', 'asc')
-        callback(sortedTasks)
-      })
+        const sortedTasks = this.sortTasks(tasks, 'dueDate', 'asc');
+        callback(sortedTasks);
+      });
 
-      return userTasksQuery
+      return userTasksQuery;
     } catch (error) {
-      console.error('Error subscribing to tasks by user:', error)
-      throw error
+      console.error('Error subscribing to tasks by user:', error);
+      throw error;
     }
   }
 
@@ -608,34 +644,34 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   subscribeToTasks(callback) {
     const sortByPriorityAndDueDate = (a, b) => {
       // First sort by status (incomplete tasks first)
-      const statusOrder = { todo: 0, 'in-progress': 1, complete: 2, cancelled: 3 }
-      const aStatusOrder = statusOrder[a.status] ?? 1
-      const bStatusOrder = statusOrder[b.status] ?? 1
+      const statusOrder = { todo: 0, 'in-progress': 1, complete: 2, cancelled: 3 };
+      const aStatusOrder = statusOrder[a.status] ?? 1;
+      const bStatusOrder = statusOrder[b.status] ?? 1;
 
       if (aStatusOrder !== bStatusOrder) {
-        return aStatusOrder - bStatusOrder
+        return aStatusOrder - bStatusOrder;
       }
 
       // Then by priority
-      const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 }
-      const aPriority = priorityOrder[a.priority] ?? 2
-      const bPriority = priorityOrder[b.priority] ?? 2
+      const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+      const aPriority = priorityOrder[a.priority] ?? 2;
+      const bPriority = priorityOrder[b.priority] ?? 2;
 
       if (aPriority !== bPriority) {
-        return aPriority - bPriority
+        return aPriority - bPriority;
       }
 
       // Finally by due date
-      if (a.dueDate && !b.dueDate) return -1
-      if (!a.dueDate && b.dueDate) return 1
+      if (a.dueDate && !b.dueDate) return -1;
+      if (!a.dueDate && b.dueDate) return 1;
       if (a.dueDate && b.dueDate) {
-        return new Date(a.dueDate) - new Date(b.dueDate)
+        return new Date(a.dueDate) - new Date(b.dueDate);
       }
 
-      return 0
-    }
+      return 0;
+    };
 
-    return this.subscribeToAll(callback, sortByPriorityAndDueDate)
+    return this.subscribeToAll(callback, sortByPriorityAndDueDate);
   }
 
   /**
@@ -643,22 +679,22 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   subscribeToTaskComments(taskId, callback) {
     try {
-      const commentsRef = ref(firebaseCore.database, `taskComments/${taskId}`)
+      const commentsRef = ref(firebaseCore.database, `taskComments/${taskId}`);
 
       onValue(commentsRef, (snapshot) => {
         const comments = snapshot.exists()
           ? Object.entries(snapshot.val())
               .map(([id, data]) => ({ id, ...data }))
               .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-          : []
+          : [];
 
-        callback(comments)
-      })
+        callback(comments);
+      });
 
-      return commentsRef
+      return commentsRef;
     } catch (error) {
-      console.error('Error subscribing to task comments:', error)
-      throw error
+      console.error('Error subscribing to task comments:', error);
+      throw error;
     }
   }
 
@@ -669,58 +705,58 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   sortTasks(tasks, sortBy = 'priority', direction = 'asc') {
     return tasks.sort((a, b) => {
-      let aVal, bVal
+      let aVal, bVal;
 
       switch (sortBy) {
         case 'title':
-          aVal = (a.title || '').toLowerCase()
-          bVal = (b.title || '').toLowerCase()
-          break
+          aVal = (a.title || '').toLowerCase();
+          bVal = (b.title || '').toLowerCase();
+          break;
 
         case 'priority': {
-          const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 }
-          aVal = priorityOrder[a.priority] ?? 2
-          bVal = priorityOrder[b.priority] ?? 2
-          break
+          const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+          aVal = priorityOrder[a.priority] ?? 2;
+          bVal = priorityOrder[b.priority] ?? 2;
+          break;
         }
 
         case 'status': {
-          const statusOrder = { todo: 0, 'in-progress': 1, complete: 2, cancelled: 3 }
-          aVal = statusOrder[a.status] ?? 1
-          bVal = statusOrder[b.status] ?? 1
-          break
+          const statusOrder = { todo: 0, 'in-progress': 1, complete: 2, cancelled: 3 };
+          aVal = statusOrder[a.status] ?? 1;
+          bVal = statusOrder[b.status] ?? 1;
+          break;
         }
 
         case 'dueDate':
-          aVal = a.dueDate ? new Date(a.dueDate) : new Date('2099-12-31')
-          bVal = b.dueDate ? new Date(b.dueDate) : new Date('2099-12-31')
-          break
+          aVal = a.dueDate ? new Date(a.dueDate) : new Date('2099-12-31');
+          bVal = b.dueDate ? new Date(b.dueDate) : new Date('2099-12-31');
+          break;
 
         case 'progress':
-          aVal = a.progress || 0
-          bVal = b.progress || 0
-          break
+          aVal = a.progress || 0;
+          bVal = b.progress || 0;
+          break;
 
         case 'estimatedHours':
-          aVal = a.estimatedHours || 0
-          bVal = b.estimatedHours || 0
-          break
+          aVal = a.estimatedHours || 0;
+          bVal = b.estimatedHours || 0;
+          break;
 
         case 'createdAt':
-          aVal = new Date(a.createdAt || 0)
-          bVal = new Date(b.createdAt || 0)
-          break
+          aVal = new Date(a.createdAt || 0);
+          bVal = new Date(b.createdAt || 0);
+          break;
 
         default:
-          aVal = a[sortBy] || ''
-          bVal = b[sortBy] || ''
+          aVal = a[sortBy] || '';
+          bVal = b[sortBy] || '';
       }
 
       if (direction === 'desc') {
-        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0
+        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
       }
-      return aVal > bVal ? 1 : aVal < bVal ? -1 : 0
-    })
+      return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+    });
   }
 
   /**
@@ -728,27 +764,27 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   validateTaskData(taskData) {
     // Tasks are project-independent, so only require title
-    const validation = super.validateData(taskData, ['title'])
+    const validation = super.validateData(taskData, ['title']);
 
     // Add task-specific validations
     if (taskData.estimatedHours && taskData.estimatedHours < 0) {
-      validation.errors.estimatedHours = 'Estimated hours cannot be negative'
-      validation.isValid = false
+      validation.errors.estimatedHours = 'Estimated hours cannot be negative';
+      validation.isValid = false;
     }
 
     if (taskData.actualHours && taskData.actualHours < 0) {
-      validation.errors.actualHours = 'Actual hours cannot be negative'
-      validation.isValid = false
+      validation.errors.actualHours = 'Actual hours cannot be negative';
+      validation.isValid = false;
     }
 
     if (taskData.progress && (taskData.progress < 0 || taskData.progress > 100)) {
-      validation.errors.progress = 'Progress must be between 0 and 100'
-      validation.isValid = false
+      validation.errors.progress = 'Progress must be between 0 and 100';
+      validation.isValid = false;
     }
 
     if (taskData.priority && !['critical', 'high', 'medium', 'low'].includes(taskData.priority)) {
-      validation.errors.priority = 'Invalid priority. Must be: critical, high, medium, or low'
-      validation.isValid = false
+      validation.errors.priority = 'Invalid priority. Must be: critical, high, medium, or low';
+      validation.isValid = false;
     }
 
     if (
@@ -756,18 +792,18 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       !['todo', 'in-progress', 'complete', 'cancelled'].includes(taskData.status)
     ) {
       validation.errors.status =
-        'Invalid status. Must be: todo, in-progress, complete, or cancelled'
-      validation.isValid = false
+        'Invalid status. Must be: todo, in-progress, complete, or cancelled';
+      validation.isValid = false;
     }
 
     if (taskData.dueDate && taskData.startDate) {
       if (new Date(taskData.startDate) > new Date(taskData.dueDate)) {
-        validation.errors.dueDate = 'Due date cannot be before start date'
-        validation.isValid = false
+        validation.errors.dueDate = 'Due date cannot be before start date';
+        validation.isValid = false;
       }
     }
 
-    return validation
+    return validation;
   }
 
   /**
@@ -775,33 +811,33 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   isTaskOverdue(task) {
     if (!task.dueDate || task.status === 'complete' || task.status === 'cancelled') {
-      return false
+      return false;
     }
 
-    return new Date(task.dueDate) < new Date()
+    return new Date(task.dueDate) < new Date();
   }
 
   /**
    * Get days until due date
    */
   getDaysUntilDue(task) {
-    if (!task.dueDate) return null
+    if (!task.dueDate) return null;
 
-    const dueDate = new Date(task.dueDate)
-    const today = new Date()
-    const diffTime = dueDate - today
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    const dueDate = new Date(task.dueDate);
+    const today = new Date();
+    const diffTime = dueDate - today;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 
   /**
    * Calculate task completion percentage for a project
    */
   calculateProjectTaskCompletion(tasks) {
-    if (!tasks || tasks.length === 0) return 0
+    if (!tasks || tasks.length === 0) return 0;
 
-    const completedTasks = tasks.filter((task) => task.status === 'complete').length
-    return Math.round((completedTasks / tasks.length) * 100)
+    const completedTasks = tasks.filter((task) => task.status === 'complete').length;
+    return Math.round((completedTasks / tasks.length) * 100);
   }
 }
 
-export default new TaskRepository()
+export default new TaskRepository();

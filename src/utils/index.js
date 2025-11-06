@@ -180,6 +180,26 @@ export const validateAndCleanForm = (formData, requiredFields = []) => {
 export const sanitizeWithSchema = (data, schema) => {
   const cleanData = {};
 
+  // Define metadata fields that should always be preserved
+  const metadataFields = [
+    'id',
+    'createdAt',
+    'createdBy',
+    'createdByName',
+    'updatedAt',
+    'updatedBy',
+    'updatedByName',
+    'completedAt',
+  ];
+
+  // First, preserve all metadata fields from the data
+  metadataFields.forEach((field) => {
+    if (data[field] !== undefined && data[field] !== null) {
+      cleanData[field] = data[field];
+    }
+  });
+
+  // Then, process schema-defined fields
   Object.keys(schema).forEach((key) => {
     const value = data[key];
     const expectedType = schema[key];
