@@ -259,7 +259,17 @@ export const useProjectStore = defineStore('project', () => {
 
     uiStore.setProjectTransitioning(true);
     isSetting.value = true;
+    justReset.value = false; // Clear justReset flag when starting new selection
     console.log('Store: selectProject called for:', project?.id || project);
+
+    // Safety timeout to prevent stuck flags
+    const flagTimeout = setTimeout(() => {
+      if (isSetting.value) {
+        console.warn('⚠️ selectProject flag stuck - force clearing');
+        isSetting.value = false;
+        uiStore.setProjectTransitioning(false);
+      }
+    }, 5000);
 
     try {
       // Set the active project in store
@@ -293,6 +303,7 @@ export const useProjectStore = defineStore('project', () => {
       handleError(err, `Project selection failed for ${project.name || project.id}`);
       return false;
     } finally {
+      clearTimeout(flagTimeout);
       isSetting.value = false;
       uiStore.setProjectTransitioning(false);
     }
@@ -307,6 +318,16 @@ export const useProjectStore = defineStore('project', () => {
 
     uiStore.setProjectTransitioning(true);
     isResetting.value = true;
+
+    // Safety timeout to prevent stuck flags
+    const flagTimeout = setTimeout(() => {
+      if (isResetting.value) {
+        console.warn('⚠️ resetActiveProject flag stuck - force clearing');
+        isResetting.value = false;
+        justReset.value = false;
+        uiStore.setProjectTransitioning(false);
+      }
+    }, 5000);
 
     try {
       // Clear subscriptions first
@@ -337,12 +358,19 @@ export const useProjectStore = defineStore('project', () => {
         {}
       );
 
+      // Clear justReset flag after a short delay to allow router to process
+      setTimeout(() => {
+        justReset.value = false;
+        console.log('✅ justReset flag cleared');
+      }, 100);
+
       return true;
     } catch (err) {
       console.error('resetActiveProject failed:', err);
       handleError(err, 'Project reset failed');
       return false;
     } finally {
+      clearTimeout(flagTimeout);
       isResetting.value = false;
       uiStore.setProjectTransitioning(false);
     }
