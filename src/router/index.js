@@ -175,18 +175,6 @@ const routes = [
     },
   },
 
-  // Settings
-  {
-    path: '/settings',
-    name: 'Settings',
-    component: PlaceholderPage,
-    beforeEnter: requireAuth,
-    props: {
-      title: 'Settings',
-      description: 'Application and user preferences',
-    },
-  },
-
   // Error pages
   {
     path: '/unauthorized',

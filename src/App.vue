@@ -69,6 +69,16 @@
         :project-id="projectStore.activeProjectId"
       />
 
+      <!-- General Settings Dialog -->
+      <Dialog
+        v-model:visible="showGeneralSettingsDialog"
+        modal
+        header="General Settings"
+        :style="{ width: '900px', height: '80vh' }"
+      >
+        <UserSettingsDialog />
+      </Dialog>
+
       <!-- Task Display Settings Dialog -->
       <Dialog
         v-model:visible="showTaskSettings"
@@ -171,6 +181,7 @@ import LoginView from '@/views/auth/LoginView.vue';
 import DashboardView from '@/views/dashboard/DashboardView.vue';
 import ProjectDetailView from '@/views/projects/ProjectDetailView.vue';
 import ProjectSelect from '@/components/features/projects/ProjectSelect.vue';
+import UserSettingsDialog from '@/components/forms/UserSettingsDialog.vue';
 import Button from 'primevue/button';
 import Avatar from 'primevue/avatar';
 import Menu from 'primevue/menu';
@@ -200,6 +211,7 @@ const contextMenu = ref();
 
 // Task settings dialog state
 const showTaskSettings = ref(false);
+const showGeneralSettingsDialog = ref(false);
 const completedTasksEnabled = ref(false); // Default to disabled - show all completed tasks
 const completedTasksDays = ref(7);
 
@@ -249,6 +261,10 @@ const cancelSettings = () => {
 const resetToDefaults = () => {
   completedTasksEnabled.value = false; // Disabled by default
   completedTasksDays.value = 7;
+};
+
+const openGeneralSettingsDialog = () => {
+  showGeneralSettingsDialog.value = true;
 };
 
 // Event Handlers
@@ -365,7 +381,7 @@ const generateReport = async () => {
 };
 
 const settings = () => {
-  router.push('/settings');
+  openGeneralSettingsDialog();
 };
 
 const toggleUserMenu = (event) => {
@@ -442,7 +458,6 @@ const contextMenuItems = ref([
   },
   {
     label: 'Settings',
-    icon: 'pi pi-cog',
     items: [
       {
         label: 'Task Display Settings',
@@ -452,7 +467,7 @@ const contextMenuItems = ref([
       {
         label: 'General Settings',
         icon: 'pi pi-cog',
-        command: settings,
+        command: () => (showGeneralSettingsDialog.value = true),
       },
     ],
   },
