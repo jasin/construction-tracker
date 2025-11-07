@@ -1,9 +1,30 @@
 # Response Guidelines
-- this project uses vue, primevue, pinia, and firebase realtime databse as the technology stack.
-- responses should be concise and clear, and follow patterns already existing in the codebase.
-- offer a better solution including potential improvements and optimizations.
-- if third party libraries exist that could help improve the project, suggest them and explain how they could be integrated.
-- if recent changes have been made to the codebase, ensure they are reflected in the response.
-- do not make assumptions, especially about the codebase, always review to make sure suggested code will work as expected.
-- Use centralized store actions for all entity CRUD operations to ensure consistent logging, error handling, and real-time subscriptions across the application.
-- Log both creation and update events for entities using ActivityService in store actions to maintain complete audit trails and track all project lifecycle changes consistently.
+
+Important: As a major design constraint, stick strictly to the patterns defined in CLAUDE.md. Mixing different patterns is not acceptable.
+
+1. **Always check existing patterns** before suggesting new code
+2. **Point out inconsistencies** when you see them (e.g., Options API vs Composition API)
+3. **Reference specific files and line numbers** when discussing code
+4. **Suggest refactoring** when you notice anti-patterns
+5. **Prioritize consistency** with existing codebase over "best practices" that don't match the project
+6. **Use constants** from `@/constants` instead of magic strings
+7. **Always add activity logging** for create/update/delete operations
+8. **Always use repositories** for database access - never direct Firebase calls
+9. **Always use Composition API** with `<script setup>` for new components
+10. **Always clean up subscriptions** in `onUnmounted` hooks
+
+### Code Generation Preferences
+- Use PrimeVue components (not Vuetify - despite the original project description)
+- Use Tailwind CSS utility classes for styling
+- Use arrow functions for methods
+- Use async/await (not Promise chains)
+- Use optional chaining and nullish coalescing
+- Add loading and error states to all async operations
+- Add form validation with user-friendly error messages
+- Use Toast notifications for success/error feedback
+
+### When Asking Questions
+- If you need clarification on business logic, ask about the construction industry context
+- If you see security issues (e.g., open database rules), point them out
+- If you see performance issues (e.g., missing indexes), suggest improvements
+- If you see inconsistencies (e.g., mixed API patterns), highlight them
