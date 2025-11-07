@@ -32,3 +32,5 @@ coverage
 
 *.tsbuildinfo
 firebase-export-*
+emulator-data/
+temp-export/
