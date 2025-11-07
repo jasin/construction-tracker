@@ -225,19 +225,31 @@ router.afterEach(async (to, from) => {
     return;
   }
 
-  // Skip if store operation is in progress (prevents loop from store's router.push)
-  if (projectStore.isSetting || projectStore.isResetting || projectStore.justReset) {
-    console.log('Router: Store operation in progress, skipping sync to prevent loop');
+  const urlProjectId = to.params.projectId ?? null;
+  const storeProjectId = projectStore.activeProjectId;
+
+  // IMPROVED: Only skip if flags are set AND state already matches URL
+  // This allows browser navigation to override stuck flags when state is out of sync
+  const stateMatchesUrl = urlProjectId === storeProjectId;
+  const operationInProgress = projectStore.isSetting || projectStore.isResetting;
+
+  if (operationInProgress && stateMatchesUrl) {
+    console.log('Router: Store operation in progress and state matches URL - skipping sync');
     return;
   }
 
-  const urlProjectId = to.params.projectId ?? null;
-  const storeProjectId = projectStore.activeProjectId;
+  // If justReset flag is set but URL has a project, it's likely a back button navigation
+  // Clear the flag and proceed with sync
+  if (projectStore.justReset && urlProjectId) {
+    console.log('Router: Clearing justReset flag - browser navigation detected');
+    projectStore.justReset = false;
+  }
 
   // Case 1: URL has project but store doesn't match → Sync store to URL
   if (urlProjectId && urlProjectId !== storeProjectId) {
     console.log('Router: Syncing store to URL project:', urlProjectId);
     try {
+      // Use setActiveProject directly to avoid the router.push in selectProject
       await projectStore.setActiveProject(urlProjectId);
       console.log('✅ Router: Store synced to URL');
     } catch (error) {
@@ -250,8 +262,10 @@ router.afterEach(async (to, from) => {
   else if (!urlProjectId && storeProjectId) {
     console.log('Router: Syncing store to dashboard (clearing active project)');
     try {
-      // Pass false to prevent URL push (we're already at the target URL)
-      await projectStore.setActiveProject(null);
+      // Directly clear state without triggering navigation
+      projectStore.activeProjectId = null;
+      projectStore.currentProject = null;
+      projectStore.clearSubscriptions();
       console.log('✅ Router: Store cleared for dashboard');
     } catch (error) {
       console.error('Router: Failed to clear store:', error);
