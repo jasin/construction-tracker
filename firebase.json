@@ -1,4 +1,8 @@
 {
+  "emulator": {
+    "import": "firebase-emulator-data",
+    "export": "firebase-emulator-data"
+  },
   "database": [
     {
       "instance": "construction-tracker-fbdb-default-rtdb",
