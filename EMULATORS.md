@@ -27,8 +27,9 @@ npm run emulators:save
 ```
 
 **What this does:**
-- Fetches all data directly from the running database emulator via HTTP
-- Saves it to `emulator-data` in the correct format for import
+- Fetches all database data from the database emulator (port 9000)
+- Fetches all auth users from the auth emulator (port 9099)
+- Saves everything to `emulator-data` in the correct format for import
 
 **When to save:**
 - Before stopping emulators for the day
@@ -111,5 +112,5 @@ Firebase's built-in export also has issues on Windows. So instead, we fetch data
 
 - `emulator-data` directory is ignored by git
 - First run starts with empty data (directory doesn't exist yet)
-- Save as often as you want - it's quick (direct HTTP fetch from emulator)!
-- Only database data is saved (auth users would need additional implementation)
+- Save as often as you want - it's quick (direct HTTP fetch from emulators)!
+- Saves both database data AND auth users automatically
