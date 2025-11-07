@@ -2,13 +2,6 @@
   <div class="task-list">
     <div class="task-list-header">
       <h3 class="text-lg font-semibold text-surface-900">{{ title }}</h3>
-      <Button
-        v-if="showCreateButton"
-        label="New Task"
-        icon="pi pi-plus"
-        size="small"
-        @click="handleCreateTask"
-      />
     </div>
 
     <div v-if="loading" class="flex justify-center py-8">
@@ -108,7 +101,7 @@
         <div class="task-meta">
           <div v-if="task.assignedToName || task.assignedTo" class="meta-item">
             <i class="pi pi-user text-xs"></i>
-            <span>{{ task.assignedToName || task.assignedTo || 'Unassigned' }}</span>
+            <span>{{ getAssigneeName(task) }}</span>
           </div>
 
           <div v-if="task.dueDate" class="meta-item" :class="getDueDateClass(task)">
@@ -184,9 +177,10 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useProjectStore } from '@/stores/project';
 import { useUserSettingsStore } from '@/stores/userSettings';
+import { useUsers } from '@/composables/useUsers';
 import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import ProgressBar from 'primevue/progressbar';
@@ -259,6 +253,27 @@ const statusOptions = [
 // Stores
 const projectStore = useProjectStore();
 const userSettingsStore = useUserSettingsStore();
+
+// Users composable for name resolution
+const { getUserName, loadActiveUsers } = useUsers();
+
+// Load users on mount for name resolution
+onMounted(async () => {
+  await loadActiveUsers();
+});
+
+// Helper function to resolve assignee name
+const getAssigneeName = (task) => {
+  // If task already has assignedToName, use it
+  if (task.assignedToName) {
+    return task.assignedToName;
+  }
+  // Otherwise, look up the user by ID
+  if (task.assignedTo) {
+    return getUserName(task.assignedTo, 'Unassigned');
+  }
+  return 'Unassigned';
+};
 
 // Computed
 const filteredTasks = computed(() => {
