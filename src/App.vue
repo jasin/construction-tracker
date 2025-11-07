@@ -45,8 +45,8 @@
         :visible="modals.projectDialog"
         @update:visible="uiStore.closeModal('projectDialog')"
         @project-saved="handleProjectUpdated"
-        :project="projectStore.activeProject"
-        :project-id="projectStore.activeProjectId"
+        :project="projectDialogMode === 'edit' ? projectStore.activeProject : null"
+        :project-id="projectDialogMode === 'edit' ? projectStore.activeProjectId : null"
       />
       <TaskDialog
         v-if="modals.taskDialog"
@@ -202,7 +202,7 @@ const projectStore = useProjectStore();
 const authStore = useAuthStore();
 const uiStore = useUIStore();
 const userSettingsStore = useUserSettingsStore();
-const { modals } = storeToRefs(uiStore);
+const { modals, projectDialogMode } = storeToRefs(uiStore);
 const toast = useToast();
 
 // State (Refs)
@@ -419,7 +419,7 @@ const contextMenuItems = ref([
     label: 'New Project',
     icon: 'pi pi-plus',
     command: () => {
-      uiStore.openModal('projectDialog');
+      uiStore.openModal('projectDialog', { mode: 'create' });
     },
   },
   {

@@ -69,7 +69,7 @@
                 icon="pi pi-pencil"
                 severity="secondary"
                 outlined
-                @click="openModal('projectDialog')"
+                @click="openModal('projectDialog', { mode: 'edit' })"
                 :disabled="!permissions.canManageProject"
               />
               <Button icon="pi pi-cog" severity="secondary" outlined @click="goToSettings" />
