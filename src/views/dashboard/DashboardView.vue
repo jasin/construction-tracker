@@ -64,7 +64,7 @@
                 <i class="pi pi-chevron-down text-surface-600"></i>
               </div>
               <p class="text-sm text-surface-600 mt-1">
-                {{ project.changes }} change{{ project.changes !== 1 ? 's' : '' }} since yesterday
+                {{ project.changes }} recent change{{ project.changes !== 1 ? 's' : '' }}
               </p>
             </div>
           </template>
@@ -234,6 +234,7 @@ import InputSwitch from 'primevue/inputswitch';
 import InputNumber from 'primevue/inputnumber';
 import ProgressSpinner from 'primevue/progressspinner';
 import ActivityService from '@/services/logging/ActivityService';
+import { ACTIVITY_CATEGORIES } from '@/constants/activityActions';
 
 import { useProjectStore } from '@/stores/project';
 import { useTaskStore } from '@/stores/task';
@@ -287,14 +288,12 @@ const groupedActivities = computed(() => {
 });
 
 /**
- * Computes the top 4 projects with recent activity, sorted by recency and volume.
- * Derives per-project data like changes, updates, and documents from store + activities.
+ * Computes the top 4 projects with the most recent meaningful changes.
+ * Only includes projects with meaningful activity (category='change').
+ * No time-based filtering - shows most recent changes regardless of when they occurred.
  * @returns {Array} Array of enhanced project objects from store.
  */
 const activeProjects = computed(() => {
-  const now = Date.now();
-  const yesterday = now - 24 * 60 * 60 * 1000;
-
   const storeProjects = projectStore.activeProjects; // Use store as single source (reactive)
   return storeProjects
     .map((project) => {
@@ -302,10 +301,8 @@ const activeProjects = computed(() => {
       if (!projActivities.length) return null;
 
       const lastTimestamp = Math.max(...projActivities.map((a) => new Date(a.timestamp).getTime()));
-      const activityCount = projActivities.length;
-      const changes = projActivities.filter(
-        (a) => new Date(a.timestamp).getTime() > yesterday
-      ).length;
+      const activityCount = projActivities.length; // Total meaningful changes for this project
+      const changes = projActivities.length; // All activities are meaningful changes now
 
       const updates = projActivities
         .filter((a) =>
@@ -323,7 +320,7 @@ const activeProjects = computed(() => {
     })
     .filter(Boolean)
     .sort((a, b) => b.lastTimestamp - a.lastTimestamp || b.activityCount - a.activityCount)
-    .slice(0, 4);
+    .slice(0, 4); // Top 4 projects with most recent meaningful changes
 });
 
 /**
@@ -335,16 +332,17 @@ const loadData = () => {
 };
 
 /**
- * Sets up realtime subscription to recent activities.
- * (Repo-based, as it's dashboard-specific; store for projects)
+ * Sets up realtime subscription to meaningful activity changes only.
+ * Queries by category='change' to exclude view-only activities like 'project_selected'.
+ * Shows most recent meaningful changes across ALL projects (no time limit).
  */
 const setupActivitySubscription = () => {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  activityUnsubscribe = ActivityService.subscribeToRecentActivities(
-    { since: sevenDaysAgo },
+  activityUnsubscribe = ActivityService.subscribeToActivitiesByCategory(
+    ACTIVITY_CATEGORIES.CHANGE,
+    { limit: 200 }, // Get last 200 meaningful changes (more than enough for 4 projects)
     (updatedActivities) => {
       activities.value = updatedActivities;
-      console.log('Dashboard activities updated:', updatedActivities.length);
+      console.log('Dashboard meaningful activities updated:', updatedActivities.length);
     }
   );
 };

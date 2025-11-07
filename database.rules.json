@@ -6,7 +6,7 @@
       ".indexOn": ["projectId", "assignedTo"]
     },
     "activityLog": {
-      ".indexOn": ["projectId", "timestamp"]
+      ".indexOn": ["projectId", "timestamp", "category"]
     },
     "rfis": {
       ".indexOn": ["projectId"]
