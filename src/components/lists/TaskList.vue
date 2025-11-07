@@ -21,7 +21,8 @@
         :class="getTaskStatusClass(task)"
         :data-priority="task.priority"
         :data-status="task.status"
-        @click="handleTaskClick(task)"
+        @mouseenter="handleMouseEnter(task)"
+        @mouseleave="handleMouseLeave(task)"
       >
         <div class="task-header">
           <!-- Status Icon with Dropdown -->
@@ -95,7 +96,35 @@
         </div>
 
         <div v-if="task.description" class="task-description">
-          {{ truncateText(task.description, 100) }}
+          <span
+            v-if="!expandedDescriptions.has(task.id)"
+            @click="
+              descriptionMode === 'click' && getDescriptionPreview(task.description).hasMore
+                ? toggleDescription(task.id)
+                : null
+            "
+            :class="{
+              'cursor-pointer expandable':
+                descriptionMode === 'click' && getDescriptionPreview(task.description).hasMore,
+            }"
+            :title="
+              descriptionMode === 'click' && getDescriptionPreview(task.description).hasMore
+                ? 'Click to expand description'
+                : ''
+            "
+            class="description-preview"
+          >
+            {{ getDescriptionPreview(task.description).truncated }}
+            <span v-if="getDescriptionPreview(task.description).hasMore">...</span>
+          </span>
+          <div
+            v-else
+            @click="descriptionMode === 'click' ? toggleDescription(task.id) : null"
+            class="cursor-pointer"
+            style="white-space: pre-wrap"
+          >
+            {{ task.description }}
+          </div>
         </div>
 
         <div class="task-meta">
@@ -192,6 +221,11 @@ import {
 } from '@/utils/taskDependencies';
 import { TASK_STATUSES } from '@/constants';
 
+// Computed for description expansion mode
+const descriptionMode = computed(
+  () => userSettingsStore.settings?.taskDisplay?.taskDescriptionMode || 'click'
+);
+
 // Props
 const props = defineProps({
   tasks: {
@@ -240,6 +274,7 @@ const emit = defineEmits([
 
 // Local state
 const activeDropdown = ref(null);
+const expandedDescriptions = ref(new Set());
 
 // Status options for dropdown
 const statusOptions = [
@@ -624,6 +659,35 @@ const handleEditTask = (task) => {
 const handleDeleteTask = (task) => {
   emit('delete-task', task);
 };
+
+const handleMouseEnter = (task) => {
+  if (descriptionMode.value === 'hover' && getDescriptionPreview(task.description).hasMore) {
+    expandedDescriptions.value.add(task.id);
+  }
+};
+
+const handleMouseLeave = (task) => {
+  if (descriptionMode.value === 'hover') {
+    expandedDescriptions.value.delete(task.id);
+  }
+};
+
+const toggleDescription = (taskId) => {
+  if (expandedDescriptions.value.has(taskId)) {
+    expandedDescriptions.value.delete(taskId);
+  } else {
+    expandedDescriptions.value.add(taskId);
+  }
+};
+
+const getDescriptionPreview = (desc) => {
+  if (!desc) return { truncated: '', hasMore: false };
+  const firstLine = desc.split('\n')[0];
+  const truncated = truncateText(firstLine, 60);
+  const isTruncated = firstLine !== truncated;
+  const hasMore = desc.includes('\n') || isTruncated;
+  return { truncated, hasMore };
+};
 </script>
 
 <style scoped>
@@ -727,7 +791,9 @@ const handleDeleteTask = (task) => {
   font-weight: 500;
   color: #111827;
   font-size: 0.95rem;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   flex: 1;
   min-width: 0;
 }
@@ -932,6 +998,15 @@ const handleDeleteTask = (task) => {
   border-left: 3px solid #22c55e;
   border-radius: 4px;
   color: #166534;
+}
+
+.description-preview {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.expandable:hover {
+  font-weight: bold;
 }
 
 @media (max-width: 768px) {

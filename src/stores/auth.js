@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import { signIn, logout } from '@/services/auth/authService';
 import UserRepository from '@/services/firebase/Repositories/UserRepository';
+import { useUserSettingsStore } from './userSettings';
 
 let authUnsubscribe = null; // Global for persistent listener
 
@@ -93,6 +94,10 @@ export const useAuthStore = defineStore('auth', {
               }
               self.user = { ...firebaseUser, ...appUser }; // Set merged user
 
+              // Load user settings
+              const userSettingsStore = useUserSettingsStore();
+              await userSettingsStore.loadSettings();
+
               // FIXED: Inline permissions calculation (avoids getter in callback context)
               const role = self.user.role || 'guest';
               self.permissions = {
@@ -109,6 +114,9 @@ export const useAuthStore = defineStore('auth', {
               self.user = null;
               self.permissions = {}; // Reset
               self.success = '';
+              // Reset settings to defaults on logout
+              const userSettingsStore = useUserSettingsStore();
+              userSettingsStore.resetToDefaults();
             }
 
             self.loading = false; // Settled: Resolve on first fire

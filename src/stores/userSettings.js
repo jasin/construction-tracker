@@ -2,6 +2,8 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { useAuthStore } from './auth';
+import { database } from '@/configs/firebase';
+import { ref as dbRef, set, get } from 'firebase/database';
 
 /**
  * User Settings Store
@@ -22,6 +24,7 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
       showEstimatedHours: true,
       showCategory: true,
       sortBy: 'priority', // 'priority', 'dueDate', 'status', 'title'
+      taskDescriptionMode: 'click', // 'click' or 'hover' - how to expand task descriptions
     },
     dashboard: {
       showCompletedTasks: true,
@@ -41,10 +44,9 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
   // Actions
 
   /**
-   * Load user settings from localStorage
-   * In the future, this can be extended to load from Firebase
+   * Load user settings from Firebase RTDB
    */
-  const loadSettings = () => {
+  const loadSettings = async () => {
     try {
       loading.value = true;
       error.value = '';
@@ -55,23 +57,25 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
         return;
       }
 
-      const storageKey = `userSettings_${userId}`;
-      const stored = localStorage.getItem(storageKey);
+      const userRef = dbRef(database, `users/${userId}/settings`);
+      const snapshot = await get(userRef);
 
-      if (stored) {
-        const parsed = JSON.parse(stored);
+      if (snapshot.exists()) {
+        const loaded = snapshot.val();
 
         // Merge with defaults to ensure all properties exist
         settings.value = {
           completedTasksFilter: {
             ...defaultSettings.completedTasksFilter,
-            ...parsed.completedTasksFilter,
+            ...loaded.completedTasksFilter,
           },
-          taskDisplay: { ...defaultSettings.taskDisplay, ...parsed.taskDisplay },
-          dashboard: { ...defaultSettings.dashboard, ...parsed.dashboard },
+          taskDisplay: { ...defaultSettings.taskDisplay, ...loaded.taskDisplay },
+          dashboard: { ...defaultSettings.dashboard, ...loaded.dashboard },
         };
       } else {
         settings.value = { ...defaultSettings };
+        // Save defaults to Firebase
+        saveSettings();
       }
     } catch (err) {
       console.error('Error loading user settings:', err);
@@ -83,18 +87,17 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
   };
 
   /**
-   * Save user settings to localStorage
-   * In the future, this can be extended to save to Firebase
+   * Save user settings to Firebase RTDB
    */
-  const saveSettings = () => {
+  const saveSettings = async () => {
     try {
       const userId = authStore.user?.uid || authStore.user?.id;
       if (!userId) {
         throw new Error('User not authenticated');
       }
 
-      const storageKey = `userSettings_${userId}`;
-      localStorage.setItem(storageKey, JSON.stringify(settings.value));
+      const userRef = dbRef(database, `users/${userId}/settings`);
+      await set(userRef, settings.value);
     } catch (err) {
       console.error('Error saving user settings:', err);
       error.value = 'Failed to save settings';
@@ -104,7 +107,7 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
   /**
    * Update completed tasks filter settings
    */
-  const updateCompletedTasksFilter = ({ enabled, timePeriod, limit }) => {
+  const updateCompletedTasksFilter = async ({ enabled, timePeriod, limit }) => {
     if (enabled !== undefined) {
       settings.value.completedTasksFilter.enabled = enabled;
     }
@@ -114,31 +117,39 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     if (limit !== undefined) {
       settings.value.completedTasksFilter.limit = limit;
     }
-    saveSettings();
+    await saveSettings();
   };
 
   /**
    * Update task display settings
    */
-  const updateTaskDisplay = (updates) => {
+  const updateTaskDisplay = async (updates) => {
     settings.value.taskDisplay = { ...settings.value.taskDisplay, ...updates };
-    saveSettings();
+    await saveSettings();
   };
 
   /**
    * Update dashboard settings
    */
-  const updateDashboard = (updates) => {
+  const updateDashboard = async (updates) => {
     settings.value.dashboard = { ...settings.value.dashboard, ...updates };
-    saveSettings();
+    await saveSettings();
+  };
+
+  /**
+   * Update task description expansion mode
+   */
+  const updateTaskDescriptionMode = async (mode) => {
+    settings.value.taskDisplay.taskDescriptionMode = mode;
+    await saveSettings();
   };
 
   /**
    * Reset settings to defaults
    */
-  const resetSettings = () => {
+  const resetSettings = async () => {
     settings.value = { ...defaultSettings };
-    saveSettings();
+    await saveSettings();
   };
 
   /**
@@ -161,6 +172,10 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     return cutoff;
   };
 
+  const resetToDefaults = () => {
+    settings.value = { ...defaultSettings };
+  };
+
   return {
     // State
     settings,
@@ -176,7 +191,9 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
     saveSettings,
     updateCompletedTasksFilter,
     updateTaskDisplay,
+    updateTaskDescriptionMode,
     updateDashboard,
+    resetToDefaults,
     resetSettings,
     getCompletedTasksCutoffDate,
   };
