@@ -16,6 +16,9 @@ export const useUIStore = defineStore('ui', () => {
     documentUploader: false,
   });
 
+  // Track project dialog mode: 'create' or 'edit'
+  const projectDialogMode = ref('create');
+
   const setProjectTransitioning = (busy) => {
     isProjectTransitioning.value = busy;
     console.log('UIStore: Project transitioning:', busy);
@@ -53,10 +56,15 @@ export const useUIStore = defineStore('ui', () => {
     activeTab.value = tab;
   }
 
-  function openModal(modalName) {
-    console.log('uiStore: Opening modal', modalName);
+  function openModal(modalName, options = {}) {
+    console.log('uiStore: Opening modal', modalName, 'with options:', options);
     if (modalName in modals.value) {
       modals.value[modalName] = true;
+
+      // Handle project dialog mode
+      if (modalName === 'projectDialog') {
+        projectDialogMode.value = options.mode || 'create';
+      }
     } else {
       console.warn('uiStore: Unknown modal type:', modalName);
     }
@@ -65,6 +73,11 @@ export const useUIStore = defineStore('ui', () => {
   function closeModal(modalName) {
     if (modalName in modals.value) {
       modals.value[modalName] = false;
+
+      // Reset project dialog mode when closing
+      if (modalName === 'projectDialog') {
+        projectDialogMode.value = 'create';
+      }
     }
   }
 
@@ -80,6 +93,7 @@ export const useUIStore = defineStore('ui', () => {
     activeTab,
     sidebarOpen,
     modals,
+    projectDialogMode,
 
     // Actions
     addNotification,
