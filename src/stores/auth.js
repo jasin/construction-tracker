@@ -68,15 +68,28 @@ export const useAuthStore = defineStore('auth', {
             console.log('Auth: Listener fired, user:', firebaseUser ? firebaseUser.uid : 'null'); // Debug
 
             if (firebaseUser) {
+              // Extract custom claims from Firebase Auth token
+              const idTokenResult = await firebaseUser.getIdTokenResult();
+              const customRole = idTokenResult.claims.role || 'user'; // Default to 'user' if no role claim
+              console.log('Auth: Custom claims role:', customRole);
+
               let appUser = await UserRepository.getById(firebaseUser.uid);
               if (!appUser) {
+                // Create new user with role from custom claims
                 appUser = await UserRepository.create({
                   id: firebaseUser.uid,
                   email: firebaseUser.email,
                   name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
                   photo: firebaseUser.photoURL || null,
-                  role: 'user',
+                  role: customRole,
                 });
+              } else {
+                // Update existing user's role if it changed in custom claims
+                if (appUser.role !== customRole) {
+                  console.log(`Auth: Updating user role from ${appUser.role} to ${customRole}`);
+                  await UserRepository.update(firebaseUser.uid, { role: customRole });
+                  appUser.role = customRole;
+                }
               }
               self.user = { ...firebaseUser, ...appUser }; // Set merged user
 
