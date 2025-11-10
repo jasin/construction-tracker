@@ -1,20 +1,138 @@
 <template>
-  <div class="min-h-screen bg-surface-ground p-6">
+  <div class="dashboard-container">
+    <!-- Loading State -->
     <div v-if="loading" class="flex justify-center py-12">
       <ProgressSpinner />
     </div>
-    <div v-else>
-      <h1 class="text-2xl font-bold text-surface-900 mb-2">Construction Overview</h1>
-      <p class="text-surface-600 mb-6">
-        Monitor active projects, track progress, and manage construction operations
-      </p>
 
-      <!-- User Tasks Section -->
-      <div class="mb-8">
+    <!-- Mobile View: 2-Column Button Layout -->
+    <div v-else-if="isMobile && !uiStore.mobileActiveSection" class="mobile-dashboard">
+      <!-- Header -->
+      <div class="mobile-header">
+        <h1 class="text-lg font-bold">Dashboard</h1>
+      </div>
+
+      <!-- 2-Column Button Grid -->
+      <div class="mobile-section-grid">
+        <DashboardSectionButton
+          icon="pi pi-list-check"
+          label="My Tasks"
+          :badge="taskStore.userTasks.length || null"
+          @click="openMobileSection('tasks')"
+        />
+        <DashboardSectionButton
+          icon="pi pi-briefcase"
+          label="Active Projects"
+          :badge="activeProjects.length || null"
+          @click="openMobileSection('projects')"
+        />
+        <DashboardSectionButton
+          icon="pi pi-question-circle"
+          label="RFIs"
+          @click="openMobileSection('rfis')"
+        />
+        <DashboardSectionButton
+          icon="pi pi-file-check"
+          label="Submittals"
+          @click="openMobileSection('submittals')"
+        />
+        <DashboardSectionButton
+          icon="pi pi-file-edit"
+          label="Change Orders"
+          @click="openMobileSection('changeOrders')"
+        />
+        <DashboardSectionButton
+          icon="pi pi-clock"
+          label="Activity"
+          @click="openMobileSection('activity')"
+        />
+      </div>
+    </div>
+
+    <!-- Mobile Section Views -->
+    <DashboardMobileSection
+      v-else-if="isMobile && uiStore.mobileActiveSection === 'tasks'"
+      title="My Tasks"
+      @back="closeMobileSection"
+    >
+      <TaskList
+        :tasks="taskStore.userTasks"
+        :loading="taskStore.userTasksLoading"
+        title=""
+        empty-message="No tasks assigned to you"
+        :show-create-button="true"
+        :show-project-name="true"
+        sort-by="priority"
+        :filter-completed-tasks="true"
+        @task-click="handleTaskClick"
+        @create-task="handleCreateTask"
+        @toggle-complete="handleToggleComplete"
+        @status-change="handleStatusChange"
+        @edit-task="handleEditTask"
+        @delete-task="handleDeleteTask"
+      />
+    </DashboardMobileSection>
+
+    <DashboardMobileSection
+      v-else-if="isMobile && uiStore.mobileActiveSection === 'projects'"
+      title="Active Projects"
+      @back="closeMobileSection"
+    >
+      <div class="space-y-2">
+        <Card
+          v-for="project in activeProjects"
+          :key="project.id"
+          class="cursor-pointer hover:shadow-md transition-shadow"
+          @click="handleProjectClick(project)"
+        >
+          <template #content>
+            <div class="p-2">
+              <h3 class="font-semibold text-base mb-1">
+                {{ project.jobNumber }} {{ project.name }}
+              </h3>
+              <p class="text-xs text-surface-600 mb-2">
+                {{ project.changes }} recent change{{ project.changes !== 1 ? 's' : '' }}
+              </p>
+              <div class="text-xs text-surface-500">
+                Last activity: {{ formatTimeAgo(project.lastTimestamp) }}
+              </div>
+            </div>
+          </template>
+        </Card>
+        <div v-if="!activeProjects.length" class="text-center py-8 text-surface-600 text-sm">
+          No active projects with recent activity
+        </div>
+      </div>
+    </DashboardMobileSection>
+
+    <DashboardMobileSection
+      v-else-if="isMobile && uiStore.mobileActiveSection"
+      :title="getMobileSectionTitle(uiStore.mobileActiveSection)"
+      @back="closeMobileSection"
+    >
+      <div class="text-center py-8 text-surface-600 text-sm">
+        Coming soon: {{ getMobileSectionTitle(uiStore.mobileActiveSection) }}
+      </div>
+    </DashboardMobileSection>
+
+    <!-- Desktop View: Configurable Columns -->
+    <div v-else class="desktop-dashboard">
+      <!-- Header -->
+      <div class="desktop-header">
+        <div>
+          <h1 class="text-2xl font-bold text-surface-900 mb-1">Construction Overview</h1>
+          <p class="text-surface-600 text-sm">
+            Monitor active projects, track progress, and manage construction operations
+          </p>
+        </div>
+      </div>
+
+      <!-- My Tasks Section -->
+      <div class="mb-6">
         <Card>
           <template #header>
-            <div class="flex justify-between items-center p-4 pb-0">
-              <h3 class="text-lg font-semibold text-surface-900">My Tasks</h3>
+            <div class="flex justify-between items-center p-3 pb-0">
+              <h3 class="text-base font-semibold text-surface-900">My Tasks</h3>
             </div>
           </template>
           <template #content>
@@ -38,9 +156,9 @@
         </Card>
       </div>
 
-      <!-- Active Projects Section -->
-      <h2 class="text-xl font-semibold text-surface-900 mb-4">Recent Project Activity</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+      <!-- Recent Project Activity Section -->
+      <h2 class="text-lg font-semibold text-surface-900 mb-3">Recent Project Activity</h2>
+      <div class="desktop-projects-grid" :class="getGridClass">
         <Card
           v-for="project in activeProjects"
           :key="project.id"
@@ -48,63 +166,63 @@
           @click="handleProjectClick(project)"
         >
           <template #header>
-            <div class="p-4 pb-0">
+            <div class="p-3 pb-0">
               <div class="flex justify-between items-start">
-                <h3 class="font-medium text-surface-900">
+                <h3 class="font-medium text-surface-900 text-sm">
                   {{ project.jobNumber }} {{ project.name }}
                 </h3>
-                <i class="pi pi-chevron-down text-surface-600"></i>
+                <i class="pi pi-chevron-right text-surface-600 text-xs"></i>
               </div>
-              <p class="text-sm text-surface-600 mt-1">
+              <p class="text-xs text-surface-600 mt-1">
                 {{ project.changes }} recent change{{ project.changes !== 1 ? 's' : '' }}
               </p>
             </div>
           </template>
           <template #content>
-            <div class="p-4 pt-0">
-              <h4 class="text-sm font-semibold text-surface-900 mb-2">Construction Updates</h4>
-              <ul class="space-y-2 mb-4">
+            <div class="p-3 pt-0">
+              <h4 class="text-xs font-semibold text-surface-900 mb-2">Construction Updates</h4>
+              <ul class="space-y-1.5 mb-3">
                 <li
                   v-for="update in project.updates"
                   :key="update.id"
-                  class="flex items-start gap-2 text-sm text-surface-600"
+                  class="flex items-start gap-1.5 text-xs text-surface-600"
                 >
                   <span
-                    class="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs"
+                    class="shrink-0 w-4 h-4 rounded-full flex items-center justify-center"
                     :class="getActivityIconClass(update.action)"
                   >
-                    <i :class="getActivityIcon(update.action)"></i>
+                    <i :class="getActivityIcon(update.action)" class="text-[10px]"></i>
                   </span>
-                  <span
-                    >{{ update.description }}
-                    <span class="text-surface-500">{{
+                  <span class="flex-1 leading-tight">
+                    {{ update.description }}
+                    <span class="text-surface-500 block">{{
                       formatTimeAgo(update.timestamp)
-                    }}</span></span
-                  >
+                    }}</span>
+                  </span>
                 </li>
-                <li v-if="!project.updates.length" class="text-sm text-surface-500">
+                <li v-if="!project.updates.length" class="text-xs text-surface-500">
                   No recent updates
                 </li>
               </ul>
-              <h4 class="text-sm font-semibold text-surface-900 mb-2">Documents</h4>
-              <ul class="space-y-2">
+              <h4 class="text-xs font-semibold text-surface-900 mb-2">Documents</h4>
+              <ul class="space-y-1.5">
                 <li
                   v-for="doc in project.documents"
                   :key="doc.id"
-                  class="flex items-start gap-2 text-sm text-surface-600"
+                  class="flex items-start gap-1.5 text-xs text-surface-600"
                 >
                   <span
-                    class="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs"
+                    class="shrink-0 w-4 h-4 rounded-full flex items-center justify-center"
                     :class="getActivityIconClass(doc.action)"
                   >
-                    <i :class="getActivityIcon(doc.action)"></i>
+                    <i :class="getActivityIcon(doc.action)" class="text-[10px]"></i>
                   </span>
-                  <span
-                    >{{ doc.description }}
-                    <span class="text-surface-500">{{ formatTimeAgo(doc.timestamp) }}</span></span
-                  >
+                  <span class="flex-1 leading-tight">
+                    {{ doc.description }}
+                    <span class="text-surface-500 block">{{ formatTimeAgo(doc.timestamp) }}</span>
+                  </span>
                 </li>
-                <li v-if="!project.documents.length" class="text-sm text-surface-500">
+                <li v-if="!project.documents.length" class="text-xs text-surface-500">
                   No recent documents
                 </li>
               </ul>
@@ -130,26 +248,31 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
+import { useWindowSize } from '@vueuse/core';
 
 import Card from 'primevue/card';
-
 import ProgressSpinner from 'primevue/progressspinner';
+
 import ActivityService from '@/services/logging/ActivityService';
 import { ACTIVITY_CATEGORIES } from '@/constants/activityActions';
 
 import { useProjectStore } from '@/stores/project';
 import { useTaskStore } from '@/stores/task';
+import { useUIStore } from '@/stores/ui';
 
 import TaskList from '@/components/lists/TaskList.vue';
 import TaskDialog from '@/components/forms/TaskDialog.vue';
+import DashboardSectionButton from '@/components/dashboard/DashboardSectionButton.vue';
+import DashboardMobileSection from '@/components/dashboard/DashboardMobileSection.vue';
 
 const toast = useToast();
+const { width } = useWindowSize();
 
 const projectStore = useProjectStore();
 const taskStore = useTaskStore();
+const uiStore = useUIStore();
 
 const loading = ref(true);
-
 const activities = ref([]);
 let activityUnsubscribe = null;
 
@@ -157,9 +280,24 @@ let activityUnsubscribe = null;
 const taskDialogVisible = ref(false);
 const selectedTask = ref(null);
 
+// Responsive breakpoint
+const isMobile = computed(() => width.value < 768);
+
+// Dynamic grid class based on column selection
+// Tailwind needs full class names for purging, can't use dynamic interpolation
+const getGridClass = computed(() => {
+  const cols = uiStore.dashboardColumns;
+  const classMap = {
+    1: 'grid-cols-1 md:grid-cols-1',
+    2: 'grid-cols-1 md:grid-cols-2',
+    3: 'grid-cols-1 md:grid-cols-3',
+    4: 'grid-cols-1 md:grid-cols-4',
+  };
+  return classMap[cols] || 'grid-cols-1 md:grid-cols-4';
+});
+
 /**
  * Computes grouped activities by projectId.
- * @returns {Object} Map of projectId to array of activities.
  */
 const groupedActivities = computed(() => {
   return activities.value.reduce((acc, activity) => {
@@ -172,68 +310,82 @@ const groupedActivities = computed(() => {
 
 /**
  * Computes the top 4 projects with the most recent meaningful changes.
- * Only includes projects with meaningful activity (category='change').
- * No time-based filtering - shows most recent changes regardless of when they occurred.
- * @returns {Array} Array of enhanced project objects from store.
  */
 const activeProjects = computed(() => {
-  const storeProjects = projectStore.activeProjects; // Use store as single source (reactive)
+  const storeProjects = projectStore.activeProjects;
   return storeProjects
     .map((project) => {
       const projActivities = groupedActivities.value[project.id] || [];
       if (!projActivities.length) return null;
 
       const lastTimestamp = Math.max(...projActivities.map((a) => new Date(a.timestamp).getTime()));
-      const activityCount = projActivities.length; // Total meaningful changes for this project
-      const changes = projActivities.length; // All activities are meaningful changes now
+      const activityCount = projActivities.length;
+      const changes = projActivities.length;
 
       const updates = projActivities
         .filter((a) =>
           ['created_rfi', 'created_submittal', 'created_change_order'].includes(a.action)
         )
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-        .slice(0, 3); // Limit to top 3 updates
+        .slice(0, 3);
 
       const documents = projActivities
         .filter((a) => a.action === 'uploaded_document')
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-        .slice(0, 2); // Limit to top 2 documents
+        .slice(0, 2);
 
       return { ...project, lastTimestamp, activityCount, changes, updates, documents };
     })
     .filter(Boolean)
     .sort((a, b) => b.lastTimestamp - a.lastTimestamp || b.activityCount - a.activityCount)
-    .slice(0, 4); // Top 4 projects with most recent meaningful changes
+    .slice(0, isMobile.value ? 10 : 8); // Show more on mobile list view
 });
 
 /**
- * Loads dashboard data from store (single source, reactive).
- * @async
+ * Loads dashboard data.
  */
 const loadData = () => {
   loading.value = false;
 };
 
 /**
- * Sets up realtime subscription to meaningful activity changes only.
- * Queries by category='change' to exclude view-only activities like 'project_selected'.
- * Shows most recent meaningful changes across ALL projects (no time limit).
+ * Sets up realtime subscription to meaningful activity changes.
  */
 const setupActivitySubscription = () => {
   activityUnsubscribe = ActivityService.subscribeToActivitiesByCategory(
     ACTIVITY_CATEGORIES.CHANGE,
-    { limit: 200 }, // Get last 200 meaningful changes (more than enough for 4 projects)
+    { limit: 200 },
     (updatedActivities) => {
       activities.value = updatedActivities;
-      console.log('Dashboard meaningful activities updated:', updatedActivities.length);
     }
   );
 };
 
 /**
+ * Mobile navigation handlers
+ */
+const openMobileSection = (sectionName) => {
+  uiStore.setMobileActiveSection(sectionName);
+};
+
+const closeMobileSection = () => {
+  uiStore.resetMobileSection();
+};
+
+const getMobileSectionTitle = (sectionName) => {
+  const titles = {
+    tasks: 'My Tasks',
+    projects: 'Active Projects',
+    rfis: 'RFIs',
+    submittals: 'Submittals',
+    changeOrders: 'Change Orders',
+    activity: 'Activity Log',
+  };
+  return titles[sectionName] || sectionName;
+};
+
+/**
  * Formats a timestamp as relative time ago.
- * @param {string|Date} timestamp - The timestamp to format.
- * @returns {string} Formatted relative time.
  */
 const formatTimeAgo = (timestamp) => {
   if (!timestamp) return 'Unknown';
@@ -251,9 +403,7 @@ const formatTimeAgo = (timestamp) => {
 };
 
 /**
- * Gets the CSS class for an activity icon based on action.
- * @param {string} action - The activity action.
- * @returns {string} CSS classes.
+ * Gets the CSS class for an activity icon.
  */
 const getActivityIconClass = (action) => {
   const classMap = {
@@ -267,8 +417,6 @@ const getActivityIconClass = (action) => {
 
 /**
  * Gets the PrimeIcon class for an activity.
- * @param {string} action - The activity action.
- * @returns {string} Icon class.
  */
 const getActivityIcon = (action) => {
   const iconMap = {
@@ -281,45 +429,34 @@ const getActivityIcon = (action) => {
 };
 
 /**
- * SIMPLIFIED: Handle project click - only call store, it handles URL
- * @param {Object} project - The project to select
+ * Handle project click
  */
 const handleProjectClick = async (project) => {
-  console.log('DashboardView: Selecting project:', project.id);
-  // Store handles both state AND URL update
   await projectStore.selectProject(project);
-  // That's it! No manual router.push needed
 };
 
 /**
- * Handle task click - open task dialog for editing
- * @param {Object} task - The task to edit
+ * Handle task click
  */
 const handleTaskClick = (task) => {
-  console.log('DashboardView: Task clicked:', task.id);
   selectedTask.value = task;
   taskDialogVisible.value = true;
 };
 
 /**
- * Handle create task - open task dialog for new task
+ * Handle create task
  */
 const handleCreateTask = () => {
-  console.log('DashboardView: Creating new task');
   selectedTask.value = null;
   taskDialogVisible.value = true;
 };
 
 /**
  * Handle toggle task completion
- * @param {Object} task - The task to toggle
  */
 const handleToggleComplete = async (task) => {
-  console.log('DashboardView: Toggling task completion:', task.id);
-
   try {
     if (task.status === 'complete') {
-      // Reopen the task
       const result = await taskStore.reopenTask(task.id);
       if (result) {
         toast.add({
@@ -330,7 +467,6 @@ const handleToggleComplete = async (task) => {
         });
       }
     } else {
-      // Mark as complete - this will trigger dependency validation in TaskRepository
       const result = await taskStore.completeTask(task.id);
       if (result) {
         toast.add({
@@ -342,9 +478,6 @@ const handleToggleComplete = async (task) => {
       }
     }
   } catch (error) {
-    console.error('Error toggling task completion:', error);
-
-    // Show error toast with the validation message
     toast.add({
       severity: 'error',
       summary: 'Cannot Complete Task',
@@ -356,22 +489,16 @@ const handleToggleComplete = async (task) => {
 
 /**
  * Handle task saved from dialog
- * @param {Object} task - The saved task
  */
-const handleTaskSaved = (task) => {
-  console.log('DashboardView: Task saved:', task);
+const handleTaskSaved = () => {
   taskDialogVisible.value = false;
   selectedTask.value = null;
-  // Task subscriptions will auto-update the list
 };
 
 /**
  * Handle status change from TaskList
- * @param {Object} payload - { task, newStatus }
  */
 const handleStatusChange = async ({ task, newStatus }) => {
-  console.log('DashboardView: Changing task status:', task.id, 'to', newStatus);
-
   try {
     const result = await taskStore.updateTask(task.id, { status: newStatus });
     if (result) {
@@ -383,8 +510,6 @@ const handleStatusChange = async ({ task, newStatus }) => {
       });
     }
   } catch (error) {
-    console.error('Error changing task status:', error);
-
     toast.add({
       severity: 'error',
       summary: 'Status Change Failed',
@@ -395,23 +520,17 @@ const handleStatusChange = async ({ task, newStatus }) => {
 };
 
 /**
- * Handle edit task from TaskList hover action
- * @param {Object} task - The task to edit
+ * Handle edit task
  */
 const handleEditTask = (task) => {
-  console.log('DashboardView: Editing task:', task.id);
   selectedTask.value = task;
   taskDialogVisible.value = true;
 };
 
 /**
- * Handle delete task from TaskList hover action
- * @param {Object} task - The task to delete
+ * Handle delete task
  */
 const handleDeleteTask = async (task) => {
-  console.log('DashboardView: Deleting task:', task.id);
-
-  // Show confirmation dialog
   if (!confirm(`Are you sure you want to delete "${task.title}"?`)) {
     return;
   }
@@ -427,8 +546,6 @@ const handleDeleteTask = async (task) => {
       });
     }
   } catch (error) {
-    console.error('Error deleting task:', error);
-
     toast.add({
       severity: 'error',
       summary: 'Delete Failed',
@@ -441,8 +558,6 @@ const handleDeleteTask = async (task) => {
 onMounted(async () => {
   loadData();
   setupActivitySubscription();
-
-  // Initialize user tasks subscription
   taskStore.initializeUserTasksSubscription();
 });
 
@@ -450,22 +565,78 @@ onUnmounted(() => {
   if (activityUnsubscribe) {
     activityUnsubscribe();
   }
-
-  // Cleanup task subscriptions
   taskStore.cleanupUserTasksSubscription();
+  uiStore.resetMobileSection();
 });
 </script>
 
 <style scoped>
-.space-y-6 > * + * {
-  margin-top: 1.5rem;
+.dashboard-container {
+  min-height: 100vh;
+  background: var(--p-surface-ground);
 }
 
-.space-y-3 > * + * {
-  margin-top: 0.75rem;
+/* Mobile Dashboard */
+.mobile-dashboard {
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem;
+  gap: 0.75rem;
 }
 
-.settings-section {
+.mobile-header {
   padding: 0.5rem 0;
+}
+
+.mobile-section-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+/* Desktop Dashboard */
+.desktop-dashboard {
+  padding: 1.5rem;
+}
+
+.desktop-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  margin-bottom: 1.5rem;
+}
+
+.desktop-projects-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+/* Tailwind-style spacing utilities */
+.space-y-1\.5 > * + * {
+  margin-top: 0.375rem;
+}
+
+.space-y-2 > * + * {
+  margin-top: 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 767px) {
+  .desktop-dashboard {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-dashboard {
+    display: none;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .dashboard-container {
+    background: var(--p-surface-900);
+  }
 }
 </style>

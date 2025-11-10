@@ -16,6 +16,7 @@
   "dependencies": {
     "@primeuix/themes": "^1.2.1",
     "@tailwindcss/vite": "^4.1.11",
+    "@vueuse/core": "^14.0.0",
     "firebase": "^11.8.1",
     "firebase-admin": "^13.4.0",
     "lodash-es": "^4.17.21",

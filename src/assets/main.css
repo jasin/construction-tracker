@@ -6,15 +6,21 @@
 
 #app {
   margin: 0 auto;
-  font-size: small;
-  font-weight: normal;
+  font-weight: 400;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
 }
 
 body {
-  font-family: 'Inter', sans-serif;
+  font-family:
+    'Public Sans',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 html,
@@ -40,5 +46,104 @@ a,
   body {
     display: flex;
     place-items: center;
+  }
+}
+
+/* Typography utilities for data-dense layouts */
+.text-compact {
+  line-height: 1.375;
+  letter-spacing: -0.01em;
+}
+
+.text-data {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.005em;
+}
+
+/* Mobile-optimized typography */
+@media (max-width: 640px) {
+  body {
+    font-size: 13px;
+  }
+
+  h1,
+  .text-4xl,
+  .text-5xl {
+    font-size: 1.25rem !important;
+  }
+
+  h2,
+  .text-3xl {
+    font-size: 1.125rem !important;
+  }
+
+  h3,
+  .text-2xl {
+    font-size: 1rem !important;
+  }
+}
+
+/* Optimize table and list typography */
+table {
+  font-size: 0.8125rem; /* 13px */
+  line-height: 1.375;
+}
+
+.p-datatable {
+  font-size: 0.8125rem;
+}
+
+.p-datatable .p-datatable-header {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* Compact button text */
+.p-button {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* Mobile-first spacing optimization */
+@media (max-width: 640px) {
+  /* Reduce all padding and margins on mobile */
+  .p-card {
+    padding: 0.5rem !important;
+  }
+
+  .p-card .p-card-body {
+    padding: 0.5rem !important;
+  }
+
+  .p-card .p-card-content {
+    padding: 0 !important;
+  }
+
+  .p-card .p-card-title {
+    font-size: 1rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  /* Compact spacing utilities */
+  .mobile-compact-spacing {
+    padding: 0.5rem !important;
+    gap: 0.5rem !important;
+  }
+
+  .mobile-compact-spacing > * {
+    margin-bottom: 0.5rem !important;
+  }
+
+  .mobile-compact-spacing > *:last-child {
+    margin-bottom: 0 !important;
+  }
+}
+
+/* Desktop spacing - more generous */
+@media (min-width: 641px) {
+  .desktop-spacing {
+    padding: 1.5rem;
+    gap: 1.5rem;
   }
 }
