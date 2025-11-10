@@ -8,32 +8,17 @@
         <!-- Checkboxes for display options -->
         <div class="flex flex-col gap-3">
           <div class="flex items-center">
-            <Checkbox
-              id="showProjectName"
-              v-model="taskDisplay.showProjectName"
-              @change="updateTaskDisplaySettings"
-              binary
-            />
+            <Checkbox id="showProjectName" v-model="taskDisplay.showProjectName" binary />
             <label for="showProjectName" class="ml-2 text-sm font-medium">Show Project Name</label>
           </div>
           <div class="flex items-center">
-            <Checkbox
-              id="showEstimatedHours"
-              v-model="taskDisplay.showEstimatedHours"
-              @change="updateTaskDisplaySettings"
-              binary
-            />
+            <Checkbox id="showEstimatedHours" v-model="taskDisplay.showEstimatedHours" binary />
             <label for="showEstimatedHours" class="ml-2 text-sm font-medium"
               >Show Estimated Hours</label
             >
           </div>
           <div class="flex items-center">
-            <Checkbox
-              id="showCategory"
-              v-model="taskDisplay.showCategory"
-              @change="updateTaskDisplaySettings"
-              binary
-            />
+            <Checkbox id="showCategory" v-model="taskDisplay.showCategory" binary />
             <label for="showCategory" class="ml-2 text-sm font-medium">Show Category</label>
           </div>
         </div>
@@ -45,7 +30,6 @@
             <Select
               id="sortBy"
               v-model="taskDisplay.sortBy"
-              @change="updateTaskDisplaySettings"
               :options="sortByOptions"
               option-label="label"
               option-value="value"
@@ -60,7 +44,6 @@
             <Select
               id="taskDescriptionMode"
               v-model="taskDisplay.taskDescriptionMode"
-              @change="updateTaskDisplaySettings"
               :options="descriptionModeOptions"
               option-label="label"
               option-value="value"
@@ -76,12 +59,7 @@
     <Fieldset legend="Completed Tasks Filter" class="mb-4" collapsible>
       <div class="flex flex-col gap-4">
         <div class="flex items-center">
-          <Checkbox
-            id="filterEnabled"
-            v-model="completedTasksFilter.enabled"
-            @change="updateCompletedFilter"
-            binary
-          />
+          <Checkbox id="filterEnabled" v-model="completedTasksFilter.enabled" binary />
           <label for="filterEnabled" class="ml-2 text-sm font-medium">Enable Filter</label>
         </div>
         <div v-if="completedTasksFilter.enabled" class="flex gap-4 items-center">
@@ -92,7 +70,6 @@
             <InputNumber
               id="timePeriod"
               v-model="completedTasksFilter.timePeriod"
-              @input="updateCompletedFilter"
               :min="1"
               :max="365"
               class="w-full"
@@ -103,7 +80,6 @@
             <InputNumber
               id="limit"
               v-model="completedTasksFilter.limit"
-              @input="updateCompletedFilter"
               :min="1"
               :allow-null="true"
               placeholder="No limit"
@@ -118,12 +94,7 @@
     <Fieldset legend="Dashboard" class="mb-4" collapsible>
       <div class="flex flex-col gap-4">
         <div class="flex items-center">
-          <Checkbox
-            id="showCompletedTasks"
-            v-model="dashboard.showCompletedTasks"
-            @change="updateDashboardSettings"
-            binary
-          />
+          <Checkbox id="showCompletedTasks" v-model="dashboard.showCompletedTasks" binary />
           <label for="showCompletedTasks" class="ml-2 text-sm font-medium"
             >Show Completed Tasks on Dashboard</label
           >
@@ -133,18 +104,38 @@
           <InputNumber
             id="maxProjectCards"
             v-model="dashboard.maxProjectCards"
-            @input="updateDashboardSettings"
             :min="1"
             :max="20"
             class="w-full"
           />
         </div>
+        <div class="flex flex-col gap-2">
+          <label for="dashboardColumns" class="text-sm font-medium"
+            >Desktop: Number of Columns</label
+          >
+          <div class="flex items-center gap-2">
+            <Select
+              id="dashboardColumns"
+              v-model="dashboardColumns"
+              :options="columnOptions"
+              option-label="label"
+              option-value="value"
+              placeholder="Select columns"
+              class="w-32"
+            />
+            <span class="text-xs text-surface-500">(Desktop view only)</span>
+          </div>
+        </div>
       </div>
     </Fieldset>
 
-    <!-- Reset Button -->
-    <div class="flex justify-end">
-      <Button label="Reset to Defaults" severity="danger" @click="resetSettings" class="mt-4" />
+    <!-- Action Buttons -->
+    <div class="flex justify-between items-center mt-6">
+      <Button label="Reset to Defaults" severity="danger" outlined @click="resetSettings" />
+      <div class="flex gap-2">
+        <Button label="Cancel" severity="secondary" outlined @click="cancelAllSettings" />
+        <Button label="Save All Settings" @click="saveAllSettings" />
+      </div>
     </div>
 
     <!-- Toast for feedback -->
@@ -155,6 +146,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useUserSettingsStore } from '@/stores/userSettings';
+import { useUIStore } from '@/stores/ui';
 import Fieldset from 'primevue/fieldset';
 import Checkbox from 'primevue/checkbox';
 import Select from 'primevue/select';
@@ -176,46 +168,54 @@ const descriptionModeOptions = [
   { label: 'Hover to Expand', value: 'hover' },
 ];
 
-// Store
+const columnOptions = [
+  { label: '1', value: 1 },
+  { label: '2', value: 2 },
+  { label: '3', value: 3 },
+  { label: '4', value: 4 },
+];
+
+// Stores
 const userSettingsStore = useUserSettingsStore();
+const uiStore = useUIStore();
 const toast = useToast();
 
 // Reactive refs for each section
 const taskDisplay = ref({ ...userSettingsStore.settings.taskDisplay });
 const completedTasksFilter = ref({ ...userSettingsStore.settings.completedTasksFilter });
 const dashboard = ref({ ...userSettingsStore.settings.dashboard });
+const dashboardColumns = ref(uiStore.dashboardColumns);
 
-// Update methods
-const updateTaskDisplaySettings = async () => {
+// Save all settings at once
+const saveAllSettings = async () => {
   await userSettingsStore.updateTaskDisplay(taskDisplay.value);
-  toast.add({
-    severity: 'success',
-    summary: 'Updated',
-    detail: 'Task display settings saved',
-    life: 3000,
-  });
-};
-
-const updateCompletedFilter = async () => {
   await userSettingsStore.updateCompletedTasksFilter({
     enabled: completedTasksFilter.value.enabled,
     timePeriod: completedTasksFilter.value.timePeriod,
     limit: completedTasksFilter.value.limit,
   });
+  await userSettingsStore.updateDashboard(dashboard.value);
+  uiStore.setDashboardColumns(dashboardColumns.value);
+
   toast.add({
     severity: 'success',
-    summary: 'Updated',
-    detail: 'Completed tasks filter saved',
+    summary: 'Settings Saved',
+    detail: 'All settings have been saved successfully',
     life: 3000,
   });
 };
 
-const updateDashboardSettings = async () => {
-  await userSettingsStore.updateDashboard(dashboard.value);
+// Cancel all changes and reload from stores
+const cancelAllSettings = () => {
+  taskDisplay.value = { ...userSettingsStore.settings.taskDisplay };
+  completedTasksFilter.value = { ...userSettingsStore.settings.completedTasksFilter };
+  dashboard.value = { ...userSettingsStore.settings.dashboard };
+  dashboardColumns.value = uiStore.dashboardColumns;
+
   toast.add({
-    severity: 'success',
-    summary: 'Updated',
-    detail: 'Dashboard settings saved',
+    severity: 'info',
+    summary: 'Changes Cancelled',
+    detail: 'All changes have been discarded',
     life: 3000,
   });
 };
@@ -226,6 +226,8 @@ const resetSettings = async () => {
   taskDisplay.value = { ...userSettingsStore.settings.taskDisplay };
   completedTasksFilter.value = { ...userSettingsStore.settings.completedTasksFilter };
   dashboard.value = { ...userSettingsStore.settings.dashboard };
+  dashboardColumns.value = 4; // Reset to default 4 columns
+  uiStore.setDashboardColumns(4);
   toast.add({
     severity: 'info',
     summary: 'Reset',

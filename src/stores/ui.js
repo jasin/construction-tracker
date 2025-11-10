@@ -19,6 +19,10 @@ export const useUIStore = defineStore('ui', () => {
   // Track project dialog mode: 'create' or 'edit'
   const projectDialogMode = ref('create');
 
+  // Dashboard preferences
+  const dashboardColumns = ref(parseInt(localStorage.getItem('dashboardColumns')) || 4); // Desktop: 1, 2, 3, or 4 columns
+  const mobileActiveSection = ref(null); // Mobile: null = home, or section name
+
   const setProjectTransitioning = (busy) => {
     isProjectTransitioning.value = busy;
     console.log('UIStore: Project transitioning:', busy);
@@ -85,6 +89,21 @@ export const useUIStore = defineStore('ui', () => {
     sidebarOpen.value = !sidebarOpen.value;
   }
 
+  function setDashboardColumns(columns) {
+    if (columns >= 1 && columns <= 4) {
+      dashboardColumns.value = columns;
+      localStorage.setItem('dashboardColumns', columns.toString());
+    }
+  }
+
+  function setMobileActiveSection(sectionName) {
+    mobileActiveSection.value = sectionName;
+  }
+
+  function resetMobileSection() {
+    mobileActiveSection.value = null;
+  }
+
   const getProjectTransitioning = computed(() => isProjectTransitioning.value);
 
   return {
@@ -94,6 +113,8 @@ export const useUIStore = defineStore('ui', () => {
     sidebarOpen,
     modals,
     projectDialogMode,
+    dashboardColumns,
+    mobileActiveSection,
 
     // Actions
     addNotification,
@@ -106,5 +127,8 @@ export const useUIStore = defineStore('ui', () => {
     isProjectTransitioning,
     setProjectTransitioning,
     getProjectTransitioning,
+    setDashboardColumns,
+    setMobileActiveSection,
+    resetMobileSection,
   };
 });

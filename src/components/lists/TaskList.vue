@@ -21,10 +21,9 @@
         :class="getTaskStatusClass(task)"
         :data-priority="task.priority"
         :data-status="task.status"
-        @mouseenter="handleMouseEnter(task)"
-        @mouseleave="handleMouseLeave(task)"
       >
-        <div class="task-header">
+        <!-- Single Line: Status Icon → Title → Edit → Delete -->
+        <div class="task-row">
           <!-- Status Icon with Dropdown -->
           <div class="status-control" @click.stop>
             <button
@@ -64,16 +63,8 @@
             {{ task.title }}
           </span>
 
-          <!-- Priority Badge (only for critical/high) -->
-          <Tag
-            v-if="task.priority === 'critical' || task.priority === 'high'"
-            :value="formatPriority(task.priority)"
-            :severity="getPrioritySeverity(task.priority)"
-            class="task-priority-badge"
-          />
-
-          <!-- Hover Actions -->
-          <div class="task-hover-actions">
+          <!-- Action Buttons (Always Visible) -->
+          <div class="task-actions">
             <Button
               icon="pi pi-pencil"
               severity="secondary"
@@ -93,112 +84,6 @@
               v-tooltip.top="'Delete task'"
             />
           </div>
-        </div>
-
-        <div v-if="task.description" class="task-description">
-          <span
-            v-if="!expandedDescriptions.has(task.id)"
-            @click="
-              descriptionMode === 'click' && getDescriptionPreview(task.description).hasMore
-                ? toggleDescription(task.id)
-                : null
-            "
-            :class="{
-              'cursor-pointer expandable':
-                descriptionMode === 'click' && getDescriptionPreview(task.description).hasMore,
-            }"
-            :title="
-              descriptionMode === 'click' && getDescriptionPreview(task.description).hasMore
-                ? 'Click to expand description'
-                : ''
-            "
-            class="description-preview"
-          >
-            {{ getDescriptionPreview(task.description).truncated }}
-            <span v-if="getDescriptionPreview(task.description).hasMore">...</span>
-          </span>
-          <div
-            v-else
-            @click="descriptionMode === 'click' ? toggleDescription(task.id) : null"
-            class="cursor-pointer"
-            style="white-space: pre-wrap"
-          >
-            {{ task.description }}
-          </div>
-        </div>
-
-        <div class="task-meta">
-          <div v-if="task.assignedToName || task.assignedTo" class="meta-item">
-            <i class="pi pi-user text-xs"></i>
-            <span>{{ getAssigneeName(task) }}</span>
-          </div>
-
-          <div v-if="task.dueDate" class="meta-item" :class="getDueDateClass(task)">
-            <i class="pi pi-calendar text-xs"></i>
-            <span>{{ formatDueDate(task.dueDate) }}</span>
-            <i v-if="isOverdue(task)" class="pi pi-exclamation-triangle text-xs ml-1"></i>
-          </div>
-
-          <div v-if="showProjectName && task.projectId" class="meta-item">
-            <i class="pi pi-folder text-xs"></i>
-            <span>{{ getProjectName(task.projectId) }}</span>
-          </div>
-
-          <div v-if="task.estimatedHours" class="meta-item">
-            <i class="pi pi-clock text-xs"></i>
-            <span>{{ task.estimatedHours }}h</span>
-          </div>
-
-          <div v-if="task.category" class="meta-item">
-            <i class="pi pi-tag text-xs"></i>
-            <span>{{ task.category }}</span>
-          </div>
-        </div>
-
-        <!-- Dependency Status -->
-        <div v-if="hasDependencies(task)" class="dependency-section" @click.stop>
-          <div class="dependency-header">
-            <div class="flex items-center gap-2">
-              <i class="pi pi-link text-xs text-surface-600"></i>
-              <span class="text-xs font-medium text-surface-700">Dependencies</span>
-            </div>
-            <span class="text-xs text-surface-600">
-              {{ getDependencyStatus(task).complete }}/{{ getDependencyStatus(task).total }}
-              complete
-            </span>
-          </div>
-
-          <ProgressBar
-            :value="getDependencyStatus(task).percentage"
-            :show-value="false"
-            class="h-2 mt-1"
-            :severity="getDependencyProgressSeverity(task)"
-          />
-
-          <!-- Blocked Warning -->
-          <div
-            v-if="!getDependencyStatus(task).allComplete && task.status !== 'complete'"
-            class="blocked-warning"
-          >
-            <i class="pi pi-exclamation-circle text-xs"></i>
-            <span class="text-xs"> Blocked by: {{ getBlockedByText(task) }} </span>
-          </div>
-
-          <!-- Ready Badge -->
-          <div
-            v-else-if="getDependencyStatus(task).allComplete && task.status !== 'complete'"
-            class="ready-badge"
-          >
-            <i class="pi pi-check-circle text-xs"></i>
-            <span class="text-xs">All dependencies complete - ready to finish!</span>
-          </div>
-        </div>
-
-        <div
-          v-if="hasDependencies(task) && task.progress !== undefined && task.progress !== null"
-          class="task-progress"
-        >
-          <ProgressBar :value="task.progress" :show-value="true" class="h-2" />
         </div>
       </li>
     </ul>
@@ -717,34 +602,33 @@ const getDescriptionPreview = (desc) => {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.375rem;
 }
 
 .task-item {
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 1rem;
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
   background-color: #ffffff;
-  cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
 }
 
 /* Priority-based left border */
 .task-item[data-priority='critical'] {
-  border-left: 4px solid #dc2626;
+  border-left: 3px solid #dc2626;
 }
 
 .task-item[data-priority='high'] {
-  border-left: 4px solid #f59e0b;
+  border-left: 3px solid #f59e0b;
 }
 
 .task-item[data-priority='medium'] {
-  border-left: 4px solid #3b82f6;
+  border-left: 3px solid #3b82f6;
 }
 
 .task-item[data-priority='low'] {
-  border-left: 4px solid #9ca3af;
+  border-left: 3px solid #9ca3af;
 }
 
 /* Status-based styling */
@@ -761,7 +645,7 @@ const getDescriptionPreview = (desc) => {
 }
 
 .task-item:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
   border-color: #d1d5db;
 }
 
@@ -770,27 +654,21 @@ const getDescriptionPreview = (desc) => {
 }
 
 .task-item.task-overdue:not([data-status='complete']) {
-  border-left-width: 4px;
+  border-left-width: 3px;
   border-left-color: #ef4444 !important;
 }
 
-/* Show hover actions on hover */
-.task-item:hover .task-hover-actions {
-  opacity: 1;
-  visibility: visible;
-}
-
-.task-header {
+/* Single row layout */
+.task-row {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
 }
 
 .task-title {
   font-weight: 500;
   color: #111827;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -803,12 +681,6 @@ const getDescriptionPreview = (desc) => {
   color: #6b7280;
 }
 
-.task-priority-badge {
-  flex-shrink: 0;
-  font-size: 0.75rem !important;
-  padding: 0.25rem 0.5rem !important;
-}
-
 /* Status Control */
 .status-control {
   position: relative;
@@ -819,17 +691,17 @@ const getDescriptionPreview = (desc) => {
 }
 
 .status-icon-button {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: none;
   background: transparent;
   cursor: pointer;
-  border-radius: 6px 0 0 6px;
+  border-radius: 4px 0 0 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .status-icon-button:hover {
@@ -857,12 +729,12 @@ const getDescriptionPreview = (desc) => {
 }
 
 .status-dropdown-button {
-  width: 20px;
-  height: 32px;
+  width: 18px;
+  height: 28px;
   border: none;
   background: transparent;
   cursor: pointer;
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 4px 4px 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -920,112 +792,33 @@ const getDescriptionPreview = (desc) => {
   color: #22c55e;
 }
 
-/* Hover Actions */
-.task-hover-actions {
+/* Action Buttons */
+.task-actions {
   display: flex;
   gap: 0.25rem;
   align-items: center;
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.2s ease;
   margin-left: auto;
-}
-
-.task-description {
-  color: #6b7280;
-  font-size: 0.875rem;
-  line-height: 1.4;
-  margin-bottom: 0.75rem;
-  margin-left: 2.25rem;
-}
-
-.task-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  font-size: 0.8rem;
-  color: #6b7280;
-  margin-left: 2.25rem;
-  margin-bottom: 0.5rem;
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-.task-progress {
-  margin-left: 2.25rem;
-  margin-top: 0.5rem;
-}
-
-.dependency-section {
-  margin-left: 2.25rem;
-  margin-top: 0.75rem;
-  padding: 0.75rem;
-  background-color: #f9fafb;
-  border-radius: 6px;
-  border: 1px solid #e5e7eb;
-}
-
-.dependency-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.blocked-warning {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  background-color: #fef2f2;
-  border-left: 3px solid #ef4444;
-  border-radius: 4px;
-  color: #991b1b;
-}
-
-.ready-badge {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  background-color: #f0fdf4;
-  border-left: 3px solid #22c55e;
-  border-radius: 4px;
-  color: #166534;
-}
-
-.description-preview {
-  display: block;
-  margin-bottom: 0.5rem;
-}
-
-.expandable:hover {
-  font-weight: bold;
+  flex-shrink: 0;
 }
 
 @media (max-width: 768px) {
-  .task-header {
-    flex-direction: column;
-    align-items: flex-start;
+  .task-row {
+    gap: 0.5rem;
   }
 
-  .task-badges {
-    margin-left: 2.25rem;
+  .task-title {
+    font-size: 0.85rem;
   }
 
-  .task-meta {
-    flex-direction: column;
-    gap: 0.375rem;
+  .status-icon-button {
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
   }
 
-  .dependency-section {
-    margin-left: 0;
+  .status-dropdown-button {
+    width: 16px;
+    height: 24px;
   }
 }
 </style>
