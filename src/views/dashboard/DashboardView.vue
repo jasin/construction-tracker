@@ -130,22 +130,26 @@
       <!-- My Tasks Section -->
       <div class="mb-6">
         <h3 class="text-base font-semibold text-surface-900 mb-3">My Tasks</h3>
-        <TaskList
-          :tasks="taskStore.userTasks"
-          :loading="taskStore.userTasksLoading"
-          title=""
-          empty-message="No tasks assigned to you"
-          :show-create-button="true"
-          :show-project-name="true"
-          sort-by="priority"
-          :filter-completed-tasks="true"
-          @task-click="handleTaskClick"
-          @create-task="handleCreateTask"
-          @toggle-complete="handleToggleComplete"
-          @status-change="handleStatusChange"
-          @edit-task="handleEditTask"
-          @delete-task="handleDeleteTask"
-        />
+        <div class="desktop-tasks-container grid gap-4" :class="getGridClass">
+          <div :class="getTaskListSpanClass">
+            <TaskList
+              :tasks="taskStore.userTasks"
+              :loading="taskStore.userTasksLoading"
+              title=""
+              empty-message="No tasks assigned to you"
+              :show-create-button="true"
+              :show-project-name="true"
+              sort-by="priority"
+              :filter-completed-tasks="true"
+              @task-click="handleTaskClick"
+              @create-task="handleCreateTask"
+              @toggle-complete="handleToggleComplete"
+              @status-change="handleStatusChange"
+              @edit-task="handleEditTask"
+              @delete-task="handleDeleteTask"
+            />
+          </div>
+        </div>
       </div>
 
       <!-- Recent Project Activity Section -->
@@ -286,6 +290,19 @@ const getGridClass = computed(() => {
     4: 'grid-cols-1 md:grid-cols-4',
   };
   return classMap[cols] || 'grid-cols-1 md:grid-cols-4';
+});
+
+// Dynamic column span class for TaskList
+// TaskList will span N columns within the 4-column grid
+const getTaskListSpanClass = computed(() => {
+  const cols = uiStore.taskListColumns;
+  const classMap = {
+    1: 'col-span-1 md:col-span-1',
+    2: 'col-span-1 md:col-span-2',
+    3: 'col-span-1 md:col-span-3',
+    4: 'col-span-1 md:col-span-4',
+  };
+  return classMap[cols] || 'col-span-1 md:col-span-1';
 });
 
 /**
@@ -599,6 +616,11 @@ onUnmounted(() => {
 }
 
 .desktop-projects-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.desktop-tasks-container {
   display: grid;
   gap: 1rem;
 }

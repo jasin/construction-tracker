@@ -21,6 +21,7 @@ export const useUIStore = defineStore('ui', () => {
 
   // Dashboard preferences
   const dashboardColumns = ref(parseInt(localStorage.getItem('dashboardColumns')) || 4); // Desktop: 1, 2, 3, or 4 columns
+  const taskListColumns = ref(parseInt(localStorage.getItem('taskListColumns')) || 1); // Desktop: 1, 2, 3, or 4 columns for TaskList
   const mobileActiveSection = ref(null); // Mobile: null = home, or section name
 
   const setProjectTransitioning = (busy) => {
@@ -96,6 +97,13 @@ export const useUIStore = defineStore('ui', () => {
     }
   }
 
+  function setTaskListColumns(columns) {
+    if (columns >= 1 && columns <= 4) {
+      taskListColumns.value = columns;
+      localStorage.setItem('taskListColumns', columns.toString());
+    }
+  }
+
   function setMobileActiveSection(sectionName) {
     mobileActiveSection.value = sectionName;
   }
@@ -114,6 +122,7 @@ export const useUIStore = defineStore('ui', () => {
     modals,
     projectDialogMode,
     dashboardColumns,
+    taskListColumns,
     mobileActiveSection,
 
     // Actions
@@ -128,6 +137,7 @@ export const useUIStore = defineStore('ui', () => {
     setProjectTransitioning,
     getProjectTransitioning,
     setDashboardColumns,
+    setTaskListColumns,
     setMobileActiveSection,
     resetMobileSection,
   };
