@@ -134,7 +134,7 @@ export function useProjectSearch({ groupByPhase = false, limit = 20 } = {}) {
         handleEmptyQuery();
       }
     },
-    { immediate: false } // Don't run immediately; wait for first store update
+    { immediate: true } // Run immediately to populate suggestions on mount
   );
 
   // Watch query for search

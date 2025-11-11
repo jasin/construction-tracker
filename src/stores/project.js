@@ -335,7 +335,7 @@ export const useProjectStore = defineStore('project', () => {
 
       // Reset core state
       activeProjectId.value = null;
-      currentProject.value = null;
+      currentProject.value = {}; // Keep as empty object to prevent null reference errors
       loading.value = false;
       error.value = null;
       justReset.value = true;

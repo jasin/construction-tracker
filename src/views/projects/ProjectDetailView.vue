@@ -21,7 +21,7 @@
     -->
 
     <!-- Main Content -->
-    <div v-else class="space-y-6">
+    <div v-else-if="currentProject?.id" class="space-y-6">
       <!-- Project Header -->
       <div class="bg-white shadow-sm border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -85,7 +85,7 @@
           </div>
 
           <!-- Status Bar -->
-          <div class="mt-4 flex gap-4 items-center">
+          <div v-if="currentProject?.phase" class="mt-4 flex gap-4 items-center">
             <Tag
               :value="formatPhase(currentProject.phase)"
               :severity="getPhaseSeverity(currentProject.phase)"
@@ -390,6 +390,14 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Empty State (when transitioning or no project loaded) -->
+    <div v-else class="flex items-center justify-center h-screen">
+      <div class="text-center">
+        <i class="pi pi-spinner pi-spin text-4xl text-blue-500 mb-4"></i>
+        <p class="text-lg text-gray-600">Transitioning...</p>
       </div>
     </div>
   </div>

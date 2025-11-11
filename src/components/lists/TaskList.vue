@@ -13,80 +13,174 @@
       <p class="text-surface-600">{{ emptyMessage }}</p>
     </div>
 
-    <ul v-else class="task-items">
-      <li
-        v-for="task in sortedTasks"
+    <div v-else class="task-accordion">
+      <div
+        v-for="(task, index) in sortedTasks"
         :key="task.id"
-        class="task-item"
-        :class="getTaskStatusClass(task)"
+        class="task-accordion-panel"
+        :class="[getTaskStatusClass(task), { 'is-expanded': expandedTaskId === task.id }]"
         :data-priority="task.priority"
         :data-status="task.status"
       >
-        <!-- Single Line: Status Icon → Title → Edit → Delete -->
-        <div class="task-row">
-          <!-- Status Icon with Dropdown -->
-          <div class="status-control" @click.stop>
-            <button
-              class="status-icon-button"
-              :class="`status-${task.status}`"
-              @click="handleStatusIconClick(task)"
-              :title="getStatusTooltip(task)"
-            >
-              <i :class="getStatusIcon(task)"></i>
-            </button>
-            <button
-              class="status-dropdown-button"
-              @click="toggleStatusDropdown(task)"
-              :title="'Change status'"
-            >
-              <i class="pi pi-chevron-down text-xs"></i>
-            </button>
-
-            <!-- Status Dropdown Menu -->
-            <div v-if="activeDropdown === task.id" class="status-dropdown-menu" @click.stop>
-              <div
-                v-for="status in statusOptions"
-                :key="status.value"
-                class="status-menu-item"
-                :class="{ active: task.status === status.value }"
-                @click="handleStatusChange(task, status.value)"
+        <!-- Collapsed View: Single Line -->
+        <div class="task-accordion-header">
+          <div class="task-row">
+            <!-- Status Icon with Dropdown -->
+            <div class="status-control" @click.stop>
+              <button
+                class="status-icon-button"
+                :class="`status-${task.status}`"
+                @click="handleStatusIconClick(task)"
+                :title="getStatusTooltip(task)"
               >
-                <i :class="getStatusIconForValue(status.value)"></i>
-                <span>{{ status.label }}</span>
-                <i v-if="task.status === status.value" class="pi pi-check ml-auto"></i>
+                <i :class="getStatusIcon(task)"></i>
+              </button>
+              <button
+                class="status-dropdown-button"
+                @click="toggleStatusDropdown(task)"
+                :title="'Change status'"
+              >
+                <i class="pi pi-chevron-down text-xs"></i>
+              </button>
+
+              <!-- Status Dropdown Menu -->
+              <div v-if="activeDropdown === task.id" class="status-dropdown-menu" @click.stop>
+                <div
+                  v-for="status in statusOptions"
+                  :key="status.value"
+                  class="status-menu-item"
+                  :class="{ active: task.status === status.value }"
+                  @click="handleStatusChange(task, status.value)"
+                >
+                  <i :class="getStatusIconForValue(status.value)"></i>
+                  <span>{{ status.label }}</span>
+                  <i v-if="task.status === status.value" class="pi pi-check ml-auto"></i>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Task Title -->
-          <span class="task-title" :class="{ 'line-through': task.status === 'complete' }">
-            {{ task.title }}
-          </span>
+            <!-- Task Title (Clickable for expand/collapse) -->
+            <div
+              class="task-title-area"
+              :class="{ 'line-through': task.status === 'complete' }"
+              @click="toggleExpanded(task.id)"
+            >
+              <i
+                class="expand-icon pi"
+                :class="expandedTaskId === task.id ? 'pi-chevron-down' : 'pi-chevron-right'"
+              ></i>
+              <span class="task-title">
+                {{ task.title }}
+              </span>
+            </div>
 
-          <!-- Action Buttons (Always Visible) -->
-          <div class="task-actions">
-            <Button
-              icon="pi pi-pencil"
-              severity="secondary"
-              text
-              rounded
-              size="small"
-              @click.stop="handleEditTask(task)"
-              v-tooltip.top="'Edit task'"
-            />
-            <Button
-              icon="pi pi-trash"
-              severity="danger"
-              text
-              rounded
-              size="small"
-              @click.stop="handleDeleteTask(task)"
-              v-tooltip.top="'Delete task'"
-            />
+            <!-- Action Buttons (Always Visible) -->
+            <div class="task-actions">
+              <Button
+                icon="pi pi-pencil"
+                severity="secondary"
+                text
+                rounded
+                size="small"
+                @click.stop="handleEditTask(task)"
+                v-tooltip.top="'Edit task'"
+              />
+              <Button
+                icon="pi pi-trash"
+                severity="danger"
+                text
+                rounded
+                size="small"
+                @click.stop="handleDeleteTask(task)"
+                v-tooltip.top="'Delete task'"
+              />
+            </div>
           </div>
         </div>
-      </li>
-    </ul>
+
+        <!-- Expanded View: Full Task Card -->
+        <div v-if="expandedTaskId === task.id" class="task-accordion-content">
+          <div class="task-card-expanded">
+            <!-- Priority and Status Tags -->
+            <div class="task-meta-row">
+              <Tag
+                :value="formatPriority(task.priority)"
+                :severity="getPrioritySeverity(task.priority)"
+                class="text-xs"
+              />
+              <Tag
+                :value="formatStatus(task.status)"
+                :severity="getStatusSeverity(task.status)"
+                class="text-xs"
+              />
+            </div>
+
+            <!-- Project Name (if shown) -->
+            <div v-if="showProjectName && task.projectId" class="task-project">
+              <i class="pi pi-briefcase text-xs"></i>
+              <span class="text-sm text-surface-700">{{ getProjectName(task.projectId) }}</span>
+            </div>
+
+            <!-- Description -->
+            <div v-if="task.description" class="task-description">
+              <div class="text-sm text-surface-800 whitespace-pre-wrap">{{ task.description }}</div>
+            </div>
+
+            <!-- Assignee -->
+            <div v-if="task.assignedTo" class="task-assignee">
+              <i class="pi pi-user text-xs"></i>
+              <span class="text-sm text-surface-700">{{ getAssigneeName(task) }}</span>
+            </div>
+
+            <!-- Due Date -->
+            <div v-if="task.dueDate" class="task-due-date">
+              <i class="pi pi-calendar text-xs"></i>
+              <span class="text-sm" :class="getDueDateClass(task)">
+                {{ formatDueDate(task.dueDate) }}
+              </span>
+            </div>
+
+            <!-- Dependencies -->
+            <div v-if="hasDependencies(task)" class="task-dependencies">
+              <div class="dependency-header">
+                <i class="pi pi-link text-xs"></i>
+                <span class="text-sm font-medium text-surface-800">Dependencies</span>
+              </div>
+              <ProgressBar
+                :value="getDependencyStatus(task).percentage"
+                :severity="getDependencyProgressSeverity(task)"
+                :showValue="false"
+                class="mb-2"
+                style="height: 6px"
+              />
+              <div class="text-xs text-surface-600">
+                {{ getDependencyStatus(task).complete }} of
+                {{ getDependencyStatus(task).total }} completed
+              </div>
+              <div
+                v-if="!getDependencyStatus(task).allComplete"
+                class="text-xs text-orange-600 mt-1"
+              >
+                <i class="pi pi-exclamation-triangle"></i>
+                Blocked by: {{ getBlockedByText(task) }}
+              </div>
+            </div>
+
+            <!-- Estimated Hours -->
+            <div v-if="task.estimatedHours" class="task-estimated-hours">
+              <i class="pi pi-clock text-xs"></i>
+              <span class="text-sm text-surface-700">{{ task.estimatedHours }}h estimated</span>
+            </div>
+
+            <!-- Category -->
+            <div v-if="task.category" class="task-category">
+              <i class="pi pi-tag text-xs"></i>
+              <span class="text-sm text-surface-700">{{ task.category }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -160,6 +254,7 @@ const emit = defineEmits([
 // Local state
 const activeDropdown = ref(null);
 const expandedDescriptions = ref(new Set());
+const expandedTaskId = ref(null); // Currently expanded task ID (null = all collapsed)
 
 // Status options for dropdown
 const statusOptions = [
@@ -545,6 +640,11 @@ const handleDeleteTask = (task) => {
   emit('delete-task', task);
 };
 
+const toggleExpanded = (taskId) => {
+  // Toggle: if clicking the same task, collapse it; otherwise expand the new one
+  expandedTaskId.value = expandedTaskId.value === taskId ? null : taskId;
+};
+
 const handleMouseEnter = (task) => {
   if (descriptionMode.value === 'hover' && getDescriptionPreview(task.description).hasMore) {
     expandedDescriptions.value.add(task.id);
@@ -584,7 +684,7 @@ const getDescriptionPreview = (desc) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .no-data {
@@ -596,73 +696,129 @@ const getDescriptionPreview = (desc) => {
   align-items: center;
 }
 
-.task-items {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+/* Accordion Styling - Mobile First */
+.task-accordion {
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
 }
 
-.task-item {
+/* Accordion Panel - Mobile First */
+.task-accordion-panel {
   border: 1px solid #e5e7eb;
   border-radius: 6px;
-  padding: 0.5rem 0.75rem;
   background-color: #ffffff;
   transition: all 0.2s ease;
-  position: relative;
+  overflow: hidden;
 }
 
-/* Priority-based left border */
-.task-item[data-priority='critical'] {
-  border-left: 3px solid #dc2626;
-}
-
-.task-item[data-priority='high'] {
-  border-left: 3px solid #f59e0b;
-}
-
-.task-item[data-priority='medium'] {
-  border-left: 3px solid #3b82f6;
-}
-
-.task-item[data-priority='low'] {
-  border-left: 3px solid #9ca3af;
-}
-
-/* Status-based styling */
-.task-item[data-status='in-progress'] {
-  background-color: #eff6ff;
-}
-
-.task-item[data-status='complete'] {
-  opacity: 0.7;
-}
-
-.task-item[data-status='on-hold'] {
-  background-color: #fef9c3;
-}
-
-.task-item:hover {
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+.task-accordion-panel:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   border-color: #d1d5db;
 }
 
-.task-item[data-status='complete']:hover {
+/* Priority-based left border - Mobile First */
+.task-accordion-panel[data-priority='critical'] {
+  border-left: 4px solid #dc2626;
+}
+
+.task-accordion-panel[data-priority='high'] {
+  border-left: 4px solid #f59e0b;
+}
+
+.task-accordion-panel[data-priority='medium'] {
+  border-left: 4px solid #3b82f6;
+}
+
+.task-accordion-panel[data-priority='low'] {
+  border-left: 4px solid #9ca3af;
+}
+
+/* Status-based styling */
+.task-accordion-panel[data-status='in-progress'] {
+  background-color: #eff6ff;
+}
+
+.task-accordion-panel[data-status='complete'] {
+  opacity: 0.75;
+}
+
+.task-accordion-panel[data-status='complete']:hover {
   opacity: 1;
 }
 
-.task-item.task-overdue:not([data-status='complete']) {
-  border-left-width: 3px;
+.task-accordion-panel[data-status='on-hold'] {
+  background-color: #fef9c3;
+}
+
+.task-accordion-panel.task-overdue:not([data-status='complete']) {
+  border-left-width: 4px;
   border-left-color: #ef4444 !important;
+}
+
+/* Accordion Header - Mobile First */
+.task-accordion-header {
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.task-accordion-header:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.task-accordion-panel.is-expanded .task-accordion-header {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+/* Accordion Content - Mobile First */
+.task-accordion-content {
+  padding: 0.5rem;
+  border-top: 1px solid #e5e7eb;
+  background: transparent;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 1000px;
+  }
 }
 
 /* Single row layout */
 .task-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
+}
+
+.task-title-area {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  margin: -0.25rem -0.5rem;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+}
+
+.task-title-area:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.expand-icon {
+  font-size: 0.75rem;
+  color: #6b7280;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
 }
 
 .task-title {
@@ -676,7 +832,7 @@ const getDescriptionPreview = (desc) => {
   min-width: 0;
 }
 
-.task-title.line-through {
+.task-title-area.line-through .task-title {
   text-decoration: line-through;
   color: #6b7280;
 }
@@ -801,7 +957,82 @@ const getDescriptionPreview = (desc) => {
   flex-shrink: 0;
 }
 
-@media (max-width: 768px) {
+/* Expanded Card Content - Mobile First */
+.task-card-expanded {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.task-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.task-project,
+.task-assignee,
+.task-due-date,
+.task-estimated-hours,
+.task-category {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--p-text-muted-color);
+}
+
+.task-description {
+  padding: 0.75rem;
+  background-color: var(--p-surface-50);
+  border-radius: 6px;
+  border-left: 3px solid var(--p-primary-color);
+}
+
+.task-dependencies {
+  padding: 0.75rem;
+  background-color: var(--p-surface-50);
+  border-radius: 6px;
+  border-left: 3px solid var(--p-orange-500);
+}
+
+.dependency-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* Desktop Enhancements (min-width: 768px) */
+@media (min-width: 768px) {
+  .task-accordion {
+    gap: 0.625rem;
+  }
+
+  .task-accordion-header {
+    padding: 1rem;
+  }
+
+  .task-accordion-content {
+    padding: 1rem;
+  }
+
+  .task-card-expanded {
+    gap: 1rem;
+    padding-top: 0.5rem;
+  }
+
+  .task-row {
+    gap: 1rem;
+  }
+
+  .task-title {
+    font-size: 0.95rem;
+  }
+}
+
+/* Mobile Adjustments (max-width: 767px) */
+@media (max-width: 767px) {
   .task-row {
     gap: 0.5rem;
   }
@@ -819,6 +1050,15 @@ const getDescriptionPreview = (desc) => {
   .status-dropdown-button {
     width: 16px;
     height: 24px;
+  }
+
+  .task-card-expanded {
+    gap: 0.625rem;
+  }
+
+  .task-description,
+  .task-dependencies {
+    padding: 0.625rem;
   }
 }
 </style>
