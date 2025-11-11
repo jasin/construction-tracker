@@ -2,7 +2,12 @@
   <div v-if="authLoading">Loading...</div>
   <div v-else>
     <LoginView v-if="!isAuthenticated" />
-    <div v-else class="flex flex-col h-screen" @contextmenu.prevent="showContextMenu($event)">
+    <div
+      v-else
+      class="flex flex-col h-screen"
+      ref="mainDiv"
+      @contextmenu.prevent="showContextMenu($event)"
+    >
       <!-- Header -->
       <header class="flex items-center justify-between p-4 bg-white border-b">
         <div class="flex items-center gap-3">
@@ -178,6 +183,7 @@ import { computed, nextTick, onMounted, onBeforeMount, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import { storeToRefs } from 'pinia';
+import Hammer from 'hammerjs';
 
 // Stores
 import { useAuthStore, useProjectStore, useUIStore, useUserSettingsStore } from '@/stores';
@@ -219,6 +225,7 @@ const toast = useToast();
 // State (Refs)
 const userMenu = ref();
 const contextMenu = ref();
+const mainDiv = ref();
 const showProjectSearch = ref(false); // Unified project search
 
 // Task settings dialog state
@@ -517,6 +524,13 @@ onMounted(async () => {
     projectStore.initializeProjectsSubscription();
     loadSettings(); // Load user settings
   }
+
+  // Set up Hammer.js for long-press context menu on touch devices
+  const hammer = new Hammer(mainDiv.value);
+  hammer.on('press', (event) => {
+    event.srcEvent.preventDefault();
+    showContextMenu(event.srcEvent);
+  });
 });
 </script>
 
