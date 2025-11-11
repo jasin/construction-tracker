@@ -110,8 +110,25 @@
           />
         </div>
         <div class="flex flex-col gap-2">
+          <label for="taskListColumns" class="text-sm font-medium"
+            >Desktop: My Tasks - Number of Columns</label
+          >
+          <div class="flex items-center gap-2">
+            <Select
+              id="taskListColumns"
+              v-model="taskListColumns"
+              :options="columnOptions"
+              option-label="label"
+              option-value="value"
+              placeholder="Select columns"
+              class="w-32"
+            />
+            <span class="text-xs text-surface-500">(Desktop view only)</span>
+          </div>
+        </div>
+        <div class="flex flex-col gap-2">
           <label for="dashboardColumns" class="text-sm font-medium"
-            >Desktop: Number of Columns</label
+            >Desktop: Recent Project Activity - Number of Columns</label
           >
           <div class="flex items-center gap-2">
             <Select
@@ -185,6 +202,7 @@ const taskDisplay = ref({ ...userSettingsStore.settings.taskDisplay });
 const completedTasksFilter = ref({ ...userSettingsStore.settings.completedTasksFilter });
 const dashboard = ref({ ...userSettingsStore.settings.dashboard });
 const dashboardColumns = ref(uiStore.dashboardColumns);
+const taskListColumns = ref(uiStore.taskListColumns);
 
 // Save all settings at once
 const saveAllSettings = async () => {
@@ -196,6 +214,7 @@ const saveAllSettings = async () => {
   });
   await userSettingsStore.updateDashboard(dashboard.value);
   uiStore.setDashboardColumns(dashboardColumns.value);
+  uiStore.setTaskListColumns(taskListColumns.value);
 
   toast.add({
     severity: 'success',
@@ -211,6 +230,7 @@ const cancelAllSettings = () => {
   completedTasksFilter.value = { ...userSettingsStore.settings.completedTasksFilter };
   dashboard.value = { ...userSettingsStore.settings.dashboard };
   dashboardColumns.value = uiStore.dashboardColumns;
+  taskListColumns.value = uiStore.taskListColumns;
 
   toast.add({
     severity: 'info',
@@ -227,7 +247,9 @@ const resetSettings = async () => {
   completedTasksFilter.value = { ...userSettingsStore.settings.completedTasksFilter };
   dashboard.value = { ...userSettingsStore.settings.dashboard };
   dashboardColumns.value = 4; // Reset to default 4 columns
+  taskListColumns.value = 1; // Reset to default 1 column
   uiStore.setDashboardColumns(4);
+  uiStore.setTaskListColumns(1);
   toast.add({
     severity: 'info',
     summary: 'Reset',
