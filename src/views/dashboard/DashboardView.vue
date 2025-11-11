@@ -129,29 +129,23 @@
 
       <!-- My Tasks Section -->
       <div class="mb-6">
-        <div class="bg-white rounded-lg border border-surface-200 overflow-hidden">
-          <div class="flex justify-between items-center px-4 py-3 border-b border-surface-200">
-            <h3 class="text-base font-semibold text-surface-900">My Tasks</h3>
-          </div>
-          <div class="px-4 py-3">
-            <TaskList
-              :tasks="taskStore.userTasks"
-              :loading="taskStore.userTasksLoading"
-              title=""
-              empty-message="No tasks assigned to you"
-              :show-create-button="true"
-              :show-project-name="true"
-              sort-by="priority"
-              :filter-completed-tasks="true"
-              @task-click="handleTaskClick"
-              @create-task="handleCreateTask"
-              @toggle-complete="handleToggleComplete"
-              @status-change="handleStatusChange"
-              @edit-task="handleEditTask"
-              @delete-task="handleDeleteTask"
-            />
-          </div>
-        </div>
+        <h3 class="text-base font-semibold text-surface-900 mb-3">My Tasks</h3>
+        <TaskList
+          :tasks="taskStore.userTasks"
+          :loading="taskStore.userTasksLoading"
+          title=""
+          empty-message="No tasks assigned to you"
+          :show-create-button="true"
+          :show-project-name="true"
+          sort-by="priority"
+          :filter-completed-tasks="true"
+          @task-click="handleTaskClick"
+          @create-task="handleCreateTask"
+          @toggle-complete="handleToggleComplete"
+          @status-change="handleStatusChange"
+          @edit-task="handleEditTask"
+          @delete-task="handleDeleteTask"
+        />
       </div>
 
       <!-- Recent Project Activity Section -->
@@ -635,6 +629,13 @@ onUnmounted(() => {
 @media (prefers-color-scheme: dark) {
   .dashboard-container {
     background: var(--p-surface-900);
+  }
+}
+
+/* Remove main padding on mobile for full-width layout */
+@media (max-width: 767px) {
+  :global(main) {
+    padding: 0 !important;
   }
 }
 </style>
