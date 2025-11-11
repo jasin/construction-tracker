@@ -1,7 +1,7 @@
 <template>
   <div class="task-list">
     <div class="task-list-header">
-      <h3 class="text-lg font-semibold text-surface-900">{{ title }}</h3>
+      <h3 class="text-base font-semibold text-surface-900">{{ title }}</h3>
     </div>
 
     <div v-if="loading" class="flex justify-center py-8">
@@ -18,45 +18,25 @@
         v-for="(task, index) in sortedTasks"
         :key="task.id"
         class="task-accordion-panel"
-        :class="[getTaskStatusClass(task), { 'is-expanded': expandedTaskId === task.id }]"
-        :data-priority="task.priority"
-        :data-status="task.status"
+        :class="[
+          getTaskStatusClass(task),
+          { 'is-expanded': expandedTaskId === task.id },
+          `priority-${task.priority}`,
+          `status-${task.status}`,
+        ]"
       >
         <!-- Collapsed View: Single Line -->
         <div class="task-accordion-header">
           <div class="task-row">
             <!-- Status Icon with Dropdown -->
-            <div class="status-control" @click.stop>
+            <div class="status-control">
               <button
                 class="status-icon-button"
                 :class="`status-${task.status}`"
-                @click="handleStatusIconClick(task)"
                 :title="getStatusTooltip(task)"
               >
                 <i :class="getStatusIcon(task)"></i>
               </button>
-              <button
-                class="status-dropdown-button"
-                @click="toggleStatusDropdown(task)"
-                :title="'Change status'"
-              >
-                <i class="pi pi-chevron-down text-xs"></i>
-              </button>
-
-              <!-- Status Dropdown Menu -->
-              <div v-if="activeDropdown === task.id" class="status-dropdown-menu" @click.stop>
-                <div
-                  v-for="status in statusOptions"
-                  :key="status.value"
-                  class="status-menu-item"
-                  :class="{ active: task.status === status.value }"
-                  @click="handleStatusChange(task, status.value)"
-                >
-                  <i :class="getStatusIconForValue(status.value)"></i>
-                  <span>{{ status.label }}</span>
-                  <i v-if="task.status === status.value" class="pi pi-check ml-auto"></i>
-                </div>
-              </div>
             </div>
 
             <!-- Task Title (Clickable for expand/collapse) -->
@@ -65,10 +45,6 @@
               :class="{ 'line-through': task.status === 'complete' }"
               @click="toggleExpanded(task.id)"
             >
-              <i
-                class="expand-icon pi"
-                :class="expandedTaskId === task.id ? 'pi-chevron-down' : 'pi-chevron-right'"
-              ></i>
               <span class="task-title">
                 {{ task.title }}
               </span>
@@ -101,43 +77,84 @@
         <!-- Expanded View: Full Task Card -->
         <div v-if="expandedTaskId === task.id" class="task-accordion-content">
           <div class="task-card-expanded">
-            <!-- Priority and Status Tags -->
-            <div class="task-meta-row">
-              <Tag
-                :value="formatPriority(task.priority)"
-                :severity="getPrioritySeverity(task.priority)"
-                class="text-xs"
-              />
-              <Tag
-                :value="formatStatus(task.status)"
-                :severity="getStatusSeverity(task.status)"
-                class="text-xs"
-              />
+            <!-- Expanded Header: Status Icons on Left, Tags on Right -->
+            <div class="task-expanded-header">
+              <div class="status-icons-row">
+                <button
+                  v-for="status in statusOptions"
+                  :key="status.value"
+                  class="status-icon-option"
+                  :class="[`status-${status.value}`, { active: task.status === status.value }]"
+                  @click="handleStatusChange(task, status.value)"
+                  :title="status.label"
+                >
+                  <i :class="getStatusIconForValue(status.value)"></i>
+                </button>
+              </div>
+
+              <div class="task-tags-row">
+                <Tag
+                  :value="formatPriority(task.priority)"
+                  size="small"
+                  :severity="getPrioritySeverity(task.priority)"
+                  class="text-[10px] font-normal"
+                />
+                <Tag
+                  :value="formatStatus(task.status)"
+                  size="small"
+                  :severity="'secondary'"
+                  class="text-[10px] font-normal"
+                />
+              </div>
             </div>
 
             <!-- Project Name (if shown) -->
             <div v-if="showProjectName && task.projectId" class="task-project">
               <i class="pi pi-briefcase text-xs"></i>
-              <span class="text-sm text-surface-700">{{ getProjectName(task.projectId) }}</span>
+              <span class="text-xs text-surface-700">{{ getProjectName(task.projectId) }}</span>
             </div>
 
             <!-- Description -->
             <div v-if="task.description" class="task-description">
-              <div class="text-sm text-surface-800 whitespace-pre-wrap">{{ task.description }}</div>
+              <div class="text-xs text-surface-800 whitespace-pre-wrap">{{ task.description }}</div>
             </div>
 
-            <!-- Assignee -->
-            <div v-if="task.assignedTo" class="task-assignee">
-              <i class="pi pi-user text-xs"></i>
-              <span class="text-sm text-surface-700">{{ getAssigneeName(task) }}</span>
-            </div>
+            <!-- Assignee, Due Date, and Actions in same row -->
+            <div class="flex justify-between items-center">
+              <div class="flex gap-4">
+                <div v-if="task.assignedTo" class="task-assignee">
+                  <i class="pi pi-user text-xs"></i>
+                  <span class="text-xs text-surface-700">{{ getAssigneeName(task) }}</span>
+                </div>
 
-            <!-- Due Date -->
-            <div v-if="task.dueDate" class="task-due-date">
-              <i class="pi pi-calendar text-xs"></i>
-              <span class="text-sm" :class="getDueDateClass(task)">
-                {{ formatDueDate(task.dueDate) }}
-              </span>
+                <div v-if="task.dueDate" class="task-due-date">
+                  <i class="pi pi-calendar text-xs"></i>
+                  <span class="text-xs" :class="getDueDateClass(task)">
+                    {{ formatDueDate(task.dueDate) }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="task-expanded-actions">
+                <Button
+                  icon="pi pi-pencil"
+                  severity="secondary"
+                  text
+                  rounded
+                  size="small"
+                  @click.stop="handleEditTask(task)"
+                  v-tooltip.top="'Edit task'"
+                />
+                <Button
+                  icon="pi pi-trash"
+                  severity="danger"
+                  text
+                  rounded
+                  size="small"
+                  @click.stop="handleDeleteTask(task)"
+                  v-tooltip.top="'Delete task'"
+                />
+              </div>
             </div>
 
             <!-- Dependencies -->
@@ -169,13 +186,13 @@
             <!-- Estimated Hours -->
             <div v-if="task.estimatedHours" class="task-estimated-hours">
               <i class="pi pi-clock text-xs"></i>
-              <span class="text-sm text-surface-700">{{ task.estimatedHours }}h estimated</span>
+              <span class="text-xs text-surface-700">{{ task.estimatedHours }}h estimated</span>
             </div>
 
             <!-- Category -->
             <div v-if="task.category" class="task-category">
               <i class="pi pi-tag text-xs"></i>
-              <span class="text-sm text-surface-700">{{ task.category }}</span>
+              <span class="text-xs text-surface-700">{{ task.category }}</span>
             </div>
           </div>
         </div>
@@ -201,9 +218,6 @@ import {
 import { TASK_STATUSES } from '@/constants';
 
 // Computed for description expansion mode
-const descriptionMode = computed(
-  () => userSettingsStore.settings?.taskDisplay?.taskDescriptionMode || 'click'
-);
 
 // Props
 const props = defineProps({
@@ -253,7 +267,6 @@ const emit = defineEmits([
 
 // Local state
 const activeDropdown = ref(null);
-const expandedDescriptions = ref(new Set());
 const expandedTaskId = ref(null); // Currently expanded task ID (null = all collapsed)
 
 // Status options for dropdown
@@ -644,35 +657,6 @@ const toggleExpanded = (taskId) => {
   // Toggle: if clicking the same task, collapse it; otherwise expand the new one
   expandedTaskId.value = expandedTaskId.value === taskId ? null : taskId;
 };
-
-const handleMouseEnter = (task) => {
-  if (descriptionMode.value === 'hover' && getDescriptionPreview(task.description).hasMore) {
-    expandedDescriptions.value.add(task.id);
-  }
-};
-
-const handleMouseLeave = (task) => {
-  if (descriptionMode.value === 'hover') {
-    expandedDescriptions.value.delete(task.id);
-  }
-};
-
-const toggleDescription = (taskId) => {
-  if (expandedDescriptions.value.has(taskId)) {
-    expandedDescriptions.value.delete(taskId);
-  } else {
-    expandedDescriptions.value.add(taskId);
-  }
-};
-
-const getDescriptionPreview = (desc) => {
-  if (!desc) return { truncated: '', hasMore: false };
-  const firstLine = desc.split('\n')[0];
-  const truncated = truncateText(firstLine, 60);
-  const isTruncated = firstLine !== truncated;
-  const hasMore = desc.includes('\n') || isTruncated;
-  return { truncated, hasMore };
-};
 </script>
 
 <style scoped>
@@ -684,12 +668,12 @@ const getDescriptionPreview = (desc) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.375rem;
 }
 
 .no-data {
   text-align: center;
-  padding: 3rem 1rem;
+  padding: 2rem 0.75rem;
   color: #6c757d;
   display: flex;
   flex-direction: column;
@@ -700,65 +684,56 @@ const getDescriptionPreview = (desc) => {
 .task-accordion {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: 0.25rem;
 }
 
-/* Accordion Panel - Mobile First */
+/* Accordion Panel - Flat List */
 .task-accordion-panel {
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background-color: #ffffff;
-  transition: all 0.2s ease;
+  background-color: transparent;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background-color 0.2s ease;
   overflow: hidden;
 }
 
 .task-accordion-panel:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border-color: #d1d5db;
+  background-color: #f9fafb;
 }
 
-/* Priority-based left border - Mobile First */
-.task-accordion-panel[data-priority='critical'] {
-  border-left: 4px solid #dc2626;
+/* Priority-based left border */
+/* Priority-based left border */
+.task-accordion-panel.priority-critical {
+  border-left: 3px solid #dc2626;
 }
 
-.task-accordion-panel[data-priority='high'] {
-  border-left: 4px solid #f59e0b;
+.task-accordion-panel.priority-high {
+  border-left: 3px solid #f59e0b;
 }
 
-.task-accordion-panel[data-priority='medium'] {
-  border-left: 4px solid #3b82f6;
+.task-accordion-panel.priority-medium {
+  border-left: 3px solid #3b82f6;
 }
 
-.task-accordion-panel[data-priority='low'] {
-  border-left: 4px solid #9ca3af;
+.task-accordion-panel.priority-low {
+  border-left: 3px solid #9ca3af;
 }
 
-/* Status-based styling */
-.task-accordion-panel[data-status='in-progress'] {
-  background-color: #eff6ff;
-}
-
-.task-accordion-panel[data-status='complete'] {
+/* Status-based styling - removed backgrounds for flat design */
+.task-accordion-panel.status-complete {
   opacity: 0.75;
 }
 
-.task-accordion-panel[data-status='complete']:hover {
+.task-accordion-panel.status-complete:hover {
   opacity: 1;
 }
 
-.task-accordion-panel[data-status='on-hold'] {
-  background-color: #fef9c3;
-}
-
-.task-accordion-panel.task-overdue:not([data-status='complete']) {
-  border-left-width: 4px;
+.task-accordion-panel.task-overdue {
+  border-left-width: 3px;
   border-left-color: #ef4444 !important;
 }
 
-/* Accordion Header - Mobile First */
+/* Accordion Header */
 .task-accordion-header {
-  padding: 0.5rem;
+  padding: 0.375rem;
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
@@ -771,10 +746,9 @@ const getDescriptionPreview = (desc) => {
   background-color: rgba(0, 0, 0, 0.03);
 }
 
-/* Accordion Content - Mobile First */
+/* Accordion Content */
 .task-accordion-content {
-  padding: 0.5rem;
-  border-top: 1px solid #e5e7eb;
+  padding: 0.375rem 0 0.375rem 1.5rem;
   background: transparent;
   animation: slideDown 0.2s ease-out;
 }
@@ -794,18 +768,18 @@ const getDescriptionPreview = (desc) => {
 .task-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.375rem;
 }
 
 .task-title-area {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.375rem;
   flex: 1;
   min-width: 0;
   cursor: pointer;
-  padding: 0.25rem 0.5rem;
-  margin: -0.25rem -0.5rem;
+  padding: 0.25rem 0.375rem;
+  margin: -0.25rem -0.375rem;
   border-radius: 4px;
   transition: background-color 0.15s ease;
 }
@@ -824,7 +798,7 @@ const getDescriptionPreview = (desc) => {
 .task-title {
   font-weight: 500;
   color: #111827;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -842,13 +816,13 @@ const getDescriptionPreview = (desc) => {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
   flex-shrink: 0;
 }
 
 .status-icon-button {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -857,7 +831,7 @@ const getDescriptionPreview = (desc) => {
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .status-icon-button:hover {
@@ -898,6 +872,46 @@ const getDescriptionPreview = (desc) => {
   color: #6b7280;
 }
 
+.status-icons-row {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-start;
+}
+
+.status-icon-option {
+  background: transparent;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  color: #9ca3af; /* Gray for non-active */
+}
+
+.status-icon-option.active.status-todo {
+  color: #3b82f6;
+}
+
+.status-icon-option.active.status-in-progress {
+  color: #3b82f6;
+}
+
+.status-icon-option.active.status-review {
+  color: #f59e0b;
+}
+
+.status-icon-option.active.status-on-hold {
+  color: #eab308;
+}
+
+.status-icon-option.active.status-complete {
+  color: #22c55e;
+}
+
+.status-icon-option.active.status-cancelled {
+  color: #ef4444;
+}
+
 .status-dropdown-button:hover {
   background-color: #f3f4f6;
   color: #111827;
@@ -915,18 +929,18 @@ const getDescriptionPreview = (desc) => {
     0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
   z-index: 100;
-  min-width: 180px;
+  min-width: 160px;
   overflow: hidden;
 }
 
 .status-menu-item {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.625rem 1rem;
+  gap: 0.625rem;
+  padding: 0.5rem 0.875rem;
   cursor: pointer;
   transition: background-color 0.15s ease;
-  font-size: 0.875rem;
+  font-size: 0.85rem;
 }
 
 .status-menu-item:hover {
@@ -940,7 +954,7 @@ const getDescriptionPreview = (desc) => {
 }
 
 .status-menu-item i:first-child {
-  width: 18px;
+  width: 16px;
   text-align: center;
 }
 
@@ -951,24 +965,48 @@ const getDescriptionPreview = (desc) => {
 /* Action Buttons */
 .task-actions {
   display: flex;
-  gap: 0.25rem;
+  gap: 0.125rem;
   align-items: center;
   margin-left: auto;
   flex-shrink: 0;
 }
 
-/* Expanded Card Content - Mobile First */
-.task-card-expanded {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding-top: 0.25rem;
+.task-accordion-panel.is-expanded .task-actions {
+  display: none;
 }
 
-.task-meta-row {
+.task-expanded-actions {
+  display: flex;
+  gap: 0.375rem;
+  align-items: center;
+}
+
+/* Expanded Card Content */
+.task-card-expanded {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding-top: 0.25rem;
+  overflow: visible;
+}
+
+.task-expanded-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.task-tags-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.375rem;
+  gap: 0.25rem;
+}
+
+.task-tags-row .p-tag {
+  font-size: 10px !important;
+  font-weight: 400 !important;
 }
 
 .task-project,
@@ -978,87 +1016,95 @@ const getDescriptionPreview = (desc) => {
 .task-category {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.375rem;
   color: var(--p-text-muted-color);
 }
 
 .task-description {
-  padding: 0.75rem;
+  padding: 0.625rem;
   background-color: var(--p-surface-50);
   border-radius: 6px;
-  border-left: 3px solid var(--p-primary-color);
+  border-left: 2px solid var(--p-primary-color);
 }
 
 .task-dependencies {
-  padding: 0.75rem;
+  padding: 0.625rem;
   background-color: var(--p-surface-50);
   border-radius: 6px;
-  border-left: 3px solid var(--p-orange-500);
+  border-left: 2px solid var(--p-orange-500);
 }
 
 .dependency-header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  gap: 0.375rem;
+  margin-bottom: 0.375rem;
 }
 
 /* Desktop Enhancements (min-width: 768px) */
 @media (min-width: 768px) {
   .task-accordion {
-    gap: 0.625rem;
+    gap: 0.25rem;
   }
 
   .task-accordion-header {
-    padding: 1rem;
+    padding: 0.625rem;
   }
 
   .task-accordion-content {
-    padding: 1rem;
+    padding: 0.625rem;
   }
 
   .task-card-expanded {
-    gap: 1rem;
-    padding-top: 0.5rem;
+    gap: 0.625rem;
+    padding-top: 0.375rem;
   }
 
   .task-row {
-    gap: 1rem;
+    gap: 0.625rem;
   }
 
   .task-title {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
   }
 }
 
 /* Mobile Adjustments (max-width: 767px) */
 @media (max-width: 767px) {
   .task-row {
-    gap: 0.5rem;
+    gap: 0.375rem;
   }
 
   .task-title {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
   }
 
   .status-icon-button {
-    width: 24px;
-    height: 24px;
-    font-size: 14px;
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
   }
 
   .status-dropdown-button {
-    width: 16px;
-    height: 24px;
+    width: 14px;
+    height: 22px;
   }
 
   .task-card-expanded {
-    gap: 0.625rem;
+    gap: 0.375rem;
   }
 
   .task-description,
   .task-dependencies {
-    padding: 0.625rem;
+    padding: 0.5rem;
+  }
+
+  .task-actions {
+    display: none;
+  }
+
+  .task-expanded-actions {
+    display: flex;
   }
 }
 </style>
