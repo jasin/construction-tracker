@@ -24,12 +24,14 @@
           `priority-${task.priority}`,
           `status-${task.status}`,
         ]"
+        @click="toggleExpanded(task.id)"
+        style="cursor: pointer"
       >
         <!-- Collapsed View: Single Line -->
         <div class="task-accordion-header">
           <div class="task-row">
             <!-- Status Icon with Dropdown -->
-            <div class="status-control">
+            <div class="status-control" @click.stop>
               <button
                 class="status-icon-button"
                 :class="`status-${task.status}`"
@@ -40,25 +42,21 @@
             </div>
 
             <!-- Task Title (Clickable for expand/collapse) -->
-            <div
-              class="task-title-area"
-              :class="{ 'line-through': task.status === 'complete' }"
-              @click="toggleExpanded(task.id)"
-            >
+            <div class="task-title-area" :class="{ 'line-through': task.status === 'complete' }">
               <span class="task-title">
                 {{ task.title }}
               </span>
             </div>
 
             <!-- Action Buttons (Always Visible) -->
-            <div class="task-actions">
+            <div class="task-actions" @click.stop>
               <Button
                 icon="pi pi-pencil"
                 severity="secondary"
                 text
                 rounded
                 size="small"
-                @click.stop="handleEditTask(task)"
+                @click="handleEditTask(task)"
                 v-tooltip.top="'Edit task'"
               />
               <Button
@@ -67,7 +65,7 @@
                 text
                 rounded
                 size="small"
-                @click.stop="handleDeleteTask(task)"
+                @click="handleDeleteTask(task)"
                 v-tooltip.top="'Delete task'"
               />
             </div>
@@ -76,7 +74,7 @@
 
         <!-- Expanded View: Full Task Card -->
         <div v-if="expandedTaskId === task.id" class="task-accordion-content">
-          <div class="task-card-expanded">
+          <div class="task-card-expanded" @click="handleTaskClick(task)" style="cursor: pointer">
             <!-- Expanded Header: Status Icons on Left, Tags on Right -->
             <div class="task-expanded-header">
               <div class="status-icons-row">
@@ -85,14 +83,14 @@
                   :key="status.value"
                   class="status-icon-option"
                   :class="[`status-${status.value}`, { active: task.status === status.value }]"
-                  @click="handleStatusChange(task, status.value)"
+                  @click.stop="handleStatusChange(task, status.value)"
                   :title="status.label"
                 >
                   <i :class="getStatusIconForValue(status.value)"></i>
                 </button>
               </div>
 
-              <div class="task-tags-row">
+              <div class="task-tags-row" @click.stop>
                 <Tag
                   :value="formatPriority(task.priority)"
                   size="small"
@@ -788,15 +786,7 @@ const toggleExpanded = (taskId) => {
   gap: 0.375rem;
   flex: 1;
   min-width: 0;
-  cursor: pointer;
-  padding: 0.25rem 0.375rem;
-  margin: -0.25rem -0.375rem;
-  border-radius: 4px;
-  transition: background-color 0.15s ease;
-}
-
-.task-title-area:hover {
-  background-color: rgba(0, 0, 0, 0.04);
+  pointer-events: none;
 }
 
 .expand-icon {
