@@ -662,6 +662,11 @@ const toggleExpanded = (taskId) => {
 <style scoped>
 .task-list {
   width: 100%;
+  background: var(--p-surface-0);
+  border: 1px solid var(--p-surface-200);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  height: 100%;
 }
 
 .task-list-header {
@@ -669,6 +674,12 @@ const toggleExpanded = (taskId) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.375rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .task-list {
+    border-color: var(--p-surface-700);
+  }
 }
 
 .no-data {
