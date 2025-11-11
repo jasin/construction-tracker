@@ -106,6 +106,32 @@
     </DashboardMobileSection>
 
     <DashboardMobileSection
+      v-else-if="isMobile && uiStore.mobileActiveSection === 'rfis'"
+      title="RFIs"
+      @back="closeMobileSection"
+    >
+      <RFIList
+        :rfis="[]"
+        :loading="false"
+        @create-rfi="handleCreateRFI"
+        @rfi-click="handleRFIClick"
+      />
+    </DashboardMobileSection>
+
+    <DashboardMobileSection
+      v-else-if="isMobile && uiStore.mobileActiveSection === 'submittals'"
+      title="Submittals"
+      @back="closeMobileSection"
+    >
+      <SubmittalList
+        :submittals="[]"
+        :loading="false"
+        @create-submittal="handleCreateSubmittal"
+        @submittal-click="handleSubmittalClick"
+      />
+    </DashboardMobileSection>
+
+    <DashboardMobileSection
       v-else-if="isMobile && uiStore.mobileActiveSection"
       :title="getMobileSectionTitle(uiStore.mobileActiveSection)"
       @back="closeMobileSection"
@@ -129,13 +155,12 @@
 
       <!-- My Tasks Section -->
       <div class="mb-6">
-        <h3 class="text-base font-semibold text-surface-900 mb-3">My Tasks</h3>
         <div class="desktop-tasks-container grid gap-4" :class="getGridClass">
           <div :class="getTaskListSpanClass">
             <TaskList
               :tasks="taskStore.userTasks"
               :loading="taskStore.userTasksLoading"
-              title=""
+              title="My Tasks"
               empty-message="No tasks assigned to you"
               :show-create-button="true"
               :show-project-name="true"
@@ -147,6 +172,22 @@
               @status-change="handleStatusChange"
               @edit-task="handleEditTask"
               @delete-task="handleDeleteTask"
+            />
+          </div>
+          <div class="col-span-1">
+            <RFIList
+              :rfis="[]"
+              :loading="false"
+              @create-rfi="handleCreateRFI"
+              @rfi-click="handleRFIClick"
+            />
+          </div>
+          <div class="col-span-1">
+            <SubmittalList
+              :submittals="[]"
+              :loading="false"
+              @create-submittal="handleCreateSubmittal"
+              @submittal-click="handleSubmittalClick"
             />
           </div>
         </div>
@@ -258,6 +299,8 @@ import { useUIStore } from '@/stores/ui';
 
 import TaskList from '@/components/lists/TaskList.vue';
 import TaskDialog from '@/components/forms/TaskDialog.vue';
+import RFIList from '@/components/lists/RFIList.vue';
+import SubmittalList from '@/components/lists/SubmittalList.vue';
 import DashboardSectionButton from '@/components/dashboard/DashboardSectionButton.vue';
 import DashboardMobileSection from '@/components/dashboard/DashboardMobileSection.vue';
 
@@ -562,6 +605,38 @@ const handleDeleteTask = async (task) => {
       life: 5000,
     });
   }
+};
+
+/**
+ * Handle RFI actions (placeholder)
+ */
+const handleCreateRFI = () => {
+  toast.add({
+    severity: 'info',
+    summary: 'Coming Soon',
+    detail: 'RFI creation will be available soon',
+    life: 3000,
+  });
+};
+
+const handleRFIClick = (rfi) => {
+  console.log('RFI clicked:', rfi);
+};
+
+/**
+ * Handle Submittal actions (placeholder)
+ */
+const handleCreateSubmittal = () => {
+  toast.add({
+    severity: 'info',
+    summary: 'Coming Soon',
+    detail: 'Submittal creation will be available soon',
+    life: 3000,
+  });
+};
+
+const handleSubmittalClick = (submittal) => {
+  console.log('Submittal clicked:', submittal);
 };
 
 onMounted(async () => {
