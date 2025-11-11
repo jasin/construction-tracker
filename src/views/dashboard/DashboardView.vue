@@ -129,13 +129,11 @@
 
       <!-- My Tasks Section -->
       <div class="mb-6">
-        <Card>
-          <template #header>
-            <div class="flex justify-between items-center p-3 pb-0">
-              <h3 class="text-base font-semibold text-surface-900">My Tasks</h3>
-            </div>
-          </template>
-          <template #content>
+        <div class="bg-white rounded-lg border border-surface-200 overflow-hidden">
+          <div class="flex justify-between items-center px-4 py-3 border-b border-surface-200">
+            <h3 class="text-base font-semibold text-surface-900">My Tasks</h3>
+          </div>
+          <div class="px-4 py-3">
             <TaskList
               :tasks="taskStore.userTasks"
               :loading="taskStore.userTasksLoading"
@@ -152,8 +150,8 @@
               @edit-task="handleEditTask"
               @delete-task="handleDeleteTask"
             />
-          </template>
-        </Card>
+          </div>
+        </div>
       </div>
 
       <!-- Recent Project Activity Section -->

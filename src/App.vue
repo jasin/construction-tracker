@@ -5,24 +5,35 @@
     <div v-else class="flex flex-col h-screen" @contextmenu.prevent="showContextMenu($event)">
       <!-- Header -->
       <header class="flex items-center justify-between p-4 bg-white border-b">
-        <div class="flex items-center relative">
-          <div class="text-xl font-bold">Construction Tracker</div>
-          <!-- Custom Project Selector with fuzzy search -->
-          <ProjectSelect
-            ref="selectRef"
-            :project-id="projectStore.activeProjectId"
-            @project-selected="handleProjectSelected"
-          />
+        <div class="flex items-center gap-3">
+          <!-- Logo/Title -->
+          <div class="text-lg md:text-xl font-bold">Construction Tracker</div>
         </div>
-        <div class="flex items-center gap-4">
-          <Button icon="pi pi-bell" severity="secondary" text />
+
+        <div class="flex items-center gap-2 md:gap-4">
+          <!-- Search Icon -->
+          <Button
+            icon="pi pi-search"
+            severity="secondary"
+            text
+            rounded
+            @click="openSearch"
+            aria-label="Search projects"
+          />
+          <Button icon="pi pi-bell" severity="secondary" text class="hidden sm:flex" />
           <div class="flex items-center gap-2 cursor-pointer" @click="toggleUserMenu">
-            <Avatar :label="userInitials" shape="circle" />
-            <span>{{ user?.name || 'User' }}</span>
+            <Avatar :label="userInitials" shape="circle" size="normal" />
+            <span class="hidden sm:inline">{{ user?.name || 'User' }}</span>
           </div>
           <Menu ref="userMenu" :model="userMenuItems" :popup="true" />
         </div>
       </header>
+
+      <!-- Responsive Project Search -->
+      <ProjectSearchDialog
+        v-model:visible="showProjectSearch"
+        @project-selected="handleProjectSelected"
+      />
 
       <!-- Main content area -->
       <main class="flex-1 p-4 overflow-auto">
@@ -180,7 +191,7 @@ import ChangeOrderRepository from '@/services/firebase/Repositories/ChangeOrderR
 import LoginView from '@/views/auth/LoginView.vue';
 import DashboardView from '@/views/dashboard/DashboardView.vue';
 import ProjectDetailView from '@/views/projects/ProjectDetailView.vue';
-import ProjectSelect from '@/components/features/projects/ProjectSelect.vue';
+import ProjectSearchDialog from '@/components/features/projects/ProjectSearchDialog.vue';
 import UserSettingsDialog from '@/components/forms/UserSettingsDialog.vue';
 import Button from 'primevue/button';
 import Avatar from 'primevue/avatar';
@@ -208,6 +219,7 @@ const toast = useToast();
 // State (Refs)
 const userMenu = ref();
 const contextMenu = ref();
+const showProjectSearch = ref(false); // Unified project search
 
 // Task settings dialog state
 const showTaskSettings = ref(false);
@@ -265,6 +277,10 @@ const resetToDefaults = () => {
 
 const openGeneralSettingsDialog = () => {
   showGeneralSettingsDialog.value = true;
+};
+
+const openSearch = () => {
+  showProjectSearch.value = true;
 };
 
 // Event Handlers
@@ -504,4 +520,32 @@ onMounted(async () => {
 });
 </script>
 
-<style scoped></style>
+<style scoped>
+/* Mobile-first responsive header improvements */
+header {
+  min-height: 64px;
+}
+
+/* Ensure proper spacing on very small screens */
+@media (max-width: 640px) {
+  header {
+    padding: 0.75rem;
+  }
+
+  .text-lg {
+    font-size: 1rem;
+  }
+}
+
+/* Tablet and up */
+@media (min-width: 768px) {
+  header {
+    min-height: 72px;
+  }
+}
+
+/* Smooth transitions for responsive elements */
+.hidden {
+  transition: opacity 0.2s ease;
+}
+</style>
