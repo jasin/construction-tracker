@@ -3,13 +3,14 @@
     v-model:visible="isOpen"
     modal
     :header="props.projectId ? 'Edit Project' : 'New Project'"
-    :style="{ width: '50vw' }"
+    :style="dialogStyle"
+    :position="dialogPosition"
     @hide="closeModal"
   >
-    <div class="flex-1 overflow-y-auto p-4">
-      <form @submit.prevent="saveProject" class="space-y-4">
+    <div class="flex-1 overflow-y-auto p-3">
+      <form @submit.prevent="saveProject" class="space-y-3">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Project Name *</label>
+          <label class="block text-sm font-medium text-gray-700">Project Name *</label>
           <InputText
             v-model="form.name"
             class="w-full text-sm"
@@ -20,7 +21,7 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Job Number *</label>
+          <label class="block text-sm font-medium text-gray-700">Job Number *</label>
           <InputText
             v-model="form.jobNumber"
             class="w-full text-sm"
@@ -33,16 +34,17 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Client *</label>
-          <AutoComplete
-            v-model="selectedClient"
-            :suggestions="filteredClients"
-            @complete="searchClients"
+          <label class="block text-sm font-medium text-gray-700">Client *</label>
+          <Select
+            v-model="form.clientId"
+            :options="clients"
             option-label="name"
-            placeholder="Search clients..."
+            option-value="id"
+            placeholder="Select client"
             class="w-full text-sm"
-            :class="{ 'border-red-500': errors.clientId }"
-            dropdown
+            :filter="true"
+            show-clear
+            :class="{ 'p-invalid': errors.clientId }"
           />
           <span v-if="errors.clientId" class="text-red-500 text-xs mt-1">{{
             errors.clientId
@@ -60,7 +62,7 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Architect</label>
+          <label class="block text-sm font-medium text-gray-700">Architect</label>
           <InputText
             v-model="form.architect"
             class="w-full text-sm"
@@ -69,25 +71,35 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Project Manager</label>
-          <InputText
+          <label class="block text-sm font-medium text-gray-700">Project Manager</label>
+          <Select
             v-model="form.projectManager"
+            :options="userOptions"
+            option-label="label"
+            option-value="value"
+            placeholder="Select project manager"
             class="w-full text-sm"
-            placeholder="Enter project manager name"
+            :filter="true"
+            show-clear
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Superintendent</label>
-          <InputText
+          <label class="block text-sm font-medium text-gray-700">Superintendent</label>
+          <Select
             v-model="form.superintendent"
+            :options="userOptions"
+            option-label="label"
+            option-value="value"
+            placeholder="Select superintendent"
             class="w-full text-sm"
-            placeholder="Enter superintendent name"
+            :filter="true"
+            show-clear
           />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Phase</label>
+          <label class="block text-sm font-medium text-gray-700">Phase</label>
           <Select
             v-model="form.phase"
             :options="phaseOptions"
@@ -99,7 +111,7 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Project Cost</label>
+          <label class="block text-sm font-medium text-gray-700">Project Cost</label>
           <InputNumber
             v-model="form.cost"
             mode="currency"
@@ -116,9 +128,9 @@
           </label>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+            <label class="block text-sm font-medium text-gray-700">Start Date</label>
             <DatePicker
               v-model="form.startDate"
               class="w-full text-sm"
@@ -129,7 +141,7 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+            <label class="block text-sm font-medium text-gray-700">End Date</label>
             <DatePicker
               v-model="form.endDate"
               class="w-full text-sm"
@@ -141,7 +153,7 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+          <label class="block text-sm font-medium text-gray-700">Address</label>
           <Textarea
             v-model="form.address"
             rows="2"
@@ -151,7 +163,7 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <label class="block text-sm font-medium text-gray-700">Description</label>
           <Textarea
             v-model="form.description"
             rows="3"
@@ -191,8 +203,8 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted } from 'vue'; // Added onMounted
-import { useProjectStore } from '@/stores/project'; // Added store import
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
+import { useProjectStore } from '@/stores/project';
 import { createSafeFetcher } from '@/utils/errorHandler';
 import { useToast } from 'primevue/usetoast';
 import Dialog from 'primevue/dialog';
@@ -203,9 +215,9 @@ import InputNumber from 'primevue/inputnumber';
 import Checkbox from 'primevue/checkbox';
 import DatePicker from 'primevue/datepicker';
 import Button from 'primevue/button';
-import AutoComplete from 'primevue/autocomplete';
 
 import ClientRepository from '@/services/firebase/Repositories/ClientRepository';
+import UserRepository from '@/services/firebase/Repositories/UserRepository';
 import ClientDialog from './ClientDialog.vue';
 
 // Props
@@ -242,14 +254,47 @@ const error = ref('');
 const success = ref('');
 const errors = ref({});
 const clients = ref([]);
+const users = ref([]);
 const showCreateClient = ref(false);
-const filteredClients = ref([]);
-const selectedClient = ref(null);
+const windowWidth = ref(window.innerWidth);
 
 // Computed
 const isOpen = computed({
   get: () => props.visible,
   set: (value) => emit('update:visible', value),
+});
+
+// Responsive dialog styling
+const dialogStyle = computed(() => {
+  if (windowWidth.value < 768) {
+    // Mobile: Full height flyout
+    return {
+      width: '100vw',
+      height: '100vh',
+      margin: 0,
+      maxHeight: '100vh',
+    };
+  } else {
+    // Desktop: Smaller, centered dialog
+    return {
+      width: '600px',
+      maxWidth: '90vw',
+    };
+  }
+});
+
+const dialogPosition = computed(() => {
+  return windowWidth.value < 768 ? 'bottom' : 'center';
+});
+
+// User options for dropdowns
+const userOptions = computed(() => {
+  return users.value
+    .filter((user) => user.active !== false)
+    .map((user) => ({
+      label: user.name || user.email,
+      value: user.id,
+    }));
 });
 
 // Form data
@@ -292,14 +337,17 @@ const loadClients = async () => {
 };
 
 /**
- * Handles fuzzy search for clients.
- * @param {Object} event - AutoComplete event with query.
+ * Loads all active users from repository for dropdowns.
+ * @async
  */
-const searchClients = (event) => {
-  const query = event.query.toLowerCase();
-  filteredClients.value = clients.value.filter((client) =>
-    client.name.toLowerCase().includes(query)
-  );
+const loadUsers = async () => {
+  try {
+    users.value = await UserRepository.getActiveUsers();
+    console.log('Loaded users for project form:', users.value);
+  } catch (err) {
+    console.error('Error loading users:', err.message);
+    throw new Error(`Users load failed: ${err.message}`);
+  }
 };
 
 /**
@@ -322,7 +370,6 @@ const resetToNewMode = () => {
     address: '',
     description: '',
   };
-  selectedClient.value = clients.value.find((c) => c.id === props.initialClientId) || null;
   console.log('Reset to new mode - empty form');
 };
 
@@ -368,19 +415,29 @@ const loadProjectData = async () => {
   }
 };
 
+// Window resize handler for responsive dialog
+const handleResize = () => {
+  windowWidth.value = window.innerWidth;
+};
+
 // Add onMounted for initial load
 onMounted(async () => {
   console.log('ProjectDialog mounted, visible:', props.visible, 'projectId:', props.projectId);
+
+  // Add resize listener
+  window.addEventListener('resize', handleResize);
+
   if (props.visible) {
     // Ensure load on mount if already visible
     await loadClients();
+    await loadUsers();
     await loadProjectData();
-    // Sync client
-    if (form.value.clientId && clients.value.length > 0) {
-      selectedClient.value = clients.value.find((c) => c.id === form.value.clientId) || null;
-      console.log('onMounted synced selectedClient:', selectedClient.value);
-    }
   }
+});
+
+// Cleanup on unmount
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
 });
 
 // Validation
@@ -421,10 +478,10 @@ const saveProject = async () => {
     const formData = {
       name: form.value.name.trim(),
       jobNumber: form.value.jobNumber.trim(),
-      clientId: selectedClient.value ? selectedClient.value.id : null,
+      clientId: form.value.clientId || null,
       architect: form.value.architect.trim(),
-      projectManager: form.value.projectManager.trim(),
-      superintendent: form.value.superintendent.trim(),
+      projectManager: form.value.projectManager || '',
+      superintendent: form.value.superintendent || '',
       phase: form.value.phase || 'preConstruction',
       cost: form.value.cost || 0,
       contractSigned: form.value.contractSigned || false,
@@ -485,7 +542,6 @@ const handleClientCreated = (newClient) => {
   clients.value.unshift(newClient);
 
   // Select new client
-  selectedClient.value = newClient;
   form.value.clientId = newClient.id;
 
   // Close the client modal
@@ -499,23 +555,14 @@ const closeModal = () => {
   success.value = '';
 };
 
-// Watch selectedClient to sync clientId
-watch(selectedClient, (newVal) => {
-  form.value.clientId = newVal?.id || '';
-});
-
 // Watch for visibility changes
 watch(
   () => props.visible,
   async (newVal) => {
     if (newVal) {
       await loadClients();
+      await loadUsers();
       await loadProjectData();
-      // Sync client from pre-filled clientId (store data)
-      if (form.value.clientId && clients.value.length > 0) {
-        selectedClient.value = clients.value.find((c) => c.id === form.value.clientId) || null;
-        console.log('Watch synced selectedClient from store data:', selectedClient.value);
-      }
     }
   }
 );
@@ -543,5 +590,41 @@ watch(
 </script>
 
 <style scoped>
-/* Add any additional styles or rely on Tailwind */
+/* Reduce dialog border radius */
+:deep(.p-dialog) {
+  border-radius: 0.5rem;
+}
+
+:deep(.p-dialog-header) {
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+}
+
+/* Smaller text for all inputs */
+:deep(.p-inputtext),
+:deep(.p-select),
+:deep(.p-select-label),
+:deep(.p-inputnumber-input),
+:deep(.p-textarea),
+:deep(.p-datepicker-input) {
+  font-size: 0.813rem;
+  padding: 0.5rem;
+}
+
+/* Select dropdown panel options */
+:deep(.p-select-overlay),
+:deep(.p-select-option),
+:deep(.p-select-option-label) {
+  font-size: 0.813rem;
+}
+
+/* Smaller label spacing */
+label {
+  margin-bottom: 0.25rem;
+}
+
+/* Tighter spacing in form */
+.space-y-3 > * + * {
+  margin-top: 0.75rem;
+}
 </style>
