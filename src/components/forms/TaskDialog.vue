@@ -3,14 +3,15 @@
     v-model:visible="isOpen"
     modal
     :header="props.task?.id ? 'Edit Task' : 'Create Task'"
-    :style="{ width: '600px' }"
+    :style="dialogStyle"
+    :position="dialogPosition"
     @hide="closeModal"
   >
-    <div class="task-dialog-content">
-      <form @submit.prevent="handleSubmit" class="space-y-5">
+    <div class="task-dialog-content p-3">
+      <form @submit.prevent="handleSubmit" class="space-y-3">
         <!-- Task Type Selector (only for new tasks) -->
         <div v-if="!props.task?.id" class="task-type-selector">
-          <label class="block text-sm font-semibold text-surface-900 mb-2">Task Type</label>
+          <label class="block text-sm font-semibold text-surface-900">Task Type</label>
           <div class="grid grid-cols-2 gap-3">
             <div
               class="task-type-card"
@@ -35,7 +36,7 @@
 
         <!-- Title (Always shown) -->
         <div>
-          <label class="block text-sm font-semibold text-surface-900 mb-2">
+          <label class="block text-sm font-semibold text-surface-900">
             Task Title <span class="text-red-500">*</span>
           </label>
           <InputText
@@ -50,7 +51,7 @@
 
         <!-- Description (Always shown) -->
         <div>
-          <label class="block text-sm font-semibold text-surface-900 mb-2">Description</label>
+          <label class="block text-sm font-semibold text-surface-900">Description</label>
           <Textarea
             v-model="form.description"
             rows="3"
@@ -61,10 +62,10 @@
 
         <!-- Quick Task Fields -->
         <template v-if="taskType === 'quick'">
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <!-- Priority -->
             <div>
-              <label class="block text-sm font-semibold text-surface-900 mb-2">Priority</label>
+              <label class="block text-sm font-semibold text-surface-900">Priority</label>
               <Select
                 v-model="form.priority"
                 :options="priorityOptions"
@@ -72,12 +73,24 @@
                 option-value="value"
                 placeholder="Select priority"
                 class="w-full"
-              />
+              >
+                <template #value="slotProps">
+                  <span v-if="slotProps.value" :class="getPriorityColorClass(slotProps.value)">
+                    {{ getPriorityLabel(slotProps.value) }}
+                  </span>
+                  <span v-else>{{ slotProps.placeholder }}</span>
+                </template>
+                <template #option="slotProps">
+                  <span :class="getPriorityColorClass(slotProps.option.value)">
+                    {{ slotProps.option.label }}
+                  </span>
+                </template>
+              </Select>
             </div>
 
             <!-- Due Date -->
             <div>
-              <label class="block text-sm font-semibold text-surface-900 mb-2">Due Date</label>
+              <label class="block text-sm font-semibold text-surface-900">Due Date</label>
               <DatePicker
                 v-model="form.dueDate"
                 class="w-full"
@@ -106,7 +119,7 @@
         <template v-if="taskType === 'project'">
           <!-- Project Selection -->
           <div>
-            <label class="block text-sm font-semibold text-surface-900 mb-2">
+            <label class="block text-sm font-semibold text-surface-900">
               Project <span class="text-red-500">*</span>
             </label>
             <Select
@@ -121,10 +134,10 @@
             <small v-if="errors.projectId" class="p-error">{{ errors.projectId }}</small>
           </div>
 
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <!-- Priority -->
             <div>
-              <label class="block text-sm font-semibold text-surface-900 mb-2">Priority</label>
+              <label class="block text-sm font-semibold text-surface-900">Priority</label>
               <Select
                 v-model="form.priority"
                 :options="priorityOptions"
@@ -134,26 +147,22 @@
                 class="w-full"
               >
                 <template #value="slotProps">
-                  <div v-if="slotProps.value" class="flex align-items-center">
-                    <Tag
-                      :value="getPriorityLabel(slotProps.value)"
-                      :severity="getPrioritySeverity(slotProps.value)"
-                    />
-                  </div>
+                  <span v-if="slotProps.value" :class="getPriorityColorClass(slotProps.value)">
+                    {{ getPriorityLabel(slotProps.value) }}
+                  </span>
                   <span v-else>{{ slotProps.placeholder }}</span>
                 </template>
                 <template #option="slotProps">
-                  <Tag
-                    :value="slotProps.option.label"
-                    :severity="getPrioritySeverity(slotProps.option.value)"
-                  />
+                  <span :class="getPriorityColorClass(slotProps.option.value)">
+                    {{ slotProps.option.label }}
+                  </span>
                 </template>
               </Select>
             </div>
 
             <!-- Status -->
             <div>
-              <label class="block text-sm font-semibold text-surface-900 mb-2">Status</label>
+              <label class="block text-sm font-semibold text-surface-900">Status</label>
               <Select
                 v-model="form.status"
                 :options="statusOptions"
@@ -166,9 +175,9 @@
           </div>
 
           <!-- Assigned To & Category -->
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label class="block text-sm font-semibold text-surface-900 mb-2">Assign To</label>
+              <label class="block text-sm font-semibold text-surface-900">Assign To</label>
               <Select
                 v-model="form.assignedTo"
                 :options="userOptions"
@@ -182,7 +191,7 @@
             </div>
 
             <div>
-              <label class="block text-sm font-semibold text-surface-900 mb-2">Category</label>
+              <label class="block text-sm font-semibold text-surface-900">Category</label>
               <Select
                 v-model="form.category"
                 :options="categoryOptions"
@@ -195,9 +204,9 @@
           </div>
 
           <!-- Due Date & Estimated Hours -->
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label class="block text-sm font-semibold text-surface-900 mb-2">Due Date</label>
+              <label class="block text-sm font-semibold text-surface-900">Due Date</label>
               <DatePicker
                 v-model="form.dueDate"
                 class="w-full"
@@ -208,9 +217,7 @@
             </div>
 
             <div>
-              <label class="block text-sm font-semibold text-surface-900 mb-2">
-                Estimated Hours
-              </label>
+              <label class="block text-sm font-semibold text-surface-900"> Estimated Hours </label>
               <InputNumber
                 v-model="form.estimatedHours"
                 mode="decimal"
@@ -225,7 +232,7 @@
 
           <!-- Dependencies (Project tasks only) -->
           <div v-if="filteredAvailableTasks.length > 0">
-            <label class="block text-sm font-semibold text-surface-900 mb-2">Dependencies</label>
+            <label class="block text-sm font-semibold text-surface-900">Dependencies</label>
             <MultiSelect
               v-model="form.dependencies"
               :options="filteredAvailableTasks"
@@ -288,7 +295,7 @@
 
         <!-- Attachments (only for existing tasks) -->
         <div v-if="props.task?.id" class="border-t pt-4">
-          <label class="block text-sm font-semibold text-surface-900 mb-3">Attachments</label>
+          <label class="block text-sm font-semibold text-surface-900">Attachments</label>
           <EntityAttachments
             entity-type="task"
             :entity-id="props.task.id"
@@ -331,7 +338,7 @@
 <script setup>
 import { useProjectStore } from '@/stores';
 import { useAuthStore } from '@/stores/auth';
-import { ref, watch, computed, onMounted } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
@@ -384,11 +391,35 @@ const users = ref([]);
 const projectStore = useProjectStore();
 const authStore = useAuthStore();
 const taskType = ref('quick'); // 'quick' or 'project'
+const windowWidth = ref(window.innerWidth);
 
 // Computed
 const isOpen = computed({
   get: () => props.visible,
   set: (value) => emit('update:visible', value),
+});
+
+// Responsive dialog styling
+const dialogStyle = computed(() => {
+  if (windowWidth.value < 768) {
+    // Mobile: Full height flyout
+    return {
+      width: '100vw',
+      height: '100vh',
+      margin: 0,
+      maxHeight: '100vh',
+    };
+  } else {
+    // Desktop: Smaller, centered dialog
+    return {
+      width: '600px',
+      maxWidth: '90vw',
+    };
+  }
+});
+
+const dialogPosition = computed(() => {
+  return windowWidth.value < 768 ? 'bottom' : 'center';
 });
 
 const projectOptions = computed(() => {
@@ -474,27 +505,27 @@ const categoryOptions = [
 
 const userOptions = computed(() => {
   return users.value
-    .filter((user) => user.active)
+    .filter((user) => user.active !== false)
     .map((user) => ({
       label: user.name || user.email,
       value: user.id,
     }));
 });
 
-// Helper methods
+// Helper methods for Priority display
 const getPriorityLabel = (value) => {
   const option = priorityOptions.find((opt) => opt.value === value);
   return option ? option.label : value;
 };
 
-const getPrioritySeverity = (priority) => {
-  const severityMap = {
-    critical: 'danger',
-    high: 'warn',
-    medium: 'info',
-    low: 'secondary',
+const getPriorityColorClass = (priority) => {
+  const colorMap = {
+    critical: 'text-red-600 font-semibold',
+    high: 'text-orange-600 font-semibold',
+    medium: 'text-blue-600 font-medium',
+    low: 'text-gray-600',
   };
-  return severityMap[priority] || 'info';
+  return colorMap[priority] || 'text-gray-600';
 };
 
 // Load users from Firebase
@@ -715,24 +746,86 @@ watch(
   { deep: true }
 );
 
+// Window resize handler for responsive dialog
+const handleResize = () => {
+  windowWidth.value = window.innerWidth;
+};
+
 onMounted(() => {
+  window.addEventListener('resize', handleResize);
   loadUsers();
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
 });
 </script>
 
 <style scoped>
+/* Reduce dialog border radius */
+:deep(.p-dialog) {
+  border-radius: 0.5rem;
+}
+
+:deep(.p-dialog-header) {
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+}
+
+/* Smaller text for all inputs */
+:deep(.p-inputtext),
+:deep(.p-select),
+:deep(.p-select-label),
+:deep(.p-inputnumber-input),
+:deep(.p-textarea),
+:deep(.p-datepicker-input) {
+  font-size: 0.813rem;
+  padding: 0.5rem;
+}
+
+/* Select dropdown panel options */
+:deep(.p-select-overlay),
+:deep(.p-select-option),
+:deep(.p-select-option-label) {
+  font-size: 0.813rem;
+}
+
+/* MultiSelect dropdown options */
+:deep(.p-multiselect-overlay),
+:deep(.p-multiselect-option),
+:deep(.p-multiselect-option-label) {
+  font-size: 0.813rem;
+}
+
+/* Reduce Tag height in Priority Select */
+:deep(.p-select .p-tag) {
+  padding: 0.125rem 0.5rem;
+  font-size: 0.625rem;
+  line-height: 1.2;
+}
+
+/* Smaller label spacing */
+label {
+  margin-bottom: 0.25rem;
+}
+
+/* Tighter spacing in form */
+.space-y-3 > * + * {
+  margin-top: 0.75rem;
+}
+
 .task-dialog-content {
-  padding: 0.5rem 0;
+  padding: 0;
 }
 
 .task-type-selector {
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .task-type-card {
-  padding: 1.25rem;
+  padding: 1rem;
   border: 2px solid var(--surface-border);
-  border-radius: 8px;
+  border-radius: 0.5rem;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -752,9 +845,5 @@ onMounted(() => {
 
 .task-type-card i {
   color: var(--primary-color);
-}
-
-.space-y-5 > * + * {
-  margin-top: 1.25rem;
 }
 </style>
