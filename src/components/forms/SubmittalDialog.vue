@@ -1,584 +1,447 @@
 <template>
   <Dialog
-    :visible="visible"
-    @update:visible="$emit('update:visible', $event)"
-    :modal="true"
-    :closable="true"
+    v-model:visible="isOpen"
+    modal
+    :header="submittal?.id ? 'Edit Submittal' : 'Create Submittal'"
+    :style="dialogStyle"
+    :position="dialogPosition"
     :draggable="false"
-    class="w-full max-w-2xl"
-    :header="isEditing ? 'Edit Submittal' : 'Create New Submittal'"
+    @hide="closeModal"
   >
-    <form @submit.prevent="handleSubmit" class="space-y-6">
-      <!-- Submittal Number and Revision -->
-      <div v-if="isEditing" class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Submittal Number</label>
-          <InputText
-            :model-value="form.number"
-            disabled
-            class="w-full bg-gray-50"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Revision</label>
-          <InputText
-            :model-value="form.revisionNumber?.toString()"
-            disabled
-            class="w-full bg-gray-50"
-          />
-        </div>
-      </div>
-
+    <form @submit.prevent="handleSubmit" class="space-y-4">
       <!-- Title -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
+      <div class="space-y-2">
+        <label for="submittal-title" class="block text-sm font-medium">
           Title <span class="text-red-500">*</span>
         </label>
         <InputText
+          id="submittal-title"
           v-model="form.title"
-          placeholder="Brief description of the submittal"
-          class="w-full"
+          placeholder="Enter submittal title"
           :class="{ 'border-red-500': errors.title }"
+          class="w-full"
         />
         <small v-if="errors.title" class="text-red-500">{{ errors.title }}</small>
       </div>
 
       <!-- Description -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          Description
-        </label>
+      <div class="space-y-2">
+        <label for="submittal-description" class="block text-sm font-medium">Description</label>
         <Textarea
+          id="submittal-description"
           v-model="form.description"
-          placeholder="Detailed description of the submittal..."
-          rows="3"
+          placeholder="Enter submittal description"
+          rows="4"
           class="w-full"
         />
       </div>
 
-      <!-- Type and Spec Section Row -->
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
-          <Select
-            v-model="form.type"
-            :options="typeOptions"
-            option-label="label"
-            option-value="value"
-            placeholder="Select type"
-            class="w-full"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Spec Section</label>
-          <InputText
-            v-model="form.specSection"
-            placeholder="e.g., 03300, 05120"
-            class="w-full"
-          />
-        </div>
+      <!-- Project -->
+      <div class="space-y-2">
+        <label for="submittal-project" class="block text-sm font-medium">
+          Project <span class="text-red-500">*</span>
+        </label>
+        <Select
+          id="submittal-project"
+          v-model="form.projectId"
+          :options="projectOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Select a project"
+          :class="{ 'p-invalid': errors.projectId }"
+          class="w-full"
+          :disabled="!!projectId"
+        />
+        <small v-if="errors.projectId" class="text-red-500">{{ errors.projectId }}</small>
       </div>
 
-      <!-- Status (for editing) -->
-      <div v-if="isEditing">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+      <!-- Type -->
+      <div class="space-y-2">
+        <label for="submittal-type" class="block text-sm font-medium">Type</label>
         <Select
+          id="submittal-type"
+          v-model="form.type"
+          :options="typeOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Select submittal type"
+          class="w-full"
+        />
+      </div>
+
+      <!-- Reviewed By -->
+      <div class="space-y-2">
+        <label for="submittal-reviewedBy" class="block text-sm font-medium">Reviewed By</label>
+        <Select
+          id="submittal-reviewedBy"
+          v-model="form.reviewedBy"
+          :options="userOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Select a reviewer"
+          class="w-full"
+          showClear
+        />
+      </div>
+
+      <!-- Due Date -->
+      <div class="space-y-2">
+        <label for="submittal-dueDate" class="block text-sm font-medium">Required Date</label>
+        <DatePicker
+          id="submittal-dueDate"
+          v-model="form.dueDate"
+          placeholder="Select required date"
+          dateFormat="mm/dd/yy"
+          showIcon
+          class="w-full"
+        />
+      </div>
+
+      <!-- Spec Section -->
+      <div class="space-y-2">
+        <label for="submittal-specSection" class="block text-sm font-medium">
+          Specification Section
+        </label>
+        <InputText
+          id="submittal-specSection"
+          v-model="form.specSection"
+          placeholder="e.g., 03 30 00 - Cast-in-Place Concrete"
+          class="w-full"
+        />
+      </div>
+
+      <!-- Status -->
+      <div class="space-y-2">
+        <label for="submittal-status" class="block text-sm font-medium">Status</label>
+        <Select
+          id="submittal-status"
           v-model="form.status"
           :options="statusOptions"
-          option-label="label"
-          option-value="value"
+          optionLabel="label"
+          optionValue="value"
           placeholder="Select status"
           class="w-full"
         />
       </div>
 
-      <!-- Assignment and Dates Row -->
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Contractor</label>
-          <Select
-            v-model="form.contractorId"
-            :options="contractorOptions"
-            option-label="label"
-            option-value="value"
-            placeholder="Select contractor"
-            class="w-full"
-            filter
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Required Date <span class="text-red-500">*</span>
-          </label>
-          <DatePicker
-            v-model="form.requiredDate"
-            placeholder="Select required date"
-            class="w-full"
-            :class="{ 'border-red-500': errors.requiredDate }"
-            show-icon
-            :min-date="new Date()"
-          />
-          <small v-if="errors.requiredDate" class="text-red-500">{{ errors.requiredDate }}</small>
-        </div>
-      </div>
-
-      <!-- Reviewer Assignment -->
-      <div v-if="isEditing || canAssignReviewer">
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Reviewer</label>
-            <Select
-              v-model="form.reviewedBy"
-              :options="reviewerOptions"
-              option-label="label"
-              option-value="value"
-              placeholder="Select reviewer"
-              class="w-full"
-              filter
-            />
-          </div>
-          <div v-if="form.submittalDate">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Submittal Date</label>
-            <InputText
-              :model-value="formatDate(form.submittalDate)"
-              disabled
-              class="w-full bg-gray-50"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- Review Section (for editing existing submittals) -->
-      <div v-if="isEditing && canShowReviewSection">
-        <div class="bg-blue-50 p-4 rounded-lg">
-          <h4 class="font-medium text-gray-900 mb-3">Review Information</h4>
-
-          <!-- Review Status and Date -->
-          <div class="grid grid-cols-2 gap-4 mb-3">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Review Status</label>
-              <Select
-                v-model="form.reviewStatus"
-                :options="reviewStatusOptions"
-                option-label="label"
-                option-value="value"
-                placeholder="Select review status"
-                class="w-full"
-              />
-            </div>
-            <div v-if="form.reviewDate">
-              <label class="block text-sm font-medium text-gray-700 mb-1">Review Date</label>
-              <InputText
-                :model-value="formatDate(form.reviewDate)"
-                disabled
-                class="w-full bg-gray-50"
-              />
-            </div>
-          </div>
-
-          <!-- Review Comments -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Review Comments</label>
-            <Textarea
-              v-model="form.reviewComments"
-              placeholder="Add review comments..."
-              rows="3"
-              class="w-full"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- Distribution List -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Distribution List</label>
-        <MultiSelect
-          v-model="form.distributionList"
-          :options="userOptions"
-          option-label="label"
-          option-value="value"
-          placeholder="Select recipients"
+      <!-- Review Comments (only show if submittal has been reviewed) -->
+      <div
+        v-if="
+          submittal?.id &&
+          ['approved', 'approved_with_comments', 'rejected', 'resubmit'].includes(form.status)
+        "
+        class="space-y-2"
+      >
+        <label for="submittal-comments" class="block text-sm font-medium">Review Comments</label>
+        <Textarea
+          id="submittal-comments"
+          v-model="form.comments"
+          placeholder="Enter review comments"
+          rows="4"
           class="w-full"
-          display="chip"
-          filter
         />
-        <small class="text-gray-500">People who should receive notifications about this submittal</small>
-      </div>
-
-      <!-- Revision Actions (for existing submittals) -->
-      <div v-if="isEditing && canCreateRevision" class="bg-yellow-50 p-4 rounded-lg">
-        <div class="flex items-center justify-between">
-          <div>
-            <h4 class="font-medium text-gray-900">Create New Revision</h4>
-            <p class="text-sm text-gray-600">Create a new revision of this submittal</p>
-          </div>
-          <Button
-            @click="createRevision"
-            label="Create Revision"
-            severity="warning"
-            size="small"
-            :disabled="loading"
-          />
-        </div>
-      </div>
-
-      <!-- Error Message -->
-      <Message v-if="generalError" severity="error" :closable="false">
-        {{ generalError }}
-      </Message>
-
-      <!-- Form Actions -->
-      <div class="flex justify-between items-center pt-4 border-t">
-        <div v-if="isEditing && canShowReviewActions" class="flex gap-2">
-          <Button
-            @click="reviewSubmittal('approved')"
-            label="Approve"
-            severity="success"
-            size="small"
-            :disabled="loading"
-          />
-          <Button
-            @click="reviewSubmittal('approved_with_comments')"
-            label="Approve w/ Comments"
-            severity="info"
-            size="small"
-            :disabled="loading"
-          />
-          <Button
-            @click="reviewSubmittal('rejected')"
-            label="Reject"
-            severity="danger"
-            size="small"
-            :disabled="loading"
-          />
-          <Button
-            @click="reviewSubmittal('resubmit')"
-            label="Resubmit Required"
-            severity="warning"
-            size="small"
-            :disabled="loading"
-          />
-        </div>
-        <div class="flex gap-3">
-          <Button
-            @click="$emit('update:visible', false)"
-            label="Cancel"
-            severity="secondary"
-            :disabled="loading"
-          />
-          <Button
-            type="submit"
-            :label="submitButtonLabel"
-            :loading="loading"
-          />
-        </div>
       </div>
     </form>
+
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <Button label="Cancel" severity="secondary" @click="closeModal" :disabled="loading" />
+        <Button
+          :label="submittal?.id ? 'Update' : 'Create'"
+          @click="handleSubmit"
+          :loading="loading"
+          :disabled="loading"
+        />
+      </div>
+    </template>
   </Dialog>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
-import {
-  Dialog,
-  InputText,
-  Textarea,
-  Select,
-  MultiSelect,
-  DatePicker,
-  Button,
-  Message
-} from 'primevue'
-import SubmittalRepository from '@/services/firebase/Repositories/SubmittalRepository'
-import UserRepository from '@/services/firebase/Repositories/UserRepository'
-import { formatDate } from '@/utils/index'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { useToast } from 'primevue/usetoast';
+import { useProjectStore } from '@/stores/project';
+import { storeToRefs } from 'pinia';
+import SubmittalRepository from '@/services/firebase/Repositories/SubmittalRepository';
+import UserRepository from '@/services/firebase/Repositories/UserRepository';
+import { SUBMITTAL_STATUS_OPTIONS, SUBMITTAL_TYPE_OPTIONS } from '@/constants/submittalConstants';
 
-// Props
+import Dialog from 'primevue/dialog';
+import InputText from 'primevue/inputtext';
+import Textarea from 'primevue/textarea';
+import Select from 'primevue/select';
+import DatePicker from 'primevue/datepicker';
+import Button from 'primevue/button';
+
 const props = defineProps({
-  visible: Boolean,
-  projectId: String,
+  visible: {
+    type: Boolean,
+    default: false,
+  },
   submittal: {
     type: Object,
-    default: null
+    default: null,
+  },
+  projectId: {
+    type: String,
+    default: null,
+  },
+});
+
+const emit = defineEmits(['update:visible', 'submittal-saved']);
+
+const toast = useToast();
+const projectStore = useProjectStore();
+const { projects } = storeToRefs(projectStore);
+
+const loading = ref(false);
+const errors = ref({});
+const users = ref([]);
+const windowWidth = ref(window.innerWidth);
+
+const isOpen = computed({
+  get: () => props.visible,
+  set: (value) => emit('update:visible', value),
+});
+
+const dialogStyle = computed(() => {
+  if (windowWidth.value < 768) {
+    return {
+      width: '95vw',
+      height: 'auto',
+      margin: '1rem',
+      maxHeight: '90vh',
+    };
+  } else {
+    return {
+      width: '600px',
+      maxWidth: '90vw',
+    };
   }
-})
+});
 
-// Emits
-const emit = defineEmits(['update:visible', 'submittal-saved'])
+const dialogPosition = computed(() => (windowWidth.value < 768 ? 'bottom' : 'center'));
 
-// State
-const loading = ref(false)
-const users = ref([])
-const generalError = ref('')
-const errors = ref({})
+const projectOptions = computed(() => {
+  return projects.value.map((project) => ({
+    label: project.name,
+    value: project.id,
+  }));
+});
 
-// Form data
+const userOptions = computed(() => {
+  return users.value.map((user) => ({
+    label: user.name || user.email,
+    value: user.id,
+  }));
+});
+
+const statusOptions = SUBMITTAL_STATUS_OPTIONS;
+const typeOptions = SUBMITTAL_TYPE_OPTIONS;
+
 const form = ref({
   title: '',
   description: '',
+  projectId: '',
   type: 'product_data',
+  reviewedBy: '',
+  dueDate: null,
   specSection: '',
   status: 'not_submitted',
-  contractorId: null,
-  requiredDate: null,
-  reviewedBy: null,
-  submittalDate: null,
-  reviewDate: null,
-  reviewStatus: null,
-  reviewComments: '',
-  distributionList: [],
-  revisionNumber: 1
-})
+  comments: '',
+});
 
-// Computed
-const isEditing = computed(() => !!props.submittal)
-
-const canAssignReviewer = computed(() => {
-  return form.value.status === 'submitted' || form.value.status === 'under_review'
-})
-
-const canShowReviewSection = computed(() => {
-  return isEditing.value && ['submitted', 'under_review', 'approved', 'approved_with_comments', 'rejected', 'resubmit'].includes(form.value.status)
-})
-
-const canShowReviewActions = computed(() => {
-  return isEditing.value && ['submitted', 'under_review'].includes(form.value.status)
-})
-
-const canCreateRevision = computed(() => {
-  return isEditing.value && ['resubmit', 'rejected'].includes(form.value.status)
-})
-
-const submitButtonLabel = computed(() => {
-  if (isEditing.value) {
-    return 'Update Submittal'
+// Load users
+async function loadUsers() {
+  try {
+    const allUsers = await UserRepository.getAll();
+    users.value = allUsers.filter((user) => user.active !== false);
+  } catch (error) {
+    console.error('Error loading users:', error);
   }
-  return form.value.status === 'submitted' ? 'Submit for Review' : 'Create Submittal'
-})
-
-const contractorOptions = computed(() =>
-  users.value
-    .filter(user => user.role === 'contractor' || user.role === 'superintendent')
-    .map(user => ({
-      label: user.name || user.email,
-      value: user.id
-    }))
-)
-
-const reviewerOptions = computed(() =>
-  users.value
-    .filter(user => ['admin', 'pm', 'superintendent'].includes(user.role))
-    .map(user => ({
-      label: user.name || user.email,
-      value: user.id
-    }))
-)
-
-const userOptions = computed(() =>
-  users.value.map(user => ({
-    label: user.name || user.email,
-    value: user.id
-  }))
-)
-
-const typeOptions = [
-  { label: 'Product Data', value: 'product_data' },
-  { label: 'Shop Drawings', value: 'shop_drawings' },
-  { label: 'Samples', value: 'samples' },
-  { label: 'Test Reports', value: 'test_reports' },
-  { label: 'Certificates', value: 'certificates' }
-]
-
-const statusOptions = [
-  { label: 'Not Submitted', value: 'not_submitted' },
-  { label: 'Submitted', value: 'submitted' },
-  { label: 'Under Review', value: 'under_review' },
-  { label: 'Approved', value: 'approved' },
-  { label: 'Approved with Comments', value: 'approved_with_comments' },
-  { label: 'Rejected', value: 'rejected' },
-  { label: 'Resubmit Required', value: 'resubmit' }
-]
-
-const reviewStatusOptions = [
-  { label: 'Approved', value: 'approved' },
-  { label: 'Approved with Comments', value: 'approved_with_comments' },
-  { label: 'Rejected', value: 'rejected' },
-  { label: 'Resubmit Required', value: 'resubmit' }
-]
-
-// Methods
-const resetForm = () => {
-  form.value = {
-    title: '',
-    description: '',
-    type: 'product_data',
-    specSection: '',
-    status: 'not_submitted',
-    contractorId: null,
-    requiredDate: null,
-    reviewedBy: null,
-    submittalDate: null,
-    reviewDate: null,
-    reviewStatus: null,
-    reviewComments: '',
-    distributionList: [],
-    revisionNumber: 1
-  }
-  errors.value = {}
-  generalError.value = ''
 }
 
-const populateForm = () => {
-  if (props.submittal) {
+// Load submittal data when editing
+async function loadSubmittalData() {
+  if (props.submittal?.id) {
     form.value = {
       title: props.submittal.title || '',
       description: props.submittal.description || '',
+      projectId: props.submittal.projectId || props.projectId || '',
       type: props.submittal.type || 'product_data',
+      reviewedBy: props.submittal.reviewedBy || '',
+      dueDate: props.submittal.dueDate ? new Date(props.submittal.dueDate) : null,
       specSection: props.submittal.specSection || '',
       status: props.submittal.status || 'not_submitted',
-      contractorId: props.submittal.contractorId || null,
-      requiredDate: props.submittal.requiredDate ? new Date(props.submittal.requiredDate) : null,
-      reviewedBy: props.submittal.reviewedBy || null,
-      submittalDate: props.submittal.submittalDate || null,
-      reviewDate: props.submittal.reviewDate || null,
-      reviewStatus: null, // For new review
-      reviewComments: props.submittal.reviewComments || '',
-      distributionList: props.submittal.distributionList || [],
-      revisionNumber: props.submittal.revisionNumber || 1,
-      number: props.submittal.number || ''
-    }
+      comments: props.submittal.comments || '',
+    };
+  } else {
+    // New submittal - set defaults
+    form.value = {
+      title: '',
+      description: '',
+      projectId: props.projectId || '',
+      type: 'product_data',
+      reviewedBy: '',
+      dueDate: null,
+      specSection: '',
+      status: 'not_submitted',
+      comments: '',
+    };
   }
 }
 
-const validateForm = () => {
-  errors.value = {}
+// Validate form
+function validateForm() {
+  errors.value = {};
 
-  if (!form.value.title.trim()) {
-    errors.value.title = 'Title is required'
+  if (!form.value.title?.trim()) {
+    errors.value.title = 'Title is required';
   }
 
-  if (!form.value.requiredDate) {
-    errors.value.requiredDate = 'Required date is required'
+  if (!form.value.projectId) {
+    errors.value.projectId = 'Project is required';
   }
 
-  return Object.keys(errors.value).length === 0
+  return Object.keys(errors.value).length === 0;
 }
 
-const handleSubmit = async () => {
-  if (!validateForm()) return
+// Handle form submission
+async function handleSubmit() {
+  if (!validateForm()) {
+    toast.add({
+      severity: 'error',
+      summary: 'Validation Error',
+      detail: 'Please fix the errors before submitting',
+      life: 3000,
+    });
+    return;
+  }
+
+  loading.value = true;
 
   try {
-    loading.value = true
-    generalError.value = ''
-
     const submittalData = {
       title: form.value.title.trim(),
-      description: form.value.description.trim(),
-      type: form.value.type,
-      specSection: form.value.specSection.trim() || null,
-      contractorId: form.value.contractorId,
-      requiredDate: form.value.requiredDate.toISOString(),
-      reviewedBy: form.value.reviewedBy,
-      distributionList: form.value.distributionList
-    }
+      description: form.value.description?.trim() || '',
+      projectId: form.value.projectId,
+      type: form.value.type || 'product_data',
+      reviewedBy: form.value.reviewedBy || null,
+      reviewedByName: form.value.reviewedBy
+        ? users.value.find((u) => u.id === form.value.reviewedBy)?.name || ''
+        : null,
+      dueDate: form.value.dueDate ? form.value.dueDate.toISOString().split('T')[0] : null,
+      specSection: form.value.specSection?.trim() || null,
+      status: form.value.status || 'not_submitted',
+      comments: form.value.comments?.trim() || null,
+    };
 
-    let savedSubmittal
-
-    if (isEditing.value) {
+    let result;
+    if (props.submittal?.id) {
       // Update existing submittal
-      const updates = {
-        ...submittalData,
-        status: form.value.status
-      }
-
-      // If adding review comments
-      if (form.value.reviewComments && form.value.reviewComments.trim()) {
-        updates.reviewComments = form.value.reviewComments.trim()
-      }
-
-      await SubmittalRepository.updateSubmittal(props.submittal.id, updates)
-      savedSubmittal = { ...props.submittal, ...updates }
+      result = await SubmittalRepository.updateSubmittal(props.submittal.id, submittalData);
+      toast.add({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'Submittal updated successfully',
+        life: 3000,
+      });
     } else {
       // Create new submittal
-      savedSubmittal = await SubmittalRepository.createSubmittal({
-        ...submittalData,
-        projectId: props.projectId
-      })
+      result = await SubmittalRepository.createSubmittal(submittalData);
+      toast.add({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'Submittal created successfully',
+        life: 3000,
+      });
     }
 
-    emit('submittal-saved', savedSubmittal)
-    emit('update:visible', false)
-    resetForm()
-
+    emit('submittal-saved', result);
+    closeModal();
   } catch (error) {
-    console.error('Error saving submittal:', error)
-    generalError.value = error.message || 'Failed to save submittal'
+    console.error('Error saving submittal:', error);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: error.message || 'Failed to save submittal',
+      life: 5000,
+    });
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
-const reviewSubmittal = async (reviewStatus) => {
-  if (!isEditing.value) return
-
-  try {
-    loading.value = true
-    const comments = form.value.reviewComments?.trim() || ''
-
-    await SubmittalRepository.reviewSubmittal(
-      props.submittal.id,
-      reviewStatus,
-      comments
-    )
-
-    form.value.status = reviewStatus
-    emit('submittal-saved', { ...props.submittal, status: reviewStatus })
-
-  } catch (error) {
-    console.error('Error reviewing submittal:', error)
-    generalError.value = error.message || 'Failed to review submittal'
-  } finally {
-    loading.value = false
-  }
+// Close modal
+function closeModal() {
+  isOpen.value = false;
+  errors.value = {};
 }
 
-const createRevision = async () => {
-  if (!isEditing.value) return
-
-  try {
-    loading.value = true
-    const newRevision = await SubmittalRepository.createRevision(props.submittal.id)
-    emit('submittal-saved', newRevision)
-    emit('update:visible', false)
-  } catch (error) {
-    console.error('Error creating revision:', error)
-    generalError.value = error.message || 'Failed to create revision'
-  } finally {
-    loading.value = false
-  }
+// Handle window resize
+function handleResize() {
+  windowWidth.value = window.innerWidth;
 }
 
-const loadUsers = async () => {
-  try {
-    users.value = await UserRepository.getActiveUsers()
-  } catch (error) {
-    console.error('Error loading users:', error)
-  }
-}
-
-// Watchers
-watch(() => props.visible, (newVisible) => {
-  if (newVisible) {
-    if (props.submittal) {
-      populateForm()
-    } else {
-      resetForm()
+// Watch for dialog visibility changes
+watch(
+  () => props.visible,
+  (newVal) => {
+    if (newVal) {
+      loadUsers();
+      loadSubmittalData();
     }
-  }
-})
+  },
+  { deep: true }
+);
 
-// Lifecycle
+// Lifecycle hooks
 onMounted(() => {
-  loadUsers()
-})
+  window.addEventListener('resize', handleResize);
+  if (props.visible) {
+    loadUsers();
+    loadSubmittalData();
+  }
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
+});
 </script>
+
+<style scoped>
+:deep(.p-dialog) {
+  border-radius: 8px;
+}
+
+:deep(.p-dialog-header) {
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+:deep(.p-inputtext),
+:deep(.p-select),
+:deep(.p-select-label),
+:deep(.p-inputnumber-input),
+:deep(.p-textarea),
+:deep(.p-datepicker-input) {
+  width: 100%;
+  background: var(--surface-0);
+  border-color: var(--surface-border);
+}
+
+:deep(.p-select-overlay),
+:deep(.p-select-option),
+:deep(.p-select-option-label) {
+  background: var(--surface-0);
+  color: var(--text-color);
+}
+
+label {
+  color: var(--text-color);
+}
+
+.space-y-3 > * + * {
+  margin-top: 0.75rem;
+}
+</style>

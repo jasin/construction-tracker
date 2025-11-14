@@ -1,0 +1,721 @@
+/**
+ * Centralized List Component Styles
+ *
+ * Common styles for TaskList, RFIList, SubmittalList, and ChangeOrderList components.
+ * These styles provide consistent accordion-based list UI across all list components.
+ *
+ * Naming Convention:
+ * - Uses both .list-* and .task-* prefixes for backward compatibility
+ * - .task-* classes are aliases for .list-* classes where applicable
+ */
+
+/* ============================================================================
+   Container & Layout
+   ============================================================================ */
+
+.list-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--p-surface-0);
+  border: 1px solid var(--p-surface-200);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .list-container {
+    border-color: var(--p-surface-700);
+  }
+}
+
+/* Header */
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.list-header h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--p-surface-900);
+}
+
+@media (prefers-color-scheme: dark) {
+  .list-header h3 {
+    color: var(--p-surface-0);
+  }
+}
+
+/* Empty State */
+.no-data {
+  text-align: center;
+  padding: 2rem 0;
+  color: #6c757d;
+}
+
+.no-data i {
+  color: var(--p-surface-400);
+  font-size: 2.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.no-data p {
+  color: var(--p-surface-600);
+  font-style: italic;
+}
+
+/* ============================================================================
+   Accordion Layout - Mobile First
+   ============================================================================ */
+
+.list-accordion,
+.task-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* Accordion Panel */
+.list-accordion-panel,
+.task-accordion-panel {
+  background-color: transparent;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background-color 0.2s ease;
+  overflow: hidden;
+  border-radius: 0.375rem;
+}
+
+.list-accordion-panel:hover,
+.task-accordion-panel:hover {
+  background-color: #f9fafb;
+}
+
+.list-accordion-panel.is-expanded .list-accordion-header,
+.task-accordion-panel.is-expanded .task-accordion-header {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+/* Priority-based left border */
+.list-accordion-panel.priority-critical,
+.task-accordion-panel.priority-critical {
+  border-left: 3px solid #dc2626;
+}
+
+.list-accordion-panel.priority-high,
+.task-accordion-panel.priority-high {
+  border-left: 3px solid #f59e0b;
+}
+
+.list-accordion-panel.priority-medium,
+.task-accordion-panel.priority-medium {
+  border-left: 3px solid #3b82f6;
+}
+
+.list-accordion-panel.priority-low,
+.task-accordion-panel.priority-low {
+  border-left: 3px solid #9ca3af;
+}
+
+/* Status-based styling */
+.list-accordion-panel.status-complete,
+.task-accordion-panel.status-complete {
+  opacity: 0.6;
+}
+
+.list-accordion-panel.status-complete:hover,
+.task-accordion-panel.status-complete:hover {
+  opacity: 1;
+  background-color: rgba(34, 197, 94, 0.1);
+}
+
+.list-accordion-panel.task-overdue,
+.task-accordion-panel.task-overdue {
+  background-color: rgba(239, 68, 68, 0.05);
+  border-left: 4px solid #ef4444;
+}
+
+/* Accordion Header */
+.list-accordion-header,
+.task-accordion-header {
+  padding: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.list-accordion-header:hover,
+.task-accordion-header:hover {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Accordion Content */
+.list-accordion-content,
+.task-accordion-content {
+  padding: 0.375rem 0 0.375rem 1.5rem;
+  background: transparent;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 200px;
+  }
+}
+
+/* ============================================================================
+   Row & Title Layout
+   ============================================================================ */
+
+.list-row,
+.task-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.375rem;
+}
+
+.list-title-area,
+.task-title-area {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex: 1;
+  min-width: 0;
+  margin-right: 0.5rem;
+  pointer-events: none;
+}
+
+.list-title,
+.task-title {
+  font-weight: 600;
+  color: var(--p-surface-900);
+  cursor: pointer;
+  display: block;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.expand-icon {
+  font-size: 0.75rem;
+  color: #6b7280;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.list-accordion-panel.is-expanded .expand-icon,
+.task-accordion-panel.is-expanded .expand-icon {
+  transform: rotate(180deg);
+}
+
+.list-title-area.line-through .list-title,
+.task-title-area.line-through .task-title {
+  text-decoration: line-through;
+  color: #6b7280;
+}
+
+/* ============================================================================
+   Status Control
+   ============================================================================ */
+
+.status-control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+  margin-right: 0.5rem;
+}
+
+.status-icon-button {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 4px 0 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.status-icon-button:hover {
+  background-color: #f3f4f6;
+}
+
+.status-icon-button.status-todo {
+  color: #9ca3af;
+}
+
+.status-icon-button.status-in-progress {
+  color: #3b82f6;
+}
+
+.status-icon-button.status-review {
+  color: #f59e0b;
+}
+
+.status-icon-button.status-on-hold {
+  color: #eab308;
+}
+
+.status-icon-button.status-complete {
+  color: #22c55e;
+}
+
+.status-dropdown-button {
+  width: 18px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 0 4px 4px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: #6b7280;
+}
+
+.status-dropdown-button:hover {
+  background-color: #f3f4f6;
+  color: #111827;
+}
+
+/* Status Icons Row */
+.status-icons-row {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-start;
+}
+
+.status-icon-option {
+  background: transparent;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  color: #9ca3af;
+  border-radius: 0.25rem;
+}
+
+.status-icon-option:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.status-icon-option.active {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.status-icon-option.active.status-todo {
+  color: #3b82f6;
+  background-color: #f3f4f6;
+}
+
+.status-icon-option.active.status-in-progress {
+  color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+.status-icon-option.active.status-review {
+  color: #f59e0b;
+  background-color: rgba(245, 158, 11, 0.1);
+}
+
+.status-icon-option.active.status-on-hold {
+  color: #eab308;
+  background-color: rgba(234, 179, 8, 0.1);
+}
+
+.status-icon-option.active.status-complete {
+  color: #22c55e;
+  background-color: rgba(34, 197, 94, 0.1);
+}
+
+.status-icon-option.active.status-cancelled {
+  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* Status Dropdown Menu */
+.status-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: 100;
+  min-width: 160px;
+  overflow: hidden;
+}
+
+.status-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  font-size: 0.85rem;
+}
+
+.status-menu-item:hover {
+  background-color: #f3f4f6;
+}
+
+.status-menu-item.active {
+  background-color: #eff6ff;
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.status-menu-item i:first-child {
+  width: 16px;
+  text-align: center;
+}
+
+.status-menu-item .pi-check {
+  color: #22c55e;
+}
+
+/* ============================================================================
+   Actions
+   ============================================================================ */
+
+.list-actions,
+.task-actions {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.list-accordion-panel.is-expanded .list-actions,
+.task-accordion-panel.is-expanded .task-actions {
+  display: none;
+}
+
+.list-expanded-actions,
+.task-expanded-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+/* ============================================================================
+   Expanded Content
+   ============================================================================ */
+
+.list-card-expanded {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding-top: 0.25rem;
+  overflow: visible;
+}
+
+.list-expanded-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+/* Tags */
+.list-tags-row,
+.task-tags-row {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.list-tags-row .p-tag,
+.task-tags-row .p-tag {
+  font-size: 0.625rem !important;
+  font-weight: 400 !important;
+  line-height: 1;
+  padding: 0.125rem 0.375rem;
+}
+
+/* Meta Information */
+.list-project,
+.list-assignee,
+.list-due-date,
+.list-estimated-hours,
+.list-category,
+.task-due-date {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--p-surface-700);
+}
+
+/* Description & Dependencies */
+.list-description,
+.task-description {
+  padding: 0.625rem;
+  padding-bottom: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--p-surface-800);
+  white-space: pre-wrap;
+  background-color: var(--p-surface-50);
+  border-radius: 6px;
+  border-left: 2px solid var(--p-primary-color);
+}
+
+.list-dependencies {
+  padding: 0.625rem;
+  background-color: var(--p-surface-50);
+  border-radius: 6px;
+  border-left: 2px solid var(--p-orange-500);
+}
+
+.dependency-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--p-surface-900);
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+/* ============================================================================
+   Utility Classes
+   ============================================================================ */
+
+.space-y-2 > * + * {
+  margin-top: 0.5rem;
+}
+
+/* ============================================================================
+   Responsive Design - Desktop
+   ============================================================================ */
+
+@media (min-width: 768px) {
+  .list-accordion,
+  .task-accordion {
+    gap: 0.25rem;
+  }
+
+  .list-accordion-header,
+  .task-accordion-header {
+    padding: 0.625rem;
+  }
+
+  .list-accordion-content,
+  .task-accordion-content {
+    padding: 0.625rem;
+  }
+
+  .list-card-expanded {
+    gap: 0.625rem;
+    padding-top: 0.375rem;
+  }
+
+  .list-row,
+  .task-row {
+    gap: 0.625rem;
+  }
+
+  .list-title,
+  .task-title {
+    font-size: 0.9rem;
+  }
+}
+
+/* ============================================================================
+   Responsive Design - Mobile
+   ============================================================================ */
+
+@media (max-width: 767px) {
+  .list-row,
+  .task-row {
+    gap: 0.375rem;
+  }
+
+  .list-title,
+  .task-title {
+    font-size: 0.8rem;
+  }
+
+  .status-icon-button {
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+  }
+
+  .status-dropdown-button {
+    width: 14px;
+    height: 22px;
+  }
+
+  .list-card-expanded {
+    gap: 0.375rem;
+  }
+
+  .list-description,
+  .task-description,
+  .list-dependencies {
+    padding: 0.5rem;
+  }
+
+  .list-actions,
+  .task-actions {
+    display: none;
+  }
+
+  .list-expanded-actions {
+    justify-content: center;
+  }
+}
+
+/* ============================================================================
+   Dark Mode Support
+   ============================================================================ */
+
+@media (prefers-color-scheme: dark) {
+  .list-accordion-panel,
+  .task-accordion-panel {
+    border-bottom-color: #374151;
+  }
+
+  .list-accordion-panel:hover,
+  .task-accordion-panel:hover {
+    background-color: #1f2937;
+  }
+
+  .list-accordion-panel.is-expanded .list-accordion-header,
+  .task-accordion-panel.is-expanded .task-accordion-header {
+    background-color: rgba(255, 255, 255, 0.03);
+  }
+
+  .list-accordion-header:hover,
+  .task-accordion-header:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+
+  .list-title,
+  .task-title {
+    color: var(--p-surface-0);
+  }
+
+  .list-project,
+  .list-assignee,
+  .list-due-date,
+  .list-estimated-hours,
+  .list-category,
+  .task-due-date {
+    color: var(--p-surface-300);
+  }
+
+  .list-description,
+  .task-description {
+    color: var(--p-surface-300);
+  }
+
+  .status-icon-button:hover,
+  .status-dropdown-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .status-icon-option:hover,
+  .status-icon-option.active {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .status-dropdown-menu {
+    background: var(--p-surface-800);
+    border-color: var(--p-surface-600);
+  }
+
+  .status-menu-item:hover {
+    background-color: var(--p-surface-700);
+  }
+
+  .status-menu-item.active {
+    background-color: var(--p-surface-600);
+  }
+
+  .dependency-header {
+    color: var(--p-surface-0);
+  }
+
+  /* Priority backgrounds in dark mode */
+  .list-accordion-panel.priority-critical,
+  .task-accordion-panel.priority-critical {
+    background-color: rgba(239, 68, 68, 0.1);
+  }
+
+  .list-accordion-panel.priority-critical:hover,
+  .task-accordion-panel.priority-critical:hover {
+    background-color: rgba(239, 68, 68, 0.15);
+  }
+
+  .list-accordion-panel.priority-high,
+  .task-accordion-panel.priority-high {
+    background-color: rgba(249, 115, 22, 0.1);
+  }
+
+  .list-accordion-panel.priority-high:hover,
+  .task-accordion-panel.priority-high:hover {
+    background-color: rgba(249, 115, 22, 0.15);
+  }
+
+  .list-accordion-panel.priority-medium,
+  .task-accordion-panel.priority-medium {
+    background-color: rgba(251, 191, 36, 0.1);
+  }
+
+  .list-accordion-panel.priority-medium:hover,
+  .task-accordion-panel.priority-medium:hover {
+    background-color: rgba(251, 191, 36, 0.15);
+  }
+
+  .list-accordion-panel.priority-low,
+  .task-accordion-panel.priority-low {
+    background-color: rgba(59, 130, 246, 0.1);
+  }
+
+  .list-accordion-panel.priority-low:hover,
+  .task-accordion-panel.priority-low:hover {
+    background-color: rgba(59, 130, 246, 0.15);
+  }
+
+  .list-accordion-panel.status-complete:hover,
+  .task-accordion-panel.status-complete:hover {
+    background-color: rgba(16, 185, 129, 0.1);
+  }
+
+  .list-accordion-panel.task-overdue,
+  .task-accordion-panel.task-overdue {
+    background-color: rgba(239, 68, 68, 0.05);
+  }
+}

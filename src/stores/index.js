@@ -10,4 +10,5 @@ export { useConstructionStore } from './construction';
 export { useActivityStore } from './activity';
 export { useUIStore } from './ui';
 export { useTaskStore } from './task';
+export { useRFIStore } from './rfi';
 export { useUserSettingsStore } from './userSettings';

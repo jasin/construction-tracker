@@ -12,6 +12,7 @@ export const useUIStore = defineStore('ui', () => {
     projectDialog: false,
     taskDialog: false,
     rfiDialog: false,
+    submittalDialog: false,
     activityFlyout: false,
     documentUploader: false,
   });
