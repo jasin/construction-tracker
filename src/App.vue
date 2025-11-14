@@ -49,7 +49,7 @@
           />
         </template>
         <template v-else>
-          <DashboardView />
+          <DashboardView @open-rfi-dialog="handleOpenRFIDialog" />
         </template>
       </main>
 
@@ -74,8 +74,16 @@
       <RFIDialog
         v-if="modals.rfiDialog"
         :visible="modals.rfiDialog"
+        :rfi="selectedRFI"
         @update:visible="uiStore.closeModal('rfiDialog')"
         @rfi-saved="handleRFISaved"
+        :project-id="projectStore.activeProjectId"
+      />
+      <SubmittalDialog
+        v-if="modals.submittalDialog"
+        :visible="modals.submittalDialog"
+        @update:visible="uiStore.closeModal('submittalDialog')"
+        @submittal-saved="handleSubmittalSaved"
         :project-id="projectStore.activeProjectId"
       />
       <ActivityFlyout
@@ -208,6 +216,7 @@ import Dialog from 'primevue/dialog';
 import ProjectDialog from './components/forms/ProjectDialog.vue';
 import TaskDialog from './components/forms/TaskDialog.vue';
 import RFIDialog from './components/forms/RFIDialog.vue';
+import SubmittalDialog from './components/forms/SubmittalDialog.vue';
 import ActivityFlyout from './components/widgets/ActivityFlyout.vue';
 
 // PrimeVue components for settings dialog
@@ -227,6 +236,7 @@ const userMenu = ref();
 const contextMenu = ref();
 const mainDiv = ref();
 const showProjectSearch = ref(false); // Unified project search
+const selectedRFI = ref(null);
 
 // Task settings dialog state
 const showTaskSettings = ref(false);
@@ -320,12 +330,28 @@ const handleTaskUpdated = (task) => {
   });
 };
 
+const handleOpenRFIDialog = (rfi) => {
+  selectedRFI.value = rfi;
+  uiStore.openModal('rfiDialog');
+};
+
 const handleRFISaved = (rfi) => {
   uiStore.closeModal('rfiDialog');
+  selectedRFI.value = null;
   toast.add({
     severity: 'success',
     summary: 'Success',
     detail: rfi.id ? 'RFI updated successfully' : 'RFI created successfully',
+    life: 3000,
+  });
+};
+
+const handleSubmittalSaved = (submittal) => {
+  uiStore.closeModal('submittalDialog');
+  toast.add({
+    severity: 'success',
+    summary: 'Success',
+    detail: submittal.id ? 'Submittal updated successfully' : 'Submittal created successfully',
     life: 3000,
   });
 };
@@ -348,22 +374,8 @@ const uploadDocument = async () => {
   }
 };
 
-const newSubmittal = async () => {
-  try {
-    await SubmittalRepository.create({
-      title: 'New Submittal',
-      projectId: projectStore.activeProjectId,
-    });
-    toast.add({ severity: 'success', summary: 'Success', detail: 'Submittal created', life: 3000 });
-  } catch (error) {
-    console.error('New submittal error:', error);
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to create submittal',
-      life: 3000,
-    });
-  }
+const newSubmittal = () => {
+  uiStore.openModal('submittalDialog');
 };
 
 const changeOrder = async () => {
@@ -461,7 +473,7 @@ const contextMenuItems = ref([
     label: 'Submit RFI',
     icon: 'pi pi-question-circle',
     command: () => {
-      uiStore.openModal('rfiDialog');
+      handleOpenRFIDialog(null);
     },
   },
   {

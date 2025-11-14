@@ -3,6 +3,23 @@
     <div v-if="!changeOrders || Object.keys(changeOrders).length === 0" class="no-data">
       No change orders found for this project.
     </div>
+</template>
+
+<old_text line=95>
+  props: {
+    changeOrders: {
+      type: Object,
+      default: () => ({}),
+    },
+    projectId: {
+      type: String,
+      required: true,
+    },
+    emptyMessage: {
+      type: String,
+      default: 'No change orders yet',
+    },
+  },
     <ul v-else class="change-order-items">
       <li
         v-for="(changeOrder, coKey) in changeOrders"
@@ -86,7 +103,7 @@
 </template>
 
 <script>
-import firebaseService from '@/services/firebaseService'
+import firebaseService from '@/services/firebaseService';
 
 export default {
   name: 'ChangeOrderList',
@@ -102,16 +119,16 @@ export default {
   },
   methods: {
     formatDate(isoString) {
-      if (!isoString) return 'N/A'
+      if (!isoString) return 'N/A';
       return new Date(isoString).toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
-      })
+      });
     },
 
     formatCurrency(amount) {
-      return new Intl.NumberFormat('en-US').format(amount || 0)
+      return new Intl.NumberFormat('en-US').format(amount || 0);
     },
 
     formatStatus(status) {
@@ -120,8 +137,8 @@ export default {
         approved: 'Approved',
         rejected: 'Rejected',
         'work-completed': 'Work Completed',
-      }
-      return statusMap[status] || status
+      };
+      return statusMap[status] || status;
     },
 
     formatReason(reason) {
@@ -130,55 +147,55 @@ export default {
         'design-change': 'Design Change',
         'unforeseen-conditions': 'Unforeseen Conditions',
         'code-requirement': 'Code Requirement',
-      }
-      return reasonMap[reason] || reason
+      };
+      return reasonMap[reason] || reason;
     },
 
     canTakeAction(changeOrder) {
       // Add logic here based on user permissions
-      return ['proposed', 'approved'].includes(changeOrder.status)
+      return ['proposed', 'approved'].includes(changeOrder.status);
     },
 
     async approveChangeOrder(changeOrderId) {
       try {
-        await firebaseService.approveChangeOrder(changeOrderId)
+        await firebaseService.approveChangeOrder(changeOrderId);
       } catch (error) {
-        console.error('Error approving change order:', error)
-        alert('Failed to approve change order')
+        console.error('Error approving change order:', error);
+        alert('Failed to approve change order');
       }
     },
 
     async rejectChangeOrder(changeOrderId) {
       try {
-        await firebaseService.rejectChangeOrder(changeOrderId)
+        await firebaseService.rejectChangeOrder(changeOrderId);
       } catch (error) {
-        console.error('Error rejecting change order:', error)
-        alert('Failed to reject change order')
+        console.error('Error rejecting change order:', error);
+        alert('Failed to reject change order');
       }
     },
 
     async markWorkCompleted(changeOrderId) {
       try {
-        await firebaseService.completeChangeOrderWork(changeOrderId)
+        await firebaseService.completeChangeOrderWork(changeOrderId);
       } catch (error) {
-        console.error('Error marking work completed:', error)
-        alert('Failed to mark work completed')
+        console.error('Error marking work completed:', error);
+        alert('Failed to mark work completed');
       }
     },
   },
-}
+};
 </script>
 
 <style scoped>
+@import '@/styles/list-styles.css';
+
+/* ChangeOrderList uses a different design pattern (card-based) */
 .change-order-list {
   max-width: 800px;
   margin: 0 auto;
 }
 
 .no-data {
-  text-align: center;
-  padding: 20px;
-  color: #6c757d;
   font-style: italic;
 }
 

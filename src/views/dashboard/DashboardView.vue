@@ -111,10 +111,12 @@
       @back="closeMobileSection"
     >
       <RFIList
-        :rfis="[]"
-        :loading="false"
+        :rfis="rfiStore.userRFIs"
+        :loading="rfiStore.userRFIsLoading"
+        title=""
         @create-rfi="handleCreateRFI"
         @rfi-click="handleRFIClick"
+        @edit-rfi="handleEditRFI"
       />
     </DashboardMobileSection>
 
@@ -124,10 +126,13 @@
       @back="closeMobileSection"
     >
       <SubmittalList
-        :submittals="[]"
-        :loading="false"
+        :submittals="submittalStore.userSubmittals"
+        :loading="submittalStore.userSubmittalsLoading"
+        title=""
         @create-submittal="handleCreateSubmittal"
         @submittal-click="handleSubmittalClick"
+        @edit-submittal="handleEditSubmittal"
+        @delete-submittal="handleDeleteSubmittal"
       />
     </DashboardMobileSection>
 
@@ -153,14 +158,14 @@
         </div>
       </div>
 
-      <!-- My Tasks Section -->
+      <!-- Tasks Section -->
       <div class="mb-6">
         <div class="desktop-tasks-container grid gap-4" :class="getGridClass">
           <div :class="getTaskListSpanClass">
             <TaskList
               :tasks="taskStore.userTasks"
               :loading="taskStore.userTasksLoading"
-              title="My Tasks"
+              title="Tasks"
               empty-message="No tasks assigned to you"
               :show-create-button="true"
               :show-project-name="true"
@@ -176,18 +181,23 @@
           </div>
           <div class="col-span-1">
             <RFIList
-              :rfis="[]"
-              :loading="false"
+              :rfis="rfiStore.userRFIs"
+              :loading="rfiStore.userRFIsLoading"
+              title="Request Information"
               @create-rfi="handleCreateRFI"
               @rfi-click="handleRFIClick"
+              @edit-rfi="handleEditRFI"
             />
           </div>
           <div class="col-span-1">
             <SubmittalList
-              :submittals="[]"
-              :loading="false"
+              :submittals="submittalStore.userSubmittals"
+              :loading="submittalStore.userSubmittalsLoading"
+              title="Submittals"
               @create-submittal="handleCreateSubmittal"
               @submittal-click="handleSubmittalClick"
+              @edit-submittal="handleEditSubmittal"
+              @delete-submittal="handleDeleteSubmittal"
             />
           </div>
         </div>
@@ -279,6 +289,14 @@
       :project-id="null"
       @task-saved="handleTaskSaved"
     />
+
+    <!-- Submittal Dialog -->
+    <SubmittalDialog
+      v-model:visible="submittalDialogVisible"
+      :submittal="selectedSubmittal"
+      :project-id="null"
+      @submittal-saved="handleSubmittalSaved"
+    />
   </div>
 </template>
 
@@ -295,20 +313,27 @@ import { ACTIVITY_CATEGORIES } from '@/constants/activityActions';
 
 import { useProjectStore } from '@/stores/project';
 import { useTaskStore } from '@/stores/task';
+import { useRFIStore } from '@/stores/rfi';
+import { useSubmittalStore } from '@/stores/submittal';
 import { useUIStore } from '@/stores/ui';
 
 import TaskList from '@/components/lists/TaskList.vue';
 import TaskDialog from '@/components/forms/TaskDialog.vue';
+import SubmittalDialog from '@/components/forms/SubmittalDialog.vue';
 import RFIList from '@/components/lists/RFIList.vue';
 import SubmittalList from '@/components/lists/SubmittalList.vue';
 import DashboardSectionButton from '@/components/dashboard/DashboardSectionButton.vue';
 import DashboardMobileSection from '@/components/dashboard/DashboardMobileSection.vue';
+
+const emit = defineEmits(['open-rfi-dialog']);
 
 const toast = useToast();
 const { width } = useWindowSize();
 
 const projectStore = useProjectStore();
 const taskStore = useTaskStore();
+const rfiStore = useRFIStore();
+const submittalStore = useSubmittalStore();
 const uiStore = useUIStore();
 
 const loading = ref(true);
@@ -318,6 +343,10 @@ let activityUnsubscribe = null;
 // Task dialog state
 const taskDialogVisible = ref(false);
 const selectedTask = ref(null);
+
+// Submittal dialog state
+const submittalDialogVisible = ref(false);
+const selectedSubmittal = ref(null);
 
 // Responsive breakpoint
 const isMobile = computed(() => width.value < 768);
@@ -433,7 +462,7 @@ const getMobileSectionTitle = (sectionName) => {
     changeOrders: 'Change Orders',
     activity: 'Activity Log',
   };
-  return titles[sectionName] || sectionName;
+  return titles[sectionName] || 'Section';
 };
 
 /**
@@ -608,41 +637,59 @@ const handleDeleteTask = async (task) => {
 };
 
 /**
- * Handle RFI actions (placeholder)
+ * Handle RFI actions
  */
 const handleCreateRFI = () => {
-  toast.add({
-    severity: 'info',
-    summary: 'Coming Soon',
-    detail: 'RFI creation will be available soon',
-    life: 3000,
-  });
+  emit('open-rfi-dialog', null);
 };
 
 const handleRFIClick = (rfi) => {
+  // TODO: Open RFI detail view/edit dialog
   console.log('RFI clicked:', rfi);
+  emit('open-rfi-dialog', rfi);
+};
+
+const handleEditRFI = (rfi) => {
+  emit('open-rfi-dialog', rfi);
 };
 
 /**
- * Handle Submittal actions (placeholder)
+ * Handle Submittal actions
  */
 const handleCreateSubmittal = () => {
-  toast.add({
-    severity: 'info',
-    summary: 'Coming Soon',
-    detail: 'Submittal creation will be available soon',
-    life: 3000,
-  });
+  selectedSubmittal.value = null;
+  submittalDialogVisible.value = true;
 };
 
 const handleSubmittalClick = (submittal) => {
-  console.log('Submittal clicked:', submittal);
+  selectedSubmittal.value = submittal;
+  submittalDialogVisible.value = true;
+};
+
+const handleEditSubmittal = (submittal) => {
+  selectedSubmittal.value = submittal;
+  submittalDialogVisible.value = true;
+};
+
+const handleDeleteSubmittal = async (submittal) => {
+  // TODO: Implement submittal deletion
+  console.log('Delete submittal:', submittal);
+};
+
+/**
+ * Handle submittal saved from dialog
+ */
+const handleSubmittalSaved = () => {
+  submittalDialogVisible.value = false;
+  selectedSubmittal.value = null;
 };
 
 onMounted(async () => {
   loadData();
   setupActivitySubscription();
   taskStore.initializeUserTasksSubscription();
+  rfiStore.initializeUserRFIsSubscription();
+  submittalStore.initializeUserSubmittalsSubscription();
 });
 
 onUnmounted(() => {
@@ -650,6 +697,8 @@ onUnmounted(() => {
     activityUnsubscribe();
   }
   taskStore.cleanupUserTasksSubscription();
+  rfiStore.cleanupUserRFIsSubscription();
+  submittalStore.cleanupUserSubmittalsSubscription();
   uiStore.resetMobileSection();
 });
 </script>
@@ -698,6 +747,16 @@ onUnmounted(() => {
 .desktop-tasks-container {
   display: grid;
   gap: 1rem;
+  height: 400px;
+  min-height: 400px;
+}
+
+.desktop-tasks-container > div {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 400px;
+  overflow: hidden;
 }
 
 /* Tailwind-style spacing utilities */

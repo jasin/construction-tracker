@@ -1,343 +1,405 @@
 <template>
   <Dialog
-    :visible="visible"
-    @update:visible="$emit('update:visible', $event)"
-    :modal="true"
-    :closable="true"
+    v-model:visible="isOpen"
+    modal
+    :header="rfi?.id ? 'Edit RFI' : 'Create RFI'"
+    :style="dialogStyle"
+    :position="dialogPosition"
     :draggable="false"
-    class="w-full max-w-2xl"
-    :header="isEditing ? 'Edit RFI' : 'Create New RFI'"
+    @hide="closeModal"
   >
-    <form @submit.prevent="handleSubmit" class="space-y-6">
-      <!-- RFI Number -->
-      <div v-if="isEditing">
-        <label class="block text-sm font-medium text-gray-700 mb-1">RFI Number</label>
-        <InputText :model-value="form.number" disabled class="w-full bg-gray-50" />
-      </div>
-
+    <form @submit.prevent="handleSubmit" class="space-y-4">
       <!-- Title -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
+      <div class="space-y-2">
+        <label for="rfi-title" class="block text-sm font-medium">
           Title <span class="text-red-500">*</span>
         </label>
         <InputText
+          id="rfi-title"
           v-model="form.title"
-          placeholder="Brief description of the RFI"
-          class="w-full"
+          placeholder="Enter RFI title"
           :class="{ 'border-red-500': errors.title }"
+          class="w-full"
         />
         <small v-if="errors.title" class="text-red-500">{{ errors.title }}</small>
       </div>
 
       <!-- Description -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">
-          Description <span class="text-red-500">*</span>
-        </label>
+      <div class="space-y-2">
+        <label for="rfi-description" class="block text-sm font-medium">Description</label>
         <Textarea
+          id="rfi-description"
           v-model="form.description"
-          placeholder="Detailed description of the request for information..."
+          placeholder="Enter RFI description"
           rows="4"
           class="w-full"
-          :class="{ 'border-red-500': errors.description }"
         />
-        <small v-if="errors.description" class="text-red-500">{{ errors.description }}</small>
       </div>
 
-      <!-- Priority and Status Row -->
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-          <Select
-            v-model="form.priority"
-            :options="priorityOptions"
-            option-label="label"
-            option-value="value"
-            placeholder="Select priority"
-            class="w-full"
-          />
-        </div>
-        <div v-if="isEditing">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-          <Select
-            v-model="form.status"
-            :options="statusOptions"
-            option-label="label"
-            option-value="value"
-            placeholder="Select status"
-            class="w-full"
-          />
-        </div>
+      <!-- Project -->
+      <div class="space-y-2">
+        <label for="rfi-project" class="block text-sm font-medium">
+          Project <span class="text-red-500">*</span>
+        </label>
+        <Select
+          id="rfi-project"
+          v-model="form.projectId"
+          :options="projectOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Select a project"
+          :class="{ 'p-invalid': errors.projectId }"
+          class="w-full"
+          :disabled="!!projectId"
+        />
+        <small v-if="errors.projectId" class="text-red-500">{{ errors.projectId }}</small>
       </div>
 
-      <!-- Assignment and Due Date Row -->
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
-          <Select
-            v-model="form.assignedTo"
-            :options="userOptions"
-            option-label="label"
-            option-value="value"
-            placeholder="Select assignee"
-            class="w-full"
-            filter
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-          <DatePicker
-            v-model="form.dueDate"
-            placeholder="Select due date"
-            class="w-full"
-            show-icon
-            :min-date="new Date()"
-          />
-        </div>
+      <!-- Assigned To -->
+      <div class="space-y-2">
+        <label for="rfi-assignedTo" class="block text-sm font-medium">Assigned To</label>
+        <Select
+          id="rfi-assignedTo"
+          v-model="form.assignedTo"
+          :options="userOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Select a user"
+          class="w-full"
+          showClear
+        />
       </div>
 
-      <!-- Trade/Location Row -->
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Trade</label>
-          <InputText
-            v-model="form.trade"
-            placeholder="e.g., Electrical, Plumbing, HVAC"
-            class="w-full"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Location</label>
-          <InputText
-            v-model="form.location"
-            placeholder="e.g., Building A, Floor 2"
-            class="w-full"
-          />
-        </div>
-      </div>
-
-      <!-- Response Section (for editing existing RFIs) -->
-      <div v-if="isEditing && canAddResponse">
-        <label class="block text-sm font-medium text-gray-700 mb-1">Response</label>
-        <Textarea
-          v-model="form.response"
-          placeholder="Response to the RFI..."
-          rows="3"
+      <!-- Due Date -->
+      <div class="space-y-2">
+        <label for="rfi-dueDate" class="block text-sm font-medium">Due Date</label>
+        <DatePicker
+          id="rfi-dueDate"
+          v-model="form.dueDate"
+          placeholder="Select due date"
+          dateFormat="mm/dd/yy"
+          showIcon
           class="w-full"
         />
       </div>
 
-      <!-- Error Message -->
-      <Message v-if="generalError" severity="error" :closable="false">
-        {{ generalError }}
-      </Message>
-
-      <!-- Form Actions -->
-      <div class="flex justify-end gap-3 pt-4 border-t">
-        <Button
-          @click="$emit('update:visible', false)"
-          label="Cancel"
-          severity="secondary"
-          :disabled="loading"
+      <!-- Status -->
+      <div class="space-y-2">
+        <label for="rfi-status" class="block text-sm font-medium">Status</label>
+        <Select
+          id="rfi-status"
+          v-model="form.status"
+          :options="statusOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Select status"
+          class="w-full"
         />
-        <Button type="submit" :label="isEditing ? 'Update RFI' : 'Create RFI'" :loading="loading" />
+      </div>
+
+      <!-- Response (only show if RFI has been responded to) -->
+      <div v-if="rfi?.id && form.status === 'responded'" class="space-y-2">
+        <label for="rfi-response" class="block text-sm font-medium">Response</label>
+        <Textarea
+          id="rfi-response"
+          v-model="form.response"
+          placeholder="Enter response"
+          rows="4"
+          class="w-full"
+        />
       </div>
     </form>
+
+    <template #footer>
+      <div class="flex justify-end gap-2">
+        <Button label="Cancel" severity="secondary" @click="closeModal" :disabled="loading" />
+        <Button
+          :label="rfi?.id ? 'Update' : 'Create'"
+          @click="handleSubmit"
+          :loading="loading"
+          :disabled="loading"
+        />
+      </div>
+    </template>
   </Dialog>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
-import { Dialog, InputText, Textarea, Select, DatePicker, Button, Message } from 'primevue'
-import RFIRepository from '@/services/firebase/Repositories/RFIRepository'
-import UserRepository from '@/services/firebase/Repositories/UserRepository'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { useToast } from 'primevue/usetoast';
+import { useProjectStore } from '@/stores/project';
+import { storeToRefs } from 'pinia';
+import RFIRepository from '@/services/firebase/Repositories/RFIRepository';
+import UserRepository from '@/services/firebase/Repositories/UserRepository';
+import { RFI_STATUS_OPTIONS } from '@/constants/rfiConstants';
 
-// Props
+import Dialog from 'primevue/dialog';
+import InputText from 'primevue/inputtext';
+import Textarea from 'primevue/textarea';
+import Select from 'primevue/select';
+import DatePicker from 'primevue/datepicker';
+import Button from 'primevue/button';
+
 const props = defineProps({
-  visible: Boolean,
-  projectId: String,
+  visible: {
+    type: Boolean,
+    default: false,
+  },
   rfi: {
     type: Object,
     default: null,
   },
-})
+  projectId: {
+    type: String,
+    default: null,
+  },
+});
 
-// Emits
-const emit = defineEmits(['update:visible', 'rfi-saved'])
+const emit = defineEmits(['update:visible', 'rfi-saved']);
 
-// State
-const loading = ref(false)
-const users = ref([])
-const generalError = ref('')
-const errors = ref({})
+const toast = useToast();
+const projectStore = useProjectStore();
+const { projects } = storeToRefs(projectStore);
 
-// Form data
+const loading = ref(false);
+const errors = ref({});
+const users = ref([]);
+const windowWidth = ref(window.innerWidth);
+
+const isOpen = computed({
+  get: () => props.visible,
+  set: (value) => emit('update:visible', value),
+});
+
+const dialogStyle = computed(() => {
+  if (windowWidth.value < 768) {
+    return {
+      width: '95vw',
+      height: 'auto',
+      margin: '1rem',
+      maxHeight: '90vh',
+    };
+  } else {
+    return {
+      width: '600px',
+      maxWidth: '90vw',
+    };
+  }
+});
+
+const dialogPosition = computed(() => (windowWidth.value < 768 ? 'bottom' : 'center'));
+
+const projectOptions = computed(() => {
+  return projects.value.map((project) => ({
+    label: project.name,
+    value: project.id,
+  }));
+});
+
+const userOptions = computed(() => {
+  return users.value.map((user) => ({
+    label: user.name || user.email,
+    value: user.id,
+  }));
+});
+
+const statusOptions = RFI_STATUS_OPTIONS;
+
 const form = ref({
   title: '',
   description: '',
-  priority: 'medium',
-  status: 'draft',
-  assignedTo: null,
+  projectId: '',
+  assignedTo: '',
   dueDate: null,
-  trade: '',
-  location: '',
+  status: 'draft',
   response: '',
-})
+});
 
-// Computed
-const isEditing = computed(() => !!props.rfi)
-
-const canAddResponse = computed(() => {
-  return isEditing.value && ['submitted', 'under_review'].includes(form.value.status)
-})
-
-const userOptions = computed(() =>
-  users.value.map((user) => ({
-    label: user.name || user.email,
-    value: user.id,
-  })),
-)
-
-const priorityOptions = [
-  { label: 'Low', value: 'low' },
-  { label: 'Medium', value: 'medium' },
-  { label: 'High', value: 'high' },
-  { label: 'Urgent', value: 'urgent' },
-]
-
-const statusOptions = [
-  { label: 'Draft', value: 'draft' },
-  { label: 'Submitted', value: 'submitted' },
-  { label: 'Under Review', value: 'under_review' },
-  { label: 'Responded', value: 'responded' },
-  { label: 'Closed', value: 'closed' },
-]
-
-// Methods
-const resetForm = () => {
-  form.value = {
-    title: '',
-    description: '',
-    priority: 'medium',
-    status: 'draft',
-    assignedTo: null,
-    dueDate: null,
-    trade: '',
-    location: '',
-    response: '',
+// Load users
+async function loadUsers() {
+  try {
+    const allUsers = await UserRepository.getAll();
+    users.value = allUsers.filter((user) => user.active !== false);
+  } catch (error) {
+    console.error('Error loading users:', error);
   }
-  errors.value = {}
-  generalError.value = ''
 }
 
-const populateForm = () => {
-  if (props.rfi) {
+// Load RFI data when editing
+async function loadRFIData() {
+  if (props.rfi?.id) {
     form.value = {
       title: props.rfi.title || '',
       description: props.rfi.description || '',
-      priority: props.rfi.priority || 'medium',
-      status: props.rfi.status || 'draft',
-      assignedTo: props.rfi.assignedTo || null,
+      projectId: props.rfi.projectId || props.projectId || '',
+      assignedTo: props.rfi.assignedTo || '',
       dueDate: props.rfi.dueDate ? new Date(props.rfi.dueDate) : null,
-      trade: props.rfi.trade || '',
-      location: props.rfi.location || '',
+      status: props.rfi.status || 'draft',
       response: props.rfi.response || '',
-      number: props.rfi.number || '',
-    }
+    };
+  } else {
+    // New RFI - set defaults
+    form.value = {
+      title: '',
+      description: '',
+      projectId: props.projectId || '',
+      assignedTo: '',
+      dueDate: null,
+      status: 'draft',
+      response: '',
+    };
   }
 }
 
-const validateForm = () => {
-  errors.value = {}
+// Validate form
+function validateForm() {
+  errors.value = {};
 
-  if (!form.value.title.trim()) {
-    errors.value.title = 'Title is required'
+  if (!form.value.title?.trim()) {
+    errors.value.title = 'Title is required';
   }
 
-  if (!form.value.description.trim()) {
-    errors.value.description = 'Description is required'
+  if (!form.value.projectId) {
+    errors.value.projectId = 'Project is required';
   }
 
-  return Object.keys(errors.value).length === 0
+  return Object.keys(errors.value).length === 0;
 }
 
-const handleSubmit = async () => {
-  if (!validateForm()) return
+// Handle form submission
+async function handleSubmit() {
+  if (!validateForm()) {
+    toast.add({
+      severity: 'error',
+      summary: 'Validation Error',
+      detail: 'Please fix the errors before submitting',
+      life: 3000,
+    });
+    return;
+  }
+
+  loading.value = true;
 
   try {
-    loading.value = true
-    generalError.value = ''
-
     const rfiData = {
       title: form.value.title.trim(),
-      description: form.value.description.trim(),
-      priority: form.value.priority,
-      assignedTo: form.value.assignedTo,
-      dueDate: form.value.dueDate ? form.value.dueDate.toISOString() : null,
-      trade: form.value.trade.trim() || null,
-      location: form.value.location.trim() || null,
-    }
+      description: form.value.description?.trim() || '',
+      projectId: form.value.projectId,
+      assignedTo: form.value.assignedTo || null,
+      assignedToName: form.value.assignedTo
+        ? users.value.find((u) => u.id === form.value.assignedTo)?.name || ''
+        : null,
+      dueDate: form.value.dueDate ? form.value.dueDate.toISOString().split('T')[0] : null,
+      status: form.value.status || 'draft',
+      response: form.value.response?.trim() || null,
+    };
 
-    let savedRFI
-
-    if (isEditing.value) {
+    let result;
+    if (props.rfi?.id) {
       // Update existing RFI
-      const updates = {
-        ...rfiData,
-        status: form.value.status,
-      }
-
-      // If adding a response
-      if (form.value.response && form.value.response.trim()) {
-        updates.response = form.value.response.trim()
-        updates.status = 'responded'
-      }
-
-      await RFIRepository.updateRFI(props.rfi.id, updates)
-      savedRFI = { ...props.rfi, ...updates }
+      result = await RFIRepository.updateRFI(props.rfi.id, rfiData);
+      toast.add({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'RFI updated successfully',
+        life: 3000,
+      });
     } else {
       // Create new RFI
-      savedRFI = await RFIRepository.createRFI({
-        ...rfiData,
-        projectId: props.projectId,
-      })
+      result = await RFIRepository.createRFI(rfiData);
+      toast.add({
+        severity: 'success',
+        summary: 'Success',
+        detail: 'RFI created successfully',
+        life: 3000,
+      });
     }
 
-    emit('rfi-saved', savedRFI)
-    emit('update:visible', false)
-    resetForm()
+    emit('rfi-saved', result);
+    closeModal();
   } catch (error) {
-    console.error('Error saving RFI:', error)
-    generalError.value = error.message || 'Failed to save RFI'
+    console.error('Error saving RFI:', error);
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: error.message || 'Failed to save RFI',
+      life: 5000,
+    });
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
-const loadUsers = async () => {
-  try {
-    users.value = await UserRepository.getActiveUsers()
-  } catch (error) {
-    console.error('Error loading users:', error)
-  }
+// Close modal
+function closeModal() {
+  isOpen.value = false;
+  errors.value = {};
 }
 
-// Watchers
+// Handle window resize
+function handleResize() {
+  windowWidth.value = window.innerWidth;
+}
+
+// Watch for dialog visibility changes
 watch(
   () => props.visible,
-  (newVisible) => {
-    if (newVisible) {
-      if (props.rfi) {
-        populateForm()
-      } else {
-        resetForm()
-      }
+  (newVal) => {
+    if (newVal) {
+      loadUsers();
+      loadRFIData();
     }
   },
-)
+  { deep: true }
+);
 
-// Lifecycle
+// Lifecycle hooks
 onMounted(() => {
-  loadUsers()
-})
+  window.addEventListener('resize', handleResize);
+  if (props.visible) {
+    loadUsers();
+    loadRFIData();
+  }
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
+});
 </script>
+
+<style scoped>
+:deep(.p-dialog) {
+  border-radius: 8px;
+}
+
+:deep(.p-dialog-header) {
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+:deep(.p-inputtext),
+:deep(.p-select),
+:deep(.p-select-label),
+:deep(.p-inputnumber-input),
+:deep(.p-textarea),
+:deep(.p-datepicker-input) {
+  width: 100%;
+  background: var(--surface-0);
+  border-color: var(--surface-border);
+}
+
+:deep(.p-select-overlay),
+:deep(.p-select-option),
+:deep(.p-select-option-label) {
+  background: var(--surface-0);
+  color: var(--text-color);
+}
+
+label {
+  color: var(--text-color);
+}
+
+.space-y-3 > * + * {
+  margin-top: 0.75rem;
+}
+</style>
