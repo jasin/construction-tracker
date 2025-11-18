@@ -11,4 +11,7 @@ export { useActivityStore } from './activity';
 export { useUIStore } from './ui';
 export { useTaskStore } from './task';
 export { useRFIStore } from './rfi';
+export { useSubmittalStore } from './submittal';
+export { useChangeOrderStore } from './changeOrder';
+export { useDocumentStore } from './document';
 export { useUserSettingsStore } from './userSettings';

@@ -380,18 +380,123 @@ exports.updateTimestamp = functions.database
      v-model:visible="isOpen" 
      modal 
      :header="title"
-     :style="{ width: '600px' }"
+     :style="dialogStyle"
+     :position="dialogPosition"
+     :draggable="false"
      @hide="closeModal"
    >
-     <form @submit.prevent="handleSubmit">
-       <!-- Form fields -->
+     <form @submit.prevent="handleSubmit" class="space-y-3">
+       <!-- Form fields with space-y-2 for internal spacing -->
+       <div class="space-y-2">
+         <label for="field-id" class="block text-sm font-semibold text-surface-900">
+           Field Label <span class="text-red-500">*</span>
+         </label>
+         <InputText
+           id="field-id"
+           v-model="form.field"
+           placeholder="Enter value"
+           :class="{ 'border-red-500': errors.field }"
+           class="w-full"
+         />
+         <small v-if="errors.field" class="text-red-500">{{ errors.field }}</small>
+       </div>
      </form>
      <template #footer>
-       <Button label="Cancel" @click="closeModal" />
-       <Button label="Save" @click="handleSubmit" />
+       <div class="flex justify-end gap-2">
+         <Button label="Cancel" severity="secondary" @click="closeModal" :disabled="loading" />
+         <Button label="Save" @click="handleSubmit" :loading="loading" :disabled="loading" />
+       </div>
      </template>
    </Dialog>
    ```
+
+   **Dialog Responsive Pattern**:
+   ```javascript
+   const windowWidth = ref(window.innerWidth)
+   
+   const dialogStyle = computed(() => {
+     if (windowWidth.value < 768) {
+       return {
+         width: '95vw',
+         height: 'auto',
+         margin: '1rem',
+         maxHeight: '90vh',
+       }
+     } else {
+       return {
+         width: '600px',
+         maxWidth: '90vw',
+       }
+     }
+   })
+   
+   const dialogPosition = computed(() => windowWidth.value < 768 ? 'bottom' : 'center')
+   
+   function handleResize() {
+     windowWidth.value = window.innerWidth
+   }
+   
+   onMounted(() => {
+     window.addEventListener('resize', handleResize)
+   })
+   
+   onUnmounted(() => {
+     window.removeEventListener('resize', handleResize)
+   })
+   ```
+
+   **Dialog Styling (Scoped CSS)**:
+   ```css
+   :deep(.p-dialog) {
+     border-radius: 8px;
+   }
+   
+   :deep(.p-dialog-header) {
+     padding: 1.25rem;
+     border-bottom: 1px solid var(--surface-border);
+   }
+   
+   /* IMPORTANT: Only set font-size and padding - let PrimeVue theme handle borders/backgrounds */
+   :deep(.p-inputtext),
+   :deep(.p-select),
+   :deep(.p-select-label),
+   :deep(.p-inputnumber-input),
+   :deep(.p-textarea),
+   :deep(.p-datepicker-input) {
+     font-size: 0.813rem;
+     padding: 0.5rem;
+   }
+   
+   /* Dropdown options font size */
+   :deep(.p-select-overlay),
+   :deep(.p-select-option),
+   :deep(.p-select-option-label) {
+     font-size: 0.813rem;
+   }
+   
+   /* Label spacing */
+   label {
+     margin-bottom: 0.25rem;
+   }
+   
+   /* Form spacing utilities */
+   .space-y-3 > * + * {
+     margin-top: 0.75rem;
+   }
+   
+   .space-y-2 > * + * {
+     margin-top: 0.5rem;
+   }
+   ```
+
+   **Key Dialog Principles**:
+   - Use `space-y-3` on the form element for spacing between form fields
+   - Use `space-y-2` on individual field containers for label-to-input spacing
+   - Labels must use `class="block text-sm font-semibold text-surface-900"`
+   - **DO NOT** add `width`, `background`, or `border` styles to inputs - let PrimeVue theme handle these
+   - **ONLY** set `font-size: 0.813rem` and `padding: 0.5rem` on inputs
+   - Use responsive pattern (bottom position on mobile, center on desktop)
+   - Always include loading states and disable buttons during submission
 
 2. **List Components**:
    ```vue

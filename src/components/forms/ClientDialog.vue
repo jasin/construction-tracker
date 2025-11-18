@@ -3,11 +3,12 @@
     v-model:visible="isOpen"
     modal
     :header="props.client?.id ? 'Edit Client' : 'New Client'"
-    :style="{ width: '50vw' }"
+    :style="dialogStyle"
+    :position="dialogPosition"
     @hide="closeModal"
   >
-    <div class="flex-1 overflow-y-auto p-4">
-      <form @submit.prevent="handleSubmit" class="space-y-4">
+    <div class="flex-1 overflow-y-auto p-3">
+      <form @submit.prevent="handleSubmit" class="space-y-3">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
           <InputText
@@ -92,12 +93,12 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
-import Dialog from 'primevue/dialog'
-import InputText from 'primevue/inputtext'
-import Textarea from 'primevue/textarea'
-import Button from 'primevue/button'
-import ClientRepository from '@/services/firebase/Repositories/ClientRepository'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
+import Dialog from 'primevue/dialog';
+import InputText from 'primevue/inputtext';
+import Textarea from 'primevue/textarea';
+import Button from 'primevue/button';
+import ClientRepository from '@/services/firebase/Repositories/ClientRepository';
 
 // Props
 const props = defineProps({
@@ -109,22 +110,46 @@ const props = defineProps({
     type: Object,
     default: null,
   },
-})
+});
 
 // Emits
-const emit = defineEmits(['update:visible', 'client-created', 'client-updated'])
+const emit = defineEmits(['update:visible', 'client-created', 'client-updated']);
 
 // Reactive state
-const loading = ref(false)
-const error = ref('')
-const success = ref('')
-const errors = ref({})
+const loading = ref(false);
+const error = ref('');
+const success = ref('');
+const errors = ref({});
+const windowWidth = ref(window.innerWidth);
 
 // Computed
 const isOpen = computed({
   get: () => props.visible,
   set: (value) => emit('update:visible', value),
-})
+});
+
+// Responsive dialog styling
+const dialogStyle = computed(() => {
+  if (windowWidth.value < 768) {
+    // Mobile: Full height flyout
+    return {
+      width: '100vw',
+      height: '100vh',
+      margin: 0,
+      maxHeight: '100vh',
+    };
+  } else {
+    // Desktop: Smaller, centered dialog
+    return {
+      width: '600px',
+      maxWidth: '90vw',
+    };
+  }
+});
+
+const dialogPosition = computed(() => {
+  return windowWidth.value < 768 ? 'bottom' : 'center';
+});
 
 // Form data
 const form = ref({
@@ -134,7 +159,7 @@ const form = ref({
   phone: '',
   address: '',
   notes: '',
-})
+});
 
 // Load client data into form
 const loadClientData = () => {
@@ -146,7 +171,7 @@ const loadClientData = () => {
       phone: props.client.phone || '',
       address: props.client.address || '',
       notes: props.client.notes || '',
-    }
+    };
   } else {
     // Reset form for new client
     form.value = {
@@ -156,41 +181,41 @@ const loadClientData = () => {
       phone: '',
       address: '',
       notes: '',
-    }
+    };
   }
-}
+};
 
 // Validation
 const validateForm = () => {
-  errors.value = {}
+  errors.value = {};
 
   if (!form.value.name?.trim()) {
-    errors.value.name = 'Name is required'
+    errors.value.name = 'Name is required';
   }
 
   if (!form.value.email?.trim()) {
-    errors.value.email = 'Email is required'
+    errors.value.email = 'Email is required';
   } else if (!isValidEmail(form.value.email)) {
-    errors.value.email = 'Invalid email format'
+    errors.value.email = 'Invalid email format';
   }
 
-  return Object.keys(errors.value).length === 0
-}
+  return Object.keys(errors.value).length === 0;
+};
 
 const isValidEmail = (email) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email)
-}
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
 
 // Handle form submission
 const handleSubmit = async () => {
   if (!validateForm()) {
-    return
+    return;
   }
 
-  loading.value = true
-  error.value = ''
-  success.value = ''
+  loading.value = true;
+  error.value = '';
+  success.value = '';
 
   try {
     const clientData = {
@@ -201,61 +226,100 @@ const handleSubmit = async () => {
       address: form.value.address?.trim() || '',
       notes: form.value.notes?.trim() || '',
       updatedAt: new Date().toISOString(),
-    }
+    };
 
-    let updatedClient
+    let updatedClient;
 
     if (props.client?.id) {
-      await ClientRepository.updateClient(props.client.id, clientData)
-      success.value = 'Client updated successfully'
-      updatedClient = { id: props.client.id, ...clientData }
-      emit('client-updated', updatedClient)
+      await ClientRepository.updateClient(props.client.id, clientData);
+      success.value = 'Client updated successfully';
+      updatedClient = { id: props.client.id, ...clientData };
+      emit('client-updated', updatedClient);
     } else {
-      updatedClient = await ClientRepository.createClient(clientData)
-      success.value = 'Client created successfully'
-      emit('client-created', updatedClient)
+      updatedClient = await ClientRepository.createClient(clientData);
+      success.value = 'Client created successfully';
+      emit('client-created', updatedClient);
     }
 
     // Close modal after a brief delay
     setTimeout(() => {
-      closeModal()
-    }, 1500)
+      closeModal();
+    }, 1500);
   } catch (err) {
-    console.error('Error saving client:', err)
-    error.value = err.message || 'Failed to save client'
+    console.error('Error saving client:', err);
+    error.value = err.message || 'Failed to save client';
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // Close modal
 const closeModal = () => {
-  emit('update:visible', false)
-  error.value = ''
-  success.value = ''
-}
+  emit('update:visible', false);
+  error.value = '';
+  success.value = '';
+};
+
+// Window resize handler for responsive dialog
+const handleResize = () => {
+  windowWidth.value = window.innerWidth;
+};
+
+// Lifecycle hooks
+onMounted(() => {
+  window.addEventListener('resize', handleResize);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize);
+});
 
 // Watch for visibility changes
 watch(
   () => props.visible,
   (newVal) => {
     if (newVal) {
-      loadClientData()
+      loadClientData();
     }
-  },
-)
+  }
+);
 
 watch(
   () => props.client,
   () => {
     if (props.visible) {
-      loadClientData()
+      loadClientData();
     }
   },
-  { deep: true },
-)
+  { deep: true }
+);
 </script>
 
 <style scoped>
-/* Add any additional styles or rely on Tailwind */
+/* Reduce dialog border radius */
+:deep(.p-dialog) {
+  border-radius: 0.5rem;
+}
+
+:deep(.p-dialog-header) {
+  border-top-left-radius: 0.5rem;
+  border-top-right-radius: 0.5rem;
+}
+
+/* Smaller text for all inputs */
+:deep(.p-inputtext),
+:deep(.p-textarea) {
+  font-size: 0.813rem;
+  padding: 0.5rem;
+}
+
+/* Smaller label spacing */
+label {
+  margin-bottom: 0.25rem;
+}
+
+/* Tighter spacing in form */
+.space-y-3 > * + * {
+  margin-top: 0.75rem;
+}
 </style>

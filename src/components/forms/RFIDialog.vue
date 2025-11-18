@@ -8,10 +8,10 @@
     :draggable="false"
     @hide="closeModal"
   >
-    <form @submit.prevent="handleSubmit" class="space-y-4">
+    <form @submit.prevent="handleSubmit" class="space-y-3">
       <!-- Title -->
       <div class="space-y-2">
-        <label for="rfi-title" class="block text-sm font-medium">
+        <label for="rfi-title" class="block text-sm font-semibold text-surface-900">
           Title <span class="text-red-500">*</span>
         </label>
         <InputText
@@ -26,7 +26,9 @@
 
       <!-- Description -->
       <div class="space-y-2">
-        <label for="rfi-description" class="block text-sm font-medium">Description</label>
+        <label for="rfi-description" class="block text-sm font-semibold text-surface-900"
+          >Description</label
+        >
         <Textarea
           id="rfi-description"
           v-model="form.description"
@@ -38,7 +40,7 @@
 
       <!-- Project -->
       <div class="space-y-2">
-        <label for="rfi-project" class="block text-sm font-medium">
+        <label for="rfi-project" class="block text-sm font-semibold text-surface-900">
           Project <span class="text-red-500">*</span>
         </label>
         <Select
@@ -57,7 +59,9 @@
 
       <!-- Assigned To -->
       <div class="space-y-2">
-        <label for="rfi-assignedTo" class="block text-sm font-medium">Assigned To</label>
+        <label for="rfi-assignedTo" class="block text-sm font-semibold text-surface-900"
+          >Assigned To</label
+        >
         <Select
           id="rfi-assignedTo"
           v-model="form.assignedTo"
@@ -72,7 +76,9 @@
 
       <!-- Due Date -->
       <div class="space-y-2">
-        <label for="rfi-dueDate" class="block text-sm font-medium">Due Date</label>
+        <label for="rfi-dueDate" class="block text-sm font-semibold text-surface-900"
+          >Due Date</label
+        >
         <DatePicker
           id="rfi-dueDate"
           v-model="form.dueDate"
@@ -85,7 +91,7 @@
 
       <!-- Status -->
       <div class="space-y-2">
-        <label for="rfi-status" class="block text-sm font-medium">Status</label>
+        <label for="rfi-status" class="block text-sm font-semibold text-surface-900">Status</label>
         <Select
           id="rfi-status"
           v-model="form.status"
@@ -99,7 +105,9 @@
 
       <!-- Response (only show if RFI has been responded to) -->
       <div v-if="rfi?.id && form.status === 'responded'" class="space-y-2">
-        <label for="rfi-response" class="block text-sm font-medium">Response</label>
+        <label for="rfi-response" class="block text-sm font-semibold text-surface-900"
+          >Response</label
+        >
         <Textarea
           id="rfi-response"
           v-model="form.response"
@@ -383,23 +391,25 @@ onUnmounted(() => {
 :deep(.p-inputnumber-input),
 :deep(.p-textarea),
 :deep(.p-datepicker-input) {
-  width: 100%;
-  background: var(--surface-0);
-  border-color: var(--surface-border);
+  font-size: 0.813rem;
+  padding: 0.5rem;
 }
 
 :deep(.p-select-overlay),
 :deep(.p-select-option),
 :deep(.p-select-option-label) {
-  background: var(--surface-0);
-  color: var(--text-color);
+  font-size: 0.813rem;
 }
 
 label {
-  color: var(--text-color);
+  margin-bottom: 0.25rem;
 }
 
 .space-y-3 > * + * {
   margin-top: 0.75rem;
+}
+
+.space-y-2 > * + * {
+  margin-top: 0.5rem;
 }
 </style>

@@ -42,6 +42,11 @@
           @click="openMobileSection('changeOrders')"
         />
         <DashboardSectionButton
+          icon="pi pi-file"
+          label="Documents"
+          @click="openMobileSection('documents')"
+        />
+        <DashboardSectionButton
           icon="pi pi-clock"
           label="Activity"
           @click="openMobileSection('activity')"
@@ -137,6 +142,39 @@
     </DashboardMobileSection>
 
     <DashboardMobileSection
+      v-else-if="isMobile && uiStore.mobileActiveSection === 'changeOrders'"
+      title="Change Orders"
+      @back="closeMobileSection"
+    >
+      <ChangeOrderList
+        :change-orders="changeOrderStore.userChangeOrders"
+        :loading="changeOrderStore.userChangeOrdersLoading"
+        title=""
+        @create-change-order="handleCreateChangeOrder"
+        @change-order-click="handleChangeOrderClick"
+        @edit-change-order="handleEditChangeOrder"
+        @delete-change-order="handleDeleteChangeOrder"
+      />
+    </DashboardMobileSection>
+
+    <DashboardMobileSection
+      v-else-if="isMobile && uiStore.mobileActiveSection === 'documents'"
+      title="Documents"
+      @back="closeMobileSection"
+    >
+      <DocumentList
+        :documents="documentStore.userRecentDocuments"
+        :loading="documentStore.userDocumentsLoading"
+        title=""
+        @create-document="handleCreateDocument"
+        @document-click="handleDocumentClick"
+        @view-document="handleViewDocument"
+        @edit-document="handleEditDocument"
+        @delete-document="handleDeleteDocument"
+      />
+    </DashboardMobileSection>
+
+    <DashboardMobileSection
       v-else-if="isMobile && uiStore.mobileActiveSection"
       :title="getMobileSectionTitle(uiStore.mobileActiveSection)"
       @back="closeMobileSection"
@@ -198,6 +236,29 @@
               @submittal-click="handleSubmittalClick"
               @edit-submittal="handleEditSubmittal"
               @delete-submittal="handleDeleteSubmittal"
+            />
+          </div>
+          <div class="col-span-1">
+            <ChangeOrderList
+              :change-orders="changeOrderStore.userChangeOrders"
+              :loading="changeOrderStore.userChangeOrdersLoading"
+              title="Change Orders"
+              @create-change-order="handleCreateChangeOrder"
+              @change-order-click="handleChangeOrderClick"
+              @edit-change-order="handleEditChangeOrder"
+              @delete-change-order="handleDeleteChangeOrder"
+            />
+          </div>
+          <div class="col-span-1">
+            <DocumentList
+              :documents="documentStore.userRecentDocuments"
+              :loading="documentStore.userDocumentsLoading"
+              title="Documents"
+              @create-document="handleCreateDocument"
+              @document-click="handleDocumentClick"
+              @view-document="handleViewDocument"
+              @edit-document="handleEditDocument"
+              @delete-document="handleDeleteDocument"
             />
           </div>
         </div>
@@ -297,6 +358,22 @@
       :project-id="null"
       @submittal-saved="handleSubmittalSaved"
     />
+
+    <!-- Change Order Dialog -->
+    <ChangeOrderDialog
+      v-model:visible="changeOrderDialogVisible"
+      :change-order="selectedChangeOrder"
+      :project-id="null"
+      @change-order-saved="handleChangeOrderSaved"
+    />
+
+    <!-- Document Dialog -->
+    <DocumentDialog
+      v-model:visible="documentDialogVisible"
+      :document="selectedDocument"
+      :project-id="null"
+      @document-saved="handleDocumentSaved"
+    />
   </div>
 </template>
 
@@ -315,11 +392,17 @@ import { useProjectStore } from '@/stores/project';
 import { useTaskStore } from '@/stores/task';
 import { useRFIStore } from '@/stores/rfi';
 import { useSubmittalStore } from '@/stores/submittal';
+import { useChangeOrderStore } from '@/stores/changeOrder';
+import { useDocumentStore } from '@/stores/document';
 import { useUIStore } from '@/stores/ui';
 
 import TaskList from '@/components/lists/TaskList.vue';
 import TaskDialog from '@/components/forms/TaskDialog.vue';
 import SubmittalDialog from '@/components/forms/SubmittalDialog.vue';
+import ChangeOrderList from '@/components/lists/ChangeOrderList.vue';
+import ChangeOrderDialog from '@/components/forms/ChangeOrderDialog.vue';
+import DocumentList from '@/components/lists/DocumentList.vue';
+import DocumentDialog from '@/components/forms/DocumentDialog.vue';
 import RFIList from '@/components/lists/RFIList.vue';
 import SubmittalList from '@/components/lists/SubmittalList.vue';
 import DashboardSectionButton from '@/components/dashboard/DashboardSectionButton.vue';
@@ -334,6 +417,8 @@ const projectStore = useProjectStore();
 const taskStore = useTaskStore();
 const rfiStore = useRFIStore();
 const submittalStore = useSubmittalStore();
+const changeOrderStore = useChangeOrderStore();
+const documentStore = useDocumentStore();
 const uiStore = useUIStore();
 
 const loading = ref(true);
@@ -347,6 +432,14 @@ const selectedTask = ref(null);
 // Submittal dialog state
 const submittalDialogVisible = ref(false);
 const selectedSubmittal = ref(null);
+
+// Change Order dialog state
+const changeOrderDialogVisible = ref(false);
+const selectedChangeOrder = ref(null);
+
+// Document dialog state
+const documentDialogVisible = ref(false);
+const selectedDocument = ref(null);
 
 // Responsive breakpoint
 const isMobile = computed(() => width.value < 768);
@@ -460,6 +553,7 @@ const getMobileSectionTitle = (sectionName) => {
     rfis: 'RFIs',
     submittals: 'Submittals',
     changeOrders: 'Change Orders',
+    documents: 'Documents',
     activity: 'Activity Log',
   };
   return titles[sectionName] || 'Section';
@@ -684,12 +778,128 @@ const handleSubmittalSaved = () => {
   selectedSubmittal.value = null;
 };
 
+/**
+ * Handle Change Order actions
+ */
+const handleCreateChangeOrder = () => {
+  selectedChangeOrder.value = null;
+  changeOrderDialogVisible.value = true;
+};
+
+const handleChangeOrderClick = (changeOrder) => {
+  selectedChangeOrder.value = changeOrder;
+  changeOrderDialogVisible.value = true;
+};
+
+const handleEditChangeOrder = (changeOrder) => {
+  selectedChangeOrder.value = changeOrder;
+  changeOrderDialogVisible.value = true;
+};
+
+const handleDeleteChangeOrder = async (changeOrder) => {
+  if (!confirm(`Are you sure you want to delete change order "${changeOrder.title}"?`)) {
+    return;
+  }
+
+  try {
+    await changeOrderStore.deleteChangeOrder(changeOrder.id);
+    toast.add({
+      severity: 'success',
+      summary: 'Change Order Deleted',
+      detail: `"${changeOrder.title}" has been deleted`,
+      life: 3000,
+    });
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Delete Failed',
+      detail: error.message || 'An error occurred while deleting the change order',
+      life: 5000,
+    });
+  }
+};
+
+/**
+ * Handle change order saved from dialog
+ */
+const handleChangeOrderSaved = () => {
+  changeOrderDialogVisible.value = false;
+  selectedChangeOrder.value = null;
+};
+
+/**
+ * Handle Document actions
+ */
+const handleCreateDocument = () => {
+  selectedDocument.value = null;
+  documentDialogVisible.value = true;
+};
+
+const handleDocumentClick = (document) => {
+  selectedDocument.value = document;
+  documentDialogVisible.value = true;
+};
+
+const handleViewDocument = (document) => {
+  // Open document in new tab if it has a Google Drive link
+  if (document.googleDriveLink) {
+    window.open(document.googleDriveLink, '_blank');
+  } else if (document.googleDriveFileId) {
+    window.open(`https://drive.google.com/file/d/${document.googleDriveFileId}/view`, '_blank');
+  } else {
+    toast.add({
+      severity: 'info',
+      summary: 'No Link Available',
+      detail: 'This document does not have a Google Drive link',
+      life: 3000,
+    });
+  }
+};
+
+const handleEditDocument = (document) => {
+  selectedDocument.value = document;
+  documentDialogVisible.value = true;
+};
+
+const handleDeleteDocument = async (document) => {
+  if (!confirm(`Are you sure you want to delete document "${document.name}"?`)) {
+    return;
+  }
+
+  try {
+    await documentStore.deleteDocument(document.id);
+    toast.add({
+      severity: 'success',
+      summary: 'Document Deleted',
+      detail: `"${document.name}" has been deleted`,
+      life: 3000,
+    });
+  } catch (error) {
+    toast.add({
+      severity: 'error',
+      summary: 'Delete Failed',
+      detail: error.message || 'An error occurred while deleting the document',
+      life: 5000,
+    });
+  }
+};
+
+/**
+ * Handle document saved from dialog
+ */
+const handleDocumentSaved = () => {
+  documentDialogVisible.value = false;
+  selectedDocument.value = null;
+};
+
 onMounted(async () => {
   loadData();
   setupActivitySubscription();
   taskStore.initializeUserTasksSubscription();
   rfiStore.initializeUserRFIsSubscription();
   submittalStore.initializeUserSubmittalsSubscription();
+  changeOrderStore.initializeUserChangeOrdersSubscription();
+  documentStore.initializeUserDocumentsSubscription();
 });
 
 onUnmounted(() => {
@@ -699,6 +909,8 @@ onUnmounted(() => {
   taskStore.cleanupUserTasksSubscription();
   rfiStore.cleanupUserRFIsSubscription();
   submittalStore.cleanupUserSubmittalsSubscription();
+  changeOrderStore.cleanupUserChangeOrdersSubscription();
+  documentStore.cleanupUserDocumentsSubscription();
   uiStore.resetMobileSection();
 });
 </script>

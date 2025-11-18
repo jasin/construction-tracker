@@ -1,345 +1,358 @@
 <template>
   <div class="change-order-list">
-    <div v-if="!changeOrders || Object.keys(changeOrders).length === 0" class="no-data">
-      No change orders found for this project.
+    <div class="change-order-list-header">
+      <h3 class="text-base font-semibold text-surface-900">{{ title }}</h3>
     </div>
-</template>
 
-<old_text line=95>
-  props: {
-    changeOrders: {
-      type: Object,
-      default: () => ({}),
-    },
-    projectId: {
-      type: String,
-      required: true,
-    },
-    emptyMessage: {
-      type: String,
-      default: 'No change orders yet',
-    },
-  },
-    <ul v-else class="change-order-items">
-      <li
-        v-for="(changeOrder, coKey) in changeOrders"
-        :key="changeOrder.id || coKey"
-        class="change-order-item"
-      >
-        <div class="change-order-header">
-          <strong>{{ changeOrder.number || coKey }}</strong>
-          <span class="status-badge" :class="changeOrder.status">
-            {{ formatStatus(changeOrder.status) }}
-          </span>
-        </div>
-        <div class="change-order-content">
-          <h4>{{ changeOrder.title }}</h4>
-          <p class="description">{{ changeOrder.description }}</p>
-          <div class="change-order-meta">
-            <div class="meta-item">
-              <strong>Cost Impact:</strong>
-              <span
-                :class="{
-                  positive: changeOrder.costImpact > 0,
-                  negative: changeOrder.costImpact < 0,
-                }"
-              >
-                ${{ formatCurrency(Math.abs(changeOrder.costImpact || 0)) }}
-                {{ changeOrder.costImpact > 0 ? '↑' : changeOrder.costImpact < 0 ? '↓' : '' }}
+    <div class="change-order-list-content">
+      <div v-if="loading" class="flex justify-center py-8">
+        <ProgressSpinner style="width: 50px; height: 50px" />
+      </div>
+
+      <div v-else-if="changeOrders.length === 0" class="text-center py-8 text-surface-500">
+        <i class="pi pi-inbox text-4xl mb-3"></i>
+        <p>No change orders yet</p>
+        <p class="text-sm">Click + to create your first change order</p>
+      </div>
+
+      <div v-else class="task-accordion">
+        <div
+          v-for="changeOrder in changeOrders"
+          :key="changeOrder.id"
+          class="task-accordion-panel"
+          :class="[
+            { 'is-expanded': expandedChangeOrderId === changeOrder.id },
+            getStatusClass(changeOrder.status),
+          ]"
+          @click="toggleExpanded(changeOrder.id)"
+        >
+          <div class="task-accordion-header">
+            <div class="task-row">
+              <div class="task-title-area">
+                <span class="task-title">
+                  {{ changeOrder.title }}
+                </span>
+              </div>
+
+              <div class="task-actions" @click.stop>
+                <Button
+                  icon="pi pi-pencil"
+                  severity="secondary"
+                  text
+                  rounded
+                  size="small"
+                  @click="$emit('edit-change-order', changeOrder)"
+                  v-tooltip.top="'Edit Change Order'"
+                />
+                <Button
+                  icon="pi pi-trash"
+                  severity="danger"
+                  text
+                  rounded
+                  size="small"
+                  @click="$emit('delete-change-order', changeOrder)"
+                  v-tooltip.top="'Delete Change Order'"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div
+            v-if="expandedChangeOrderId === changeOrder.id"
+            class="task-accordion-content"
+            @click.stop="$emit('change-order-click', changeOrder)"
+          >
+            <div class="change-order-expanded-title">
+              {{ changeOrder.title }}
+            </div>
+
+            <div class="task-tags-row" @click.stop>
+              <Tag
+                :severity="getStatusSeverity(changeOrder.status)"
+                :value="formatStatus(changeOrder.status)"
+                size="small"
+                class="text-[10px] font-normal"
+              />
+              <Tag
+                :severity="getTypeSeverity(changeOrder.type)"
+                :value="formatType(changeOrder.type)"
+                size="small"
+                class="text-[10px] font-normal"
+              />
+            </div>
+
+            <div v-if="changeOrder.costImpact !== undefined" class="task-due-date">
+              <i class="pi pi-dollar text-xs"></i>
+              <span class="text-xs text-surface-700">
+                Cost Impact: {{ formatCurrency(changeOrder.costImpact) }}
               </span>
             </div>
-            <div class="meta-item">
-              <strong>Time Impact:</strong> {{ changeOrder.timeImpact || 0 }} days
-            </div>
-            <div class="meta-item">
-              <strong>Reason:</strong> {{ formatReason(changeOrder.reason) }}
-            </div>
-            <div class="meta-item">
-              <strong>Requested By:</strong> {{ changeOrder.requestedBy }}
-            </div>
-            <div class="meta-item" v-if="changeOrder.createdAt">
-              <strong>Created:</strong> {{ formatDate(changeOrder.createdAt) }}
-            </div>
-            <div class="meta-item" v-if="changeOrder.approvedAt">
-              <strong>Approved:</strong> {{ formatDate(changeOrder.approvedAt) }}
-            </div>
-            <div class="meta-item" v-if="changeOrder.workCompletedAt">
-              <strong>Work Completed:</strong> {{ formatDate(changeOrder.workCompletedAt) }}
-            </div>
-            <div class="meta-item" v-if="changeOrder.status === 'work-completed'">
-              <strong>Billable:</strong>
-              <span :class="{ billable: changeOrder.billable }">
-                {{ changeOrder.billable ? 'Yes' : 'No' }}
+
+            <div v-if="changeOrder.timeImpact" class="task-due-date">
+              <i class="pi pi-clock text-xs"></i>
+              <span class="text-xs text-surface-700">
+                Time Impact: {{ changeOrder.timeImpact }} days
               </span>
+            </div>
+
+            <div v-if="changeOrder.requestedByName" class="task-due-date">
+              <i class="pi pi-user text-xs"></i>
+              <span class="text-xs text-surface-700">
+                Requested by: {{ changeOrder.requestedByName }}
+              </span>
+            </div>
+
+            <div v-if="changeOrder.requestedAt" class="task-due-date">
+              <i class="pi pi-calendar text-xs"></i>
+              <span class="text-xs text-surface-700">
+                Requested: {{ formatDate(changeOrder.requestedAt) }}
+              </span>
+            </div>
+
+            <div v-if="changeOrder.description" class="task-description">
+              {{ changeOrder.description }}
+            </div>
+
+            <div class="task-expanded-actions">
+              <Button
+                icon="pi pi-pencil"
+                severity="secondary"
+                text
+                rounded
+                size="small"
+                @click.stop="$emit('edit-change-order', changeOrder)"
+                v-tooltip.top="'Edit Change Order'"
+              />
+              <Button
+                icon="pi pi-trash"
+                severity="danger"
+                text
+                rounded
+                size="small"
+                @click.stop="$emit('delete-change-order', changeOrder)"
+                v-tooltip.top="'Delete Change Order'"
+              />
             </div>
           </div>
         </div>
-        <div class="change-order-actions" v-if="canTakeAction(changeOrder)">
-          <button
-            v-if="changeOrder.status === 'proposed'"
-            @click="approveChangeOrder(changeOrder.id || coKey)"
-            class="btn-approve"
-          >
-            Approve
-          </button>
-          <button
-            v-if="changeOrder.status === 'proposed'"
-            @click="rejectChangeOrder(changeOrder.id || coKey)"
-            class="btn-reject"
-          >
-            Reject
-          </button>
-          <button
-            v-if="changeOrder.status === 'approved'"
-            @click="markWorkCompleted(changeOrder.id || coKey)"
-            class="btn-complete"
-          >
-            Mark Work Complete
-          </button>
-        </div>
-      </li>
-    </ul>
+      </div>
+    </div>
   </div>
 </template>
 
-<script>
-import firebaseService from '@/services/firebaseService';
+<script setup>
+import { ref } from 'vue';
+import Button from 'primevue/button';
+import Tag from 'primevue/tag';
+import ProgressSpinner from 'primevue/progressspinner';
 
-export default {
-  name: 'ChangeOrderList',
-  props: {
-    changeOrders: {
-      type: Object,
-      default: () => ({}),
-    },
-    projectId: {
-      type: String,
-      required: true,
-    },
+const props = defineProps({
+  changeOrders: {
+    type: Array,
+    default: () => [],
   },
-  methods: {
-    formatDate(isoString) {
-      if (!isoString) return 'N/A';
-      return new Date(isoString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      });
-    },
-
-    formatCurrency(amount) {
-      return new Intl.NumberFormat('en-US').format(amount || 0);
-    },
-
-    formatStatus(status) {
-      const statusMap = {
-        proposed: 'Proposed',
-        approved: 'Approved',
-        rejected: 'Rejected',
-        'work-completed': 'Work Completed',
-      };
-      return statusMap[status] || status;
-    },
-
-    formatReason(reason) {
-      const reasonMap = {
-        'client-request': 'Client Request',
-        'design-change': 'Design Change',
-        'unforeseen-conditions': 'Unforeseen Conditions',
-        'code-requirement': 'Code Requirement',
-      };
-      return reasonMap[reason] || reason;
-    },
-
-    canTakeAction(changeOrder) {
-      // Add logic here based on user permissions
-      return ['proposed', 'approved'].includes(changeOrder.status);
-    },
-
-    async approveChangeOrder(changeOrderId) {
-      try {
-        await firebaseService.approveChangeOrder(changeOrderId);
-      } catch (error) {
-        console.error('Error approving change order:', error);
-        alert('Failed to approve change order');
-      }
-    },
-
-    async rejectChangeOrder(changeOrderId) {
-      try {
-        await firebaseService.rejectChangeOrder(changeOrderId);
-      } catch (error) {
-        console.error('Error rejecting change order:', error);
-        alert('Failed to reject change order');
-      }
-    },
-
-    async markWorkCompleted(changeOrderId) {
-      try {
-        await firebaseService.completeChangeOrderWork(changeOrderId);
-      } catch (error) {
-        console.error('Error marking work completed:', error);
-        alert('Failed to mark work completed');
-      }
-    },
+  loading: {
+    type: Boolean,
+    default: false,
   },
+  title: {
+    type: String,
+    default: 'Change Orders',
+  },
+});
+
+defineEmits([
+  'create-change-order',
+  'change-order-click',
+  'edit-change-order',
+  'delete-change-order',
+]);
+
+const expandedChangeOrderId = ref(null);
+
+const toggleExpanded = (id) => {
+  expandedChangeOrderId.value = expandedChangeOrderId.value === id ? null : id;
+};
+
+const getStatusSeverity = (status) => {
+  const severityMap = {
+    proposed: 'info',
+    submitted: 'warn',
+    under_review: 'warn',
+    approved: 'success',
+    rejected: 'danger',
+    executed: 'contrast',
+  };
+  return severityMap[status] || 'secondary';
+};
+
+const getTypeSeverity = (type) => {
+  const severityMap = {
+    addition: 'success',
+    deletion: 'danger',
+    modification: 'info',
+    credit: 'warn',
+  };
+  return severityMap[type] || 'secondary';
+};
+
+const formatStatus = (status) => {
+  if (!status) return '';
+  return status
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+const formatType = (type) => {
+  if (!type) return '';
+  return type.charAt(0).toUpperCase() + type.slice(1);
+};
+
+const formatCurrency = (amount) => {
+  if (amount === undefined || amount === null) return '$0.00';
+  const absAmount = Math.abs(amount);
+  const formatted = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(absAmount);
+  return amount < 0 ? `(${formatted})` : formatted;
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString();
+};
+
+const getStatusClass = (status) => {
+  const classMap = {
+    proposed: 'co-proposed',
+    submitted: 'co-submitted',
+    under_review: 'co-under-review',
+    approved: 'co-approved',
+    rejected: 'co-rejected',
+    executed: 'co-executed',
+  };
+  return classMap[status] || '';
 };
 </script>
 
 <style scoped>
 @import '@/styles/list-styles.css';
 
-/* ChangeOrderList uses a different design pattern (card-based) */
+/* Component-specific styles only */
 .change-order-list {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.no-data {
-  font-style: italic;
-}
-
-.change-order-items {
-  list-style: none;
-  padding: 0;
-}
-
-.change-order-item {
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  padding: 15px;
-  margin-bottom: 15px;
-  background-color: #fff;
-}
-
-.change-order-header {
+  background: var(--p-surface-0);
+  border: 1px solid var(--p-surface-200);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  height: 100%;
+  max-height: 100%;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.status-badge {
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: bold;
-  text-transform: uppercase;
+.change-order-list-content {
+  overflow-y: scroll;
+  overflow-x: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-.status-badge.proposed {
-  background-color: #fff3cd;
-  color: #856404;
+/* Subtle scrollbar styling */
+.change-order-list-content::-webkit-scrollbar {
+  width: 6px;
 }
 
-.status-badge.approved {
-  background-color: #cce5ff;
-  color: #004085;
+.change-order-list-content::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.status-badge.rejected {
-  background-color: #f8d7da;
-  color: #721c24;
+.change-order-list-content::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
 }
 
-.status-badge.work-completed {
-  background-color: #d4edda;
-  color: #155724;
+.change-order-list-content::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.2);
 }
 
-.change-order-content h4 {
-  margin: 0 0 8px 0;
-  color: #343a40;
+/* Firefox */
+.change-order-list-content {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.1) transparent;
 }
 
-.description {
-  color: #6c757d;
-  margin-bottom: 15px;
-  line-height: 1.4;
+/* Expanded title styling */
+.change-order-expanded-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--p-surface-900);
+  margin-bottom: 0.75rem;
+  display: none; /* Hidden by default on desktop */
 }
 
-.change-order-meta {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 10px;
-  margin-bottom: 15px;
+/* Status-based left border colors */
+.task-accordion-panel.co-proposed {
+  border-left: 3px solid #3b82f6; /* Blue */
 }
 
-.meta-item {
-  font-size: 14px;
+.task-accordion-panel.co-submitted {
+  border-left: 3px solid #eab308; /* Yellow */
 }
 
-.meta-item strong {
-  color: #495057;
+.task-accordion-panel.co-under-review {
+  border-left: 3px solid #f97316; /* Orange */
 }
 
-.positive {
-  color: #28a745;
-  font-weight: bold;
+.task-accordion-panel.co-approved {
+  border-left: 3px solid #22c55e; /* Green */
 }
 
-.negative {
-  color: #dc3545;
-  font-weight: bold;
+.task-accordion-panel.co-rejected {
+  border-left: 3px solid #ef4444; /* Red */
 }
 
-.billable {
-  color: #28a745;
-  font-weight: bold;
+.task-accordion-panel.co-executed {
+  border-left: 3px solid #8b5cf6; /* Purple */
 }
 
-.change-order-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 15px;
-  padding-top: 15px;
-  border-top: 1px solid #e9ecef;
-}
-
-.btn-approve,
-.btn-reject,
-.btn-complete {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.btn-approve,
-.btn-complete {
-  background-color: #28a745;
-  color: white;
-}
-
-.btn-approve:hover,
-.btn-complete:hover {
-  background-color: #218838;
-}
-
-.btn-reject {
-  background-color: #dc3545;
-  color: white;
-}
-
-.btn-reject:hover {
-  background-color: #c82333;
-}
-
-@media (max-width: 768px) {
-  .change-order-meta {
-    grid-template-columns: 1fr;
+/* Mobile: Hide header, show expanded title, hide panel header when expanded */
+@media (max-width: 767px) {
+  .change-order-expanded-title {
+    display: block;
   }
 
-  .change-order-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
+  .task-accordion-panel.is-expanded .task-accordion-header {
+    display: none;
   }
 
-  .change-order-actions {
-    flex-direction: column;
+  .task-accordion-panel.is-expanded .task-accordion-content {
+    padding-left: 0.5rem;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .change-order-list {
+    border-color: var(--p-surface-700);
+  }
+
+  .change-order-list-content::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .change-order-list-content::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+  }
+
+  .change-order-list-content {
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  }
+
+  .change-order-expanded-title {
+    color: var(--p-surface-0);
   }
 }
 </style>
