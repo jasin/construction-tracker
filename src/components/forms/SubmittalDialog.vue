@@ -8,10 +8,10 @@
     :draggable="false"
     @hide="closeModal"
   >
-    <form @submit.prevent="handleSubmit" class="space-y-4">
+    <form @submit.prevent="handleSubmit" class="space-y-3">
       <!-- Title -->
       <div class="space-y-2">
-        <label for="submittal-title" class="block text-sm font-medium">
+        <label for="submittal-title" class="block text-sm font-semibold text-surface-900">
           Title <span class="text-red-500">*</span>
         </label>
         <InputText
@@ -26,7 +26,9 @@
 
       <!-- Description -->
       <div class="space-y-2">
-        <label for="submittal-description" class="block text-sm font-medium">Description</label>
+        <label for="submittal-description" class="block text-sm font-semibold text-surface-900"
+          >Description</label
+        >
         <Textarea
           id="submittal-description"
           v-model="form.description"
@@ -38,7 +40,7 @@
 
       <!-- Project -->
       <div class="space-y-2">
-        <label for="submittal-project" class="block text-sm font-medium">
+        <label for="submittal-project" class="block text-sm font-semibold text-surface-900">
           Project <span class="text-red-500">*</span>
         </label>
         <Select
@@ -57,7 +59,9 @@
 
       <!-- Type -->
       <div class="space-y-2">
-        <label for="submittal-type" class="block text-sm font-medium">Type</label>
+        <label for="submittal-type" class="block text-sm font-semibold text-surface-900"
+          >Type</label
+        >
         <Select
           id="submittal-type"
           v-model="form.type"
@@ -71,7 +75,9 @@
 
       <!-- Reviewed By -->
       <div class="space-y-2">
-        <label for="submittal-reviewedBy" class="block text-sm font-medium">Reviewed By</label>
+        <label for="submittal-reviewedBy" class="block text-sm font-semibold text-surface-900"
+          >Reviewed By</label
+        >
         <Select
           id="submittal-reviewedBy"
           v-model="form.reviewedBy"
@@ -86,7 +92,9 @@
 
       <!-- Due Date -->
       <div class="space-y-2">
-        <label for="submittal-dueDate" class="block text-sm font-medium">Required Date</label>
+        <label for="submittal-dueDate" class="block text-sm font-semibold text-surface-900"
+          >Required Date</label
+        >
         <DatePicker
           id="submittal-dueDate"
           v-model="form.dueDate"
@@ -99,7 +107,7 @@
 
       <!-- Spec Section -->
       <div class="space-y-2">
-        <label for="submittal-specSection" class="block text-sm font-medium">
+        <label for="submittal-specSection" class="block text-sm font-semibold text-surface-900">
           Specification Section
         </label>
         <InputText
@@ -112,7 +120,9 @@
 
       <!-- Status -->
       <div class="space-y-2">
-        <label for="submittal-status" class="block text-sm font-medium">Status</label>
+        <label for="submittal-status" class="block text-sm font-semibold text-surface-900"
+          >Status</label
+        >
         <Select
           id="submittal-status"
           v-model="form.status"
@@ -132,7 +142,9 @@
         "
         class="space-y-2"
       >
-        <label for="submittal-comments" class="block text-sm font-medium">Review Comments</label>
+        <label for="submittal-comments" class="block text-sm font-semibold text-surface-900"
+          >Review Comments</label
+        >
         <Textarea
           id="submittal-comments"
           v-model="form.comments"
@@ -425,23 +437,25 @@ onUnmounted(() => {
 :deep(.p-inputnumber-input),
 :deep(.p-textarea),
 :deep(.p-datepicker-input) {
-  width: 100%;
-  background: var(--surface-0);
-  border-color: var(--surface-border);
+  font-size: 0.813rem;
+  padding: 0.5rem;
 }
 
 :deep(.p-select-overlay),
 :deep(.p-select-option),
 :deep(.p-select-option-label) {
-  background: var(--surface-0);
-  color: var(--text-color);
+  font-size: 0.813rem;
 }
 
 label {
-  color: var(--text-color);
+  margin-bottom: 0.25rem;
 }
 
 .space-y-3 > * + * {
   margin-top: 0.75rem;
+}
+
+.space-y-2 > * + * {
+  margin-top: 0.5rem;
 }
 </style>

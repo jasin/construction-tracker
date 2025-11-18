@@ -86,6 +86,20 @@
         @submittal-saved="handleSubmittalSaved"
         :project-id="projectStore.activeProjectId"
       />
+      <ChangeOrderDialog
+        v-if="modals.changeOrderDialog"
+        :visible="modals.changeOrderDialog"
+        @update:visible="uiStore.closeModal('changeOrderDialog')"
+        @change-order-saved="handleChangeOrderSaved"
+        :project-id="projectStore.activeProjectId"
+      />
+      <DocumentDialog
+        v-if="modals.documentDialog"
+        :visible="modals.documentDialog"
+        @update:visible="uiStore.closeModal('documentDialog')"
+        @document-saved="handleDocumentSaved"
+        :project-id="projectStore.activeProjectId"
+      />
       <ActivityFlyout
         v-if="modals.activityFlyout"
         :visible="modals.activityFlyout"
@@ -196,11 +210,6 @@ import Hammer from 'hammerjs';
 // Stores
 import { useAuthStore, useProjectStore, useUIStore, useUserSettingsStore } from '@/stores';
 
-// Repositories (for context menu actions)
-import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository';
-import SubmittalRepository from '@/services/firebase/Repositories/SubmittalRepository';
-import ChangeOrderRepository from '@/services/firebase/Repositories/ChangeOrderRepository';
-
 // Components
 import LoginView from '@/views/auth/LoginView.vue';
 import DashboardView from '@/views/dashboard/DashboardView.vue';
@@ -217,6 +226,8 @@ import ProjectDialog from './components/forms/ProjectDialog.vue';
 import TaskDialog from './components/forms/TaskDialog.vue';
 import RFIDialog from './components/forms/RFIDialog.vue';
 import SubmittalDialog from './components/forms/SubmittalDialog.vue';
+import ChangeOrderDialog from './components/forms/ChangeOrderDialog.vue';
+import DocumentDialog from './components/forms/DocumentDialog.vue';
 import ActivityFlyout from './components/widgets/ActivityFlyout.vue';
 
 // PrimeVue components for settings dialog
@@ -356,49 +367,38 @@ const handleSubmittalSaved = (submittal) => {
   });
 };
 
-const uploadDocument = async () => {
-  try {
-    await DocumentRepository.create({
-      name: 'New Document',
-      projectId: projectStore.activeProjectId,
-    });
-    toast.add({ severity: 'success', summary: 'Success', detail: 'Document uploaded', life: 3000 });
-  } catch (error) {
-    console.error('Upload document error:', error);
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to upload document',
-      life: 3000,
-    });
-  }
+const handleChangeOrderSaved = (changeOrder) => {
+  uiStore.closeModal('changeOrderDialog');
+  toast.add({
+    severity: 'success',
+    summary: 'Success',
+    detail: changeOrder.id
+      ? 'Change order updated successfully'
+      : 'Change order created successfully',
+    life: 3000,
+  });
+};
+
+const handleDocumentSaved = (document) => {
+  uiStore.closeModal('documentDialog');
+  toast.add({
+    severity: 'success',
+    summary: 'Success',
+    detail: document.id ? 'Document updated successfully' : 'Document uploaded successfully',
+    life: 3000,
+  });
+};
+
+const uploadDocument = () => {
+  uiStore.openModal('documentDialog');
 };
 
 const newSubmittal = () => {
   uiStore.openModal('submittalDialog');
 };
 
-const changeOrder = async () => {
-  try {
-    await ChangeOrderRepository.create({
-      description: 'New Change Order',
-      projectId: projectStore.activeProjectId,
-    });
-    toast.add({
-      severity: 'success',
-      summary: 'Success',
-      detail: 'Change order created',
-      life: 3000,
-    });
-  } catch (error) {
-    console.error('Change order error:', error);
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: 'Failed to create change order',
-      life: 3000,
-    });
-  }
+const changeOrder = () => {
+  uiStore.openModal('changeOrderDialog');
 };
 
 const generateReport = async () => {

@@ -9,14 +9,14 @@
   >
     <div class="task-dialog-content p-3">
       <form @submit.prevent="handleSubmit" class="space-y-3">
-        <!-- Task Type Selector (only for new tasks) -->
-        <div v-if="!props.task?.id" class="task-type-selector">
+        <!-- Task Type Selector -->
+        <div class="task-type-selector">
           <label class="block text-sm font-semibold text-surface-900">Task Type</label>
           <div class="grid grid-cols-2 gap-3">
             <div
               class="task-type-card"
               :class="{ active: taskType === 'quick' }"
-              @click="taskType = 'quick'"
+              @click="handleTaskTypeChange('quick')"
             >
               <i class="pi pi-check-circle text-xl mb-2"></i>
               <div class="font-medium">Quick Task</div>
@@ -25,13 +25,17 @@
             <div
               class="task-type-card"
               :class="{ active: taskType === 'project' }"
-              @click="taskType = 'project'"
+              @click="handleTaskTypeChange('project')"
             >
               <i class="pi pi-briefcase text-xl mb-2"></i>
               <div class="font-medium">Project Task</div>
               <div class="text-xs text-surface-600 mt-1">Detailed work item</div>
             </div>
           </div>
+          <small v-if="props.task?.id" class="text-surface-600 mt-1 block">
+            <i class="pi pi-info-circle"></i>
+            Switching task type will adjust available fields
+          </small>
         </div>
 
         <!-- Title (Always shown) -->
@@ -612,6 +616,44 @@ const validateForm = () => {
   }
 
   return Object.keys(errors.value).length === 0;
+};
+
+// Handle task type change
+const handleTaskTypeChange = (newType) => {
+  if (taskType.value === newType) return;
+
+  const previousType = taskType.value;
+  taskType.value = newType;
+
+  // When switching to quick task
+  if (newType === 'quick') {
+    // Clear project-specific fields
+    form.value.projectId = null;
+    form.value.estimatedHours = null;
+    form.value.category = '';
+    form.value.dependencies = [];
+
+    // Auto-assign to current user
+    form.value.assignedTo = authStore.user?.uid || authStore.user?.id || '';
+
+    // Clear project-related errors
+    if (errors.value.projectId) {
+      delete errors.value.projectId;
+    }
+    dependencyErrors.value = [];
+    dependencyWarnings.value = [];
+  }
+
+  // When switching to project task
+  if (newType === 'project') {
+    // Set default projectId if available from props
+    if (props.projectId && !form.value.projectId) {
+      form.value.projectId = props.projectId;
+    }
+
+    // Keep the current assignedTo if it exists, otherwise clear it
+    // (project tasks can be unassigned)
+  }
 };
 
 // Handle changed attachments
