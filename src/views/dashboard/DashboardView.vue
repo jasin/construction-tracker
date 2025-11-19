@@ -196,10 +196,10 @@
         </div>
       </div>
 
-      <!-- Tasks Section -->
+      <!-- Row 1: Tasks and Documents (Full Width) -->
       <div class="mb-6">
-        <div class="desktop-tasks-container grid gap-4" :class="getGridClass">
-          <div :class="getTaskListSpanClass">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 dashboard-row-1">
+          <div class="col-span-1 md:col-span-6 dashboard-component-wrapper">
             <TaskList
               :tasks="taskStore.userTasks"
               :loading="taskStore.userTasksLoading"
@@ -217,17 +217,25 @@
               @delete-task="handleDeleteTask"
             />
           </div>
-          <div class="col-span-1">
-            <RFIList
-              :rfis="rfiStore.userRFIs"
-              :loading="rfiStore.userRFIsLoading"
-              title="Request Information"
-              @create-rfi="handleCreateRFI"
-              @rfi-click="handleRFIClick"
-              @edit-rfi="handleEditRFI"
+          <div class="col-span-1 md:col-span-6 dashboard-component-wrapper">
+            <DocumentList
+              :documents="documentStore.userRecentDocuments"
+              :loading="documentStore.userDocumentsLoading"
+              title="Documents"
+              @create-document="handleCreateDocument"
+              @document-click="handleDocumentClick"
+              @view-document="handleViewDocument"
+              @edit-document="handleEditDocument"
+              @delete-document="handleDeleteDocument"
             />
           </div>
-          <div class="col-span-1">
+        </div>
+      </div>
+
+      <!-- Row 2: Submittals, RFIs, Change Orders (12-Column Layout) -->
+      <div class="mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 dashboard-row-2">
+          <div class="col-span-1 md:col-span-4 dashboard-component-wrapper">
             <SubmittalList
               :submittals="submittalStore.userSubmittals"
               :loading="submittalStore.userSubmittalsLoading"
@@ -238,7 +246,17 @@
               @delete-submittal="handleDeleteSubmittal"
             />
           </div>
-          <div class="col-span-1">
+          <div class="col-span-1 md:col-span-4 dashboard-component-wrapper">
+            <RFIList
+              :rfis="rfiStore.userRFIs"
+              :loading="rfiStore.userRFIsLoading"
+              title="Request Information"
+              @create-rfi="handleCreateRFI"
+              @rfi-click="handleRFIClick"
+              @edit-rfi="handleEditRFI"
+            />
+          </div>
+          <div class="col-span-1 md:col-span-4 dashboard-component-wrapper">
             <ChangeOrderList
               :change-orders="changeOrderStore.userChangeOrders"
               :loading="changeOrderStore.userChangeOrdersLoading"
@@ -247,18 +265,6 @@
               @change-order-click="handleChangeOrderClick"
               @edit-change-order="handleEditChangeOrder"
               @delete-change-order="handleDeleteChangeOrder"
-            />
-          </div>
-          <div class="col-span-1">
-            <DocumentList
-              :documents="documentStore.userRecentDocuments"
-              :loading="documentStore.userDocumentsLoading"
-              title="Documents"
-              @create-document="handleCreateDocument"
-              @document-click="handleDocumentClick"
-              @view-document="handleViewDocument"
-              @edit-document="handleEditDocument"
-              @delete-document="handleDeleteDocument"
             />
           </div>
         </div>
@@ -956,18 +962,23 @@ onUnmounted(() => {
   gap: 1rem;
 }
 
-.desktop-tasks-container {
-  display: grid;
-  gap: 1rem;
-  height: 400px;
-  min-height: 400px;
+/* Dashboard row height constraints */
+.dashboard-row-1 {
+  height: 300px;
+  min-height: 300px;
 }
 
-.desktop-tasks-container > div {
+.dashboard-row-2 {
+  height: 300px;
+  min-height: 300px;
+}
+
+/* Component wrapper with overflow handling */
+.dashboard-component-wrapper {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: 400px;
+  max-height: 300px;
   overflow: hidden;
 }
 

@@ -324,6 +324,13 @@ const getStatusClass = (status) => {
   display: none; /* Hidden by default on desktop */
 }
 
+.document-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.375rem;
+}
+
 /* Status-based left border colors */
 .task-accordion-panel.doc-pending {
   border-left: 3px solid #f59e0b; /* Orange */
