@@ -29,10 +29,23 @@
           <div class="task-accordion-header">
             <div class="task-row">
               <div class="task-title-area">
-                <i :class="getFileIcon(document)" class="text-sm mr-2"></i>
-                <span class="task-title">
-                  {{ document.name }}
-                </span>
+                <i :class="getFileIcon(document)" class="text-sm mr-2 flex-shrink-0"></i>
+                <div class="flex items-center gap-2 flex-1 min-w-0">
+                  <span class="task-title truncate">
+                    {{ getProjectInfo(document.projectId) }}
+                  </span>
+                  <span class="text-xs text-surface-600 flex-shrink-0">•</span>
+                  <Tag
+                    v-if="document.category"
+                    :value="formatCategory(document.category)"
+                    size="small"
+                    severity="info"
+                    class="text-[10px] font-normal flex-shrink-0"
+                  />
+                  <span v-if="document.notes" class="text-xs text-surface-500 truncate">
+                    - {{ document.notes }}
+                  </span>
+                </div>
               </div>
 
               <div class="task-actions" @click.stop>
@@ -119,8 +132,9 @@
               <span class="text-xs text-surface-700"> Version: {{ document.version }} </span>
             </div>
 
-            <div v-if="document.description" class="task-description">
-              {{ document.description }}
+            <div v-if="document.notes" class="task-description">
+              <div class="text-xs font-semibold text-surface-700 mb-1">Notes:</div>
+              {{ document.notes }}
             </div>
 
             <div class="task-expanded-actions">
@@ -177,6 +191,10 @@ const props = defineProps({
   title: {
     type: String,
     default: 'Documents',
+  },
+  projects: {
+    type: Array,
+    default: () => [],
   },
 });
 
@@ -265,6 +283,13 @@ const getStatusClass = (status) => {
     archived: 'doc-archived',
   };
   return classMap[status] || '';
+};
+
+const getProjectInfo = (projectId) => {
+  const project = props.projects.find((p) => p.id === projectId);
+  if (!project) return 'Unknown Project';
+
+  return `${project.jobNumber} - ${project.name}`;
 };
 </script>
 

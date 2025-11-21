@@ -130,6 +130,17 @@ export const DOCUMENT_CATEGORIES = {
     description: 'Insurance certificates and policies',
   },
 
+  bonds: {
+    label: 'Bonds',
+    folder: 'Bonds',
+    icon: 'pi pi-lock',
+    color: '#0891b2',
+    allowedTypes: ['.pdf', '.doc', '.docx'],
+    requiresApproval: true,
+    maxFileSize: 25 * 1024 * 1024, // 25MB
+    description: 'Performance bonds, payment bonds, and bid bonds',
+  },
+
   safety: {
     label: 'Safety Documents',
     folder: 'Safety',
@@ -185,7 +196,7 @@ export const DOCUMENT_CATEGORIES = {
     maxFileSize: 50 * 1024 * 1024, // 50MB
     description: 'Project closeout documents and final deliverables',
   },
-}
+};
 
 // Document status options
 export const DOCUMENT_STATUS = {
@@ -219,7 +230,7 @@ export const DOCUMENT_STATUS = {
     color: '#6b7280',
     icon: 'pi pi-history',
   },
-}
+};
 
 // Document permission levels
 export const DOCUMENT_PERMISSIONS = {
@@ -235,48 +246,48 @@ export const DOCUMENT_PERMISSIONS = {
     label: 'Admin',
     description: 'Full control including delete and permissions',
   },
-}
+};
 
 // Helper functions
 export const getCategoryConfig = (category) => {
-  return DOCUMENT_CATEGORIES[category] || null
-}
+  return DOCUMENT_CATEGORIES[category] || null;
+};
 
 export const getValidFileTypes = (category) => {
-  const config = getCategoryConfig(category)
-  return config ? config.allowedTypes : []
-}
+  const config = getCategoryConfig(category);
+  return config ? config.allowedTypes : [];
+};
 
 export const getMaxFileSize = (category) => {
-  const config = getCategoryConfig(category)
-  return config ? config.maxFileSize : 25 * 1024 * 1024 // Default 25MB
-}
+  const config = getCategoryConfig(category);
+  return config ? config.maxFileSize : 25 * 1024 * 1024; // Default 25MB
+};
 
 export const isValidFileType = (filename, category) => {
-  const validTypes = getValidFileTypes(category)
-  if (validTypes.length === 0) return true // No restrictions
+  const validTypes = getValidFileTypes(category);
+  if (validTypes.length === 0) return true; // No restrictions
 
-  const extension = '.' + filename.split('.').pop().toLowerCase()
-  return validTypes.includes(extension)
-}
+  const extension = '.' + filename.split('.').pop().toLowerCase();
+  return validTypes.includes(extension);
+};
 
 export const formatFileSize = (bytes) => {
-  if (bytes === 0) return '0 Bytes'
+  if (bytes === 0) return '0 Bytes';
 
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
 
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
 
 export const getDocumentIcon = (filename, category = null) => {
-  const extension = filename.split('.').pop().toLowerCase()
+  const extension = filename.split('.').pop().toLowerCase();
 
   // Use category icon if available
   if (category) {
-    const config = getCategoryConfig(category)
-    if (config) return config.icon
+    const config = getCategoryConfig(category);
+    if (config) return config.icon;
   }
 
   // Default icons by file type
@@ -293,7 +304,7 @@ export const getDocumentIcon = (filename, category = null) => {
     dwg: 'pi pi-map',
     txt: 'pi pi-file',
     csv: 'pi pi-table',
-  }
+  };
 
-  return iconMap[extension] || 'pi pi-file'
-}
+  return iconMap[extension] || 'pi pi-file';
+};

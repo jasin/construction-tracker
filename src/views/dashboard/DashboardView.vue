@@ -165,6 +165,7 @@
       <DocumentList
         :documents="documentStore.userRecentDocuments"
         :loading="documentStore.userDocumentsLoading"
+        :projects="projectStore.projects"
         title=""
         @create-document="handleCreateDocument"
         @document-click="handleDocumentClick"
@@ -221,6 +222,7 @@
             <DocumentList
               :documents="documentStore.userRecentDocuments"
               :loading="documentStore.userDocumentsLoading"
+              :projects="projectStore.projects"
               title="Documents"
               @create-document="handleCreateDocument"
               @document-click="handleDocumentClick"
