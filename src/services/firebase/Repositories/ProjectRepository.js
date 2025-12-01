@@ -344,17 +344,35 @@ class ProjectRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    * @returns {Function} Unsubscribe.
    */
   subscribeToProjectDocuments(projectId, callback) {
-    // L455-486: onValue under projects/[id]/documents
-    const documentsRef = ref(firebaseCore.database, `projects/${projectId}/documents`);
-    const unsubscribe = onValue(documentsRef, (snap) => {
-      if (snap.exists()) {
-        const data = Object.entries(snap.val()).map(([id, doc]) => ({ id, ...doc }));
-        callback(data);
-      } else {
-        callback([]);
-      }
-    });
-    return unsubscribe;
+    try {
+      const documentsRef = ref(firebaseCore.database, 'documents');
+      const projectDocsQuery = query(documentsRef, orderByChild('projectId'), equalTo(projectId));
+
+      const unsubscribe = onValue(
+        projectDocsQuery,
+        (snapshot) => {
+          const documents = snapshot.exists()
+            ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
+            : [];
+
+          // Sort by upload date (newest first)
+          documents.sort(
+            (a, b) => new Date(b.uploadedAt || b.createdAt) - new Date(a.uploadedAt || a.createdAt)
+          );
+
+          callback(documents);
+        },
+        (error) => {
+          console.error('Error subscribing to project documents:', error);
+          callback([]);
+        }
+      );
+
+      return unsubscribe;
+    } catch (error) {
+      console.error('Error subscribing to project documents:', error);
+      throw error;
+    }
   }
 
   /**
