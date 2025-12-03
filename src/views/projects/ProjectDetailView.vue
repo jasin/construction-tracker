@@ -200,31 +200,14 @@
             <div class="mobile-section-header">
               <div class="card-header-title">
                 <h2 class="card-title">Tasks</h2>
-                <Badge :value="tasks.length" severity="info" />
-                <Badge
-                  v-if="recentTaskCount > 0"
-                  :value="`+${recentTaskCount} new`"
-                  severity="success"
-                />
+                <Badge v-if="unreadTaskCount > 0" :value="unreadTaskCount" severity="success" />
               </div>
-              <Button
-                icon="pi pi-plus"
-                severity="primary"
-                size="small"
-                @click="openModal('taskSlideOver')"
-                v-tooltip.bottom="'Create Task'"
-              />
             </div>
             <div class="mobile-section-content">
               <div v-if="tasks.length === 0" class="empty-state-small">
                 <i class="pi pi-calendar text-3xl mb-2"></i>
                 <p class="text-sm">No tasks yet</p>
-                <Button
-                  label="Create First Task"
-                  size="small"
-                  class="mt-2"
-                  @click="openModal('taskSlideOver')"
-                />
+                <p class="text-xs text-surface-500">Right-click to create</p>
               </div>
               <div v-else class="task-list">
                 <div
@@ -270,27 +253,16 @@
               <template #header>
                 <div class="tab-header-label">
                   <span>RFIs</span>
-                  <Badge :value="rfis.length" severity="info" />
-                  <Badge
-                    v-if="recentRFICount > 0"
-                    :value="`+${recentRFICount}`"
-                    severity="success"
-                  />
+                  <Badge v-if="unreadRFICount > 0" :value="unreadRFICount" severity="success" />
                 </div>
               </template>
               <div class="tab-content">
-                <div class="tab-actions">
-                  <Button
-                    icon="pi pi-plus"
-                    label="New RFI"
-                    severity="primary"
-                    size="small"
-                    @click="openModal('rfiDialog')"
-                  />
-                </div>
                 <RFIList
                   :rfis="rfis"
                   :loading="loading"
+                  :project-id="projectId"
+                  :is-item-unread="checkIfRFIUnread"
+                  :on-item-expanded="handleRFIExpanded"
                   title=""
                   @edit-rfi="handleEditRFI"
                   @delete-rfi="handleDeleteRFI"
@@ -302,27 +274,19 @@
               <template #header>
                 <div class="tab-header-label">
                   <span>Submittals</span>
-                  <Badge :value="submittals.length" severity="info" />
                   <Badge
-                    v-if="recentSubmittalCount > 0"
-                    :value="`+${recentSubmittalCount}`"
+                    v-if="unreadSubmittalCount > 0"
+                    :value="unreadSubmittalCount"
                     severity="success"
                   />
                 </div>
               </template>
               <div class="tab-content">
-                <div class="tab-actions">
-                  <Button
-                    icon="pi pi-plus"
-                    label="New Submittal"
-                    severity="primary"
-                    size="small"
-                    @click="openModal('submittalDialog')"
-                  />
-                </div>
                 <SubmittalList
                   :submittals="submittals"
                   :loading="loading"
+                  :project-id="projectId"
+                  :on-item-expanded="handleSubmittalExpanded"
                   title=""
                   @edit-submittal="handleEditSubmittal"
                   @delete-submittal="handleDeleteSubmittal"
@@ -334,27 +298,19 @@
               <template #header>
                 <div class="tab-header-label">
                   <span>Change Orders</span>
-                  <Badge :value="changeOrders.length" severity="info" />
                   <Badge
-                    v-if="recentChangeOrderCount > 0"
-                    :value="`+${recentChangeOrderCount}`"
+                    v-if="unreadChangeOrderCount > 0"
+                    :value="unreadChangeOrderCount"
                     severity="success"
                   />
                 </div>
               </template>
               <div class="tab-content">
-                <div class="tab-actions">
-                  <Button
-                    icon="pi pi-plus"
-                    label="New CO"
-                    severity="primary"
-                    size="small"
-                    @click="openModal('changeOrderDialog')"
-                  />
-                </div>
                 <ChangeOrderList
                   :changeOrders="changeOrders"
                   :loading="loading"
+                  :project-id="projectId"
+                  :on-item-expanded="handleChangeOrderExpanded"
                   title=""
                   @edit-change-order="handleEditChangeOrder"
                   @delete-change-order="handleDeleteChangeOrder"
@@ -372,25 +328,16 @@
               <div class="card-header">
                 <div class="card-header-title">
                   <h2 class="card-title">RFIs</h2>
-                  <Badge :value="rfis.length" severity="info" />
-                  <Badge
-                    v-if="recentRFICount > 0"
-                    :value="`+${recentRFICount} new`"
-                    severity="success"
-                  />
+                  <Badge v-if="unreadRFICount > 0" :value="unreadRFICount" severity="success" />
                 </div>
-                <Button
-                  icon="pi pi-plus"
-                  severity="primary"
-                  size="small"
-                  @click="openModal('rfiDialog')"
-                  v-tooltip.bottom="'Create RFI'"
-                />
               </div>
               <div class="card-content">
                 <RFIList
                   :rfis="rfis"
                   :loading="loading"
+                  :project-id="projectId"
+                  :is-item-unread="checkIfRFIUnread"
+                  :on-item-expanded="handleRFIExpanded"
                   title=""
                   @edit-rfi="handleEditRFI"
                   @delete-rfi="handleDeleteRFI"
@@ -402,25 +349,19 @@
               <div class="card-header">
                 <div class="card-header-title">
                   <h2 class="card-title">Submittals</h2>
-                  <Badge :value="submittals.length" severity="info" />
                   <Badge
-                    v-if="recentSubmittalCount > 0"
-                    :value="`+${recentSubmittalCount} new`"
+                    v-if="unreadSubmittalCount > 0"
+                    :value="unreadSubmittalCount"
                     severity="success"
                   />
                 </div>
-                <Button
-                  icon="pi pi-plus"
-                  severity="primary"
-                  size="small"
-                  @click="openModal('submittalDialog')"
-                  v-tooltip.bottom="'Create Submittal'"
-                />
               </div>
               <div class="card-content">
                 <SubmittalList
                   :submittals="submittals"
                   :loading="loading"
+                  :project-id="projectId"
+                  :on-item-expanded="handleSubmittalExpanded"
                   title=""
                   @edit-submittal="handleEditSubmittal"
                   @delete-submittal="handleDeleteSubmittal"
@@ -432,25 +373,19 @@
               <div class="card-header">
                 <div class="card-header-title">
                   <h2 class="card-title">Change Orders</h2>
-                  <Badge :value="changeOrders.length" severity="info" />
                   <Badge
-                    v-if="recentChangeOrderCount > 0"
-                    :value="`+${recentChangeOrderCount} new`"
+                    v-if="unreadChangeOrderCount > 0"
+                    :value="unreadChangeOrderCount"
                     severity="success"
                   />
                 </div>
-                <Button
-                  icon="pi pi-plus"
-                  severity="primary"
-                  size="small"
-                  @click="openModal('changeOrderDialog')"
-                  v-tooltip.bottom="'Create Change Order'"
-                />
               </div>
               <div class="card-content">
                 <ChangeOrderList
                   :changeOrders="changeOrders"
                   :loading="loading"
+                  :project-id="projectId"
+                  :on-item-expanded="handleChangeOrderExpanded"
                   title=""
                   @edit-change-order="handleEditChangeOrder"
                   @delete-change-order="handleDeleteChangeOrder"
@@ -465,25 +400,19 @@
               <div class="card-header">
                 <div class="card-header-title">
                   <h2 class="card-title">Documents</h2>
-                  <Badge :value="documents.length" severity="info" />
                   <Badge
-                    v-if="recentDocumentCount > 0"
-                    :value="`+${recentDocumentCount} new`"
+                    v-if="unreadDocumentCount > 0"
+                    :value="unreadDocumentCount"
                     severity="success"
                   />
                 </div>
-                <Button
-                  icon="pi pi-upload"
-                  severity="primary"
-                  size="small"
-                  @click="openModal('documentUploader')"
-                  v-tooltip.bottom="'Upload Document'"
-                />
               </div>
               <div class="card-content scrollable">
                 <DocumentGrid
                   :documents="documents"
                   :projects="[currentProject]"
+                  :project-id="projectId"
+                  :on-item-clicked="handleDocumentClicked"
                   @document-click="handleDocumentClick"
                   @document-action="handleDocumentAction"
                 />
@@ -496,28 +425,18 @@
                   <template #header>
                     <div class="tab-header-label compact">
                       <span>Tasks</span>
-                      <Badge :value="tasks.length" severity="info" size="small" />
                       <Badge
-                        v-if="recentTaskCount > 0"
-                        :value="`+${recentTaskCount}`"
+                        v-if="unreadTaskCount > 0"
+                        :value="unreadTaskCount"
                         severity="success"
                         size="small"
                       />
                     </div>
                   </template>
-                  <div class="card-header-inline">
-                    <Button
-                      icon="pi pi-plus"
-                      label="Add Task"
-                      severity="primary"
-                      size="small"
-                      text
-                      @click="openModal('taskSlideOver')"
-                    />
-                  </div>
                   <div v-if="tasks.length === 0" class="empty-state-small">
                     <i class="pi pi-calendar text-3xl mb-2"></i>
                     <p class="text-sm">No tasks yet</p>
+                    <p class="text-xs text-surface-500">Right-click to create</p>
                   </div>
                   <div v-else class="task-list">
                     <div
@@ -583,6 +502,14 @@
         </div>
       </div>
     </div>
+
+    <!-- Task Dialog -->
+    <TaskDialog
+      v-model:visible="taskDialogVisible"
+      :task="selectedTask"
+      :project-id="projectId"
+      @task-saved="handleTaskSaved"
+    />
   </div>
 </template>
 
@@ -595,6 +522,7 @@ import { useProject } from '@/composables/useProject';
 import { useProjectStore } from '@/stores/project';
 import { useUIStore } from '@/stores/ui';
 import { useAuthStore } from '@/stores/auth';
+import { useUserActivity } from '@/composables/useUserActivity';
 import {
   formatDate,
   formatTimeAgo,
@@ -606,6 +534,7 @@ import RFIList from '@/components/lists/RFIList.vue';
 import SubmittalList from '@/components/lists/SubmittalList.vue';
 import ChangeOrderList from '@/components/lists/ChangeOrderList.vue';
 import DocumentGrid from '@/components/widgets/DocumentGrid.vue';
+import TaskDialog from '@/components/forms/TaskDialog.vue';
 
 // Props
 const props = defineProps({
@@ -624,6 +553,19 @@ const toast = useToast();
 // Local state
 const headerExpanded = ref(false);
 const activeTabIndex = ref(0);
+const taskDialogVisible = ref(false);
+const selectedTask = ref(null);
+
+// User activity tracking
+const {
+  loadProjectActivity,
+  updateSectionVisit,
+  markItemAsRead,
+  isItemUnread,
+  getUnreadCount,
+  lastSectionVisits,
+  readItems,
+} = useUserActivity();
 
 // Project composable
 const {
@@ -646,20 +588,78 @@ const {
   cleanupProject,
 } = useProject(props.projectId);
 
-// Compute recent activity counts (items created/updated in last 24 hours)
-const getRecentCount = (items, dateField = 'createdAt') => {
-  const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
-  return items.filter((item) => {
-    const itemDate = new Date(item[dateField]).getTime();
-    return itemDate > oneDayAgo;
-  }).length;
-};
+// Compute unread counts using user activity tracking
+const unreadRFICount = computed(() => {
+  if (!props.projectId || !rfis.value || rfis.value.length === 0) return 0;
 
-const recentRFICount = computed(() => getRecentCount(rfis.value));
-const recentSubmittalCount = computed(() => getRecentCount(submittals.value));
-const recentChangeOrderCount = computed(() => getRecentCount(changeOrders.value));
-const recentDocumentCount = computed(() => getRecentCount(documents.value, 'uploadedAt'));
-const recentTaskCount = computed(() => getRecentCount(tasks.value));
+  const projectReadItems = readItems.value[props.projectId] || {};
+
+  // Count items that have NOT been specifically read by this user
+  const unreadItems = rfis.value.filter((rfi) => {
+    const itemKey = `rfi_${rfi.id}`;
+    return !projectReadItems[itemKey];
+  });
+
+  return unreadItems.length;
+});
+
+// Compute unread counts for submittals
+const unreadSubmittalCount = computed(() => {
+  if (!props.projectId || !submittals.value || submittals.value.length === 0) return 0;
+
+  const projectReadItems = readItems.value[props.projectId] || {};
+
+  const unreadItems = submittals.value.filter((submittal) => {
+    const itemKey = `submittal_${submittal.id}`;
+    return !projectReadItems[itemKey];
+  });
+
+  return unreadItems.length;
+});
+
+// Compute unread counts for change orders
+const unreadChangeOrderCount = computed(() => {
+  if (!props.projectId || !changeOrders.value || changeOrders.value.length === 0) return 0;
+
+  const projectReadItems = readItems.value[props.projectId] || {};
+
+  const unreadItems = changeOrders.value.filter((changeOrder) => {
+    const itemKey = `changeOrder_${changeOrder.id}`;
+    return !projectReadItems[itemKey];
+  });
+
+  return unreadItems.length;
+});
+
+// Compute unread counts for tasks
+const unreadTaskCount = computed(() => {
+  if (!props.projectId || !tasks.value || tasks.value.length === 0) return 0;
+
+  const projectReadItems = readItems.value[props.projectId] || {};
+
+  // Count items that have NOT been specifically read by this user
+  // Don't use section visit - only item-level tracking matters
+  const unreadItems = tasks.value.filter((task) => {
+    const itemKey = `task_${task.id}`;
+    return !projectReadItems[itemKey]; // Unread if not in readItems
+  });
+
+  return unreadItems.length;
+});
+
+// Compute unread counts for documents
+const unreadDocumentCount = computed(() => {
+  if (!props.projectId || !documents.value || documents.value.length === 0) return 0;
+
+  const projectReadItems = readItems.value[props.projectId] || {};
+
+  const unreadItems = documents.value.filter((document) => {
+    const itemKey = `document_${document.id}`;
+    return !projectReadItems[itemKey];
+  });
+
+  return unreadItems.length;
+});
 
 const todaysActivityCount = computed(() => {
   const today = new Date();
@@ -726,8 +726,52 @@ const retryFullLoad = async () => {
   }
 };
 
-const editTask = (task) => {
-  openModal('taskSlideOver', { task });
+const editTask = async (task) => {
+  selectedTask.value = task;
+  taskDialogVisible.value = true;
+
+  // Mark task as read when opened
+  if (props.projectId && task.id) {
+    await markItemAsRead(props.projectId, 'task', task.id);
+  }
+};
+
+const handleTaskSaved = async () => {
+  taskDialogVisible.value = false;
+  selectedTask.value = null;
+};
+
+// User activity handlers
+const handleRFIExpanded = async (rfi) => {
+  if (props.projectId && rfi.id) {
+    await markItemAsRead(props.projectId, 'rfi', rfi.id);
+  }
+};
+
+const checkIfRFIUnread = (rfi) => {
+  if (!props.projectId || !rfi) return false;
+  return isItemUnread(rfi, props.projectId, 'rfi', 'rfis');
+};
+
+// Submittal handlers
+const handleSubmittalExpanded = async (submittal) => {
+  if (props.projectId && submittal.id) {
+    await markItemAsRead(props.projectId, 'submittal', submittal.id);
+  }
+};
+
+// Change Order handlers
+const handleChangeOrderExpanded = async (changeOrder) => {
+  if (props.projectId && changeOrder.id) {
+    await markItemAsRead(props.projectId, 'changeOrder', changeOrder.id);
+  }
+};
+
+// Document handlers
+const handleDocumentClicked = async (document) => {
+  if (props.projectId && document.id) {
+    await markItemAsRead(props.projectId, 'document', document.id);
+  }
 };
 
 // Entity handlers
@@ -765,7 +809,22 @@ const handleDocumentAction = ({ action, document }) => {
 
 // Lifecycle
 onMounted(async () => {
+  console.log('[DEBUG] onMounted - projectId:', props.projectId);
   await initializeProject();
+
+  console.log('[DEBUG] After initializeProject - rfis:', rfis.value);
+
+  // Load user activity data for notification badges for all sections
+  if (props.projectId) {
+    await loadProjectActivity(props.projectId, [
+      'rfis',
+      'submittals',
+      'changeOrders',
+      'tasks',
+      'documents',
+    ]);
+    console.log('[DEBUG] After loadProjectActivity - readItems:', readItems.value);
+  }
 });
 
 onBeforeUnmount(() => {

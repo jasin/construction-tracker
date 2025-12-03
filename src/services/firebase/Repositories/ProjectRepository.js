@@ -324,9 +324,11 @@ class ProjectRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    * @returns {Function} Unsubscribe.
    */
   subscribeToProjectTasks(projectId, callback) {
-    // L408-447: onValue under projects/[id]/tasks
-    const tasksRef = ref(firebaseCore.database, `projects/${projectId}/tasks`);
-    const unsubscribe = onValue(tasksRef, (snap) => {
+    // Query /tasks collection filtered by projectId
+    const tasksRef = ref(firebaseCore.database, 'tasks');
+    const projectQuery = query(tasksRef, orderByChild('projectId'), equalTo(projectId));
+
+    const unsubscribe = onValue(projectQuery, (snap) => {
       if (snap.exists()) {
         const data = Object.entries(snap.val()).map(([id, task]) => ({ id, ...task }));
         callback(data);
@@ -382,9 +384,11 @@ class ProjectRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    * @returns {Function} Unsubscribe.
    */
   subscribeToProjectRFIs(projectId, callback) {
-    // L494-522: onValue under projects/[id]/rfis
-    const rfiRef = ref(firebaseCore.database, `projects/${projectId}/rfis`);
-    const unsubscribe = onValue(rfiRef, (snap) => {
+    // Query /rfis collection filtered by projectId
+    const rfisRef = ref(firebaseCore.database, 'rfis');
+    const projectQuery = query(rfisRef, orderByChild('projectId'), equalTo(projectId));
+
+    const unsubscribe = onValue(projectQuery, (snap) => {
       if (snap.exists()) {
         const data = Object.entries(snap.val()).map(([id, rfi]) => ({ id, ...rfi }));
         callback(data);
@@ -402,9 +406,11 @@ class ProjectRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    * @returns {Function} Unsubscribe.
    */
   subscribeToProjectSubmittals(projectId, callback) {
-    // L530-562: onValue under projects/[id]/submittals
-    const submittalsRef = ref(firebaseCore.database, `projects/${projectId}/submittals`);
-    const unsubscribe = onValue(submittalsRef, (snap) => {
+    // Query /submittals collection filtered by projectId
+    const submittalsRef = ref(firebaseCore.database, 'submittals');
+    const projectQuery = query(submittalsRef, orderByChild('projectId'), equalTo(projectId));
+
+    const unsubscribe = onValue(projectQuery, (snap) => {
       if (snap.exists()) {
         const data = Object.entries(snap.val()).map(([id, sub]) => ({ id, ...sub }));
         callback(data);
@@ -422,9 +428,11 @@ class ProjectRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    * @returns {Function} Unsubscribe.
    */
   subscribeToProjectChangeOrders(projectId, callback) {
-    // L570-602: onValue under projects/[id]/changeOrders
-    const coRef = ref(firebaseCore.database, `projects/${projectId}/changeOrders`);
-    const unsubscribe = onValue(coRef, (snap) => {
+    // Query /changeOrders collection filtered by projectId
+    const coRef = ref(firebaseCore.database, 'changeOrders');
+    const projectQuery = query(coRef, orderByChild('projectId'), equalTo(projectId));
+
+    const unsubscribe = onValue(projectQuery, (snap) => {
       if (snap.exists()) {
         const data = Object.entries(snap.val()).map(([id, co]) => ({ id, ...co }));
         callback(data);

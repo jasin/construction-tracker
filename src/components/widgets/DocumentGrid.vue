@@ -152,6 +152,16 @@ const props = defineProps({
     required: true,
   },
 
+  // User activity tracking
+  projectId: {
+    type: String,
+    required: false,
+  },
+  onItemClicked: {
+    type: Function,
+    default: () => {},
+  },
+
   // Display options
   showProject: {
     type: Boolean,
@@ -231,6 +241,11 @@ const isSelected = (document) => {
 // Event handlers
 const handleDocumentClick = (document) => {
   emit('document-click', document);
+
+  // Mark document as read when clicked
+  if (props.projectId && props.onItemClicked) {
+    props.onItemClicked(document);
+  }
 };
 
 const handleAction = (action, document) => {

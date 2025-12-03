@@ -24,7 +24,7 @@
             { 'is-expanded': expandedSubmittalId === submittal.id },
             getDueDateClass(submittal.reviewedDate),
           ]"
-          @click="toggleExpanded(submittal.id)"
+          @click="toggleExpanded(submittal.id, submittal)"
         >
           <div class="task-accordion-header">
             <div class="task-row">
@@ -32,27 +32,6 @@
                 <span class="task-title">
                   {{ submittal.title }}
                 </span>
-              </div>
-
-              <div class="task-actions" @click.stop>
-                <Button
-                  icon="pi pi-pencil"
-                  severity="secondary"
-                  text
-                  rounded
-                  size="small"
-                  @click="$emit('edit-submittal', submittal)"
-                  v-tooltip.top="'Edit Submittal'"
-                />
-                <Button
-                  icon="pi pi-trash"
-                  severity="danger"
-                  text
-                  rounded
-                  size="small"
-                  @click="$emit('delete-submittal', submittal)"
-                  v-tooltip.top="'Delete Submittal'"
-                />
               </div>
             </div>
           </div>
@@ -92,27 +71,6 @@
             <div class="task-description">
               {{ submittal.description }}
             </div>
-
-            <div class="task-expanded-actions">
-              <Button
-                icon="pi pi-pencil"
-                severity="secondary"
-                text
-                rounded
-                size="small"
-                @click.stop="$emit('edit-submittal', submittal)"
-                v-tooltip.top="'Edit Submittal'"
-              />
-              <Button
-                icon="pi pi-trash"
-                severity="danger"
-                text
-                rounded
-                size="small"
-                @click.stop="$emit('delete-submittal', submittal)"
-                v-tooltip.top="'Delete Submittal'"
-              />
-            </div>
           </div>
         </div>
       </div>
@@ -139,14 +97,28 @@ const props = defineProps({
     type: String,
     default: 'Submittals',
   },
+  projectId: {
+    type: String,
+    required: false,
+  },
+  onItemExpanded: {
+    type: Function,
+    default: () => {},
+  },
 });
 
 defineEmits(['create-submittal', 'submittal-click', 'edit-submittal', 'delete-submittal']);
 
 const expandedSubmittalId = ref(null);
 
-const toggleExpanded = (id) => {
-  expandedSubmittalId.value = expandedSubmittalId.value === id ? null : id;
+const toggleExpanded = (id, submittal) => {
+  const wasExpanded = expandedSubmittalId.value === id;
+  expandedSubmittalId.value = wasExpanded ? null : id;
+
+  // Call handler when expanding (not collapsing)
+  if (!wasExpanded && props.projectId && props.onItemExpanded) {
+    props.onItemExpanded(submittal);
+  }
 };
 
 const getStatusSeverity = (status) => {
