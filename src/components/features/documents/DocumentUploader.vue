@@ -259,7 +259,7 @@ import {
   ProgressBar,
   ProgressSpinner,
 } from 'primevue';
-import firebaseService from '@/services/firebase/firebaseService';
+import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository';
 import googleDriveService from '@/services/api/googleDriveService';
 import { DOCUMENT_CATEGORIES } from '@/constants/documentCategories';
 
@@ -536,7 +536,7 @@ const uploadFiles = async () => {
 
         // Handle version updates
         if (isUpdate.value) {
-          const updatedDoc = await firebaseService.updateDocumentVersion(
+          const updatedDoc = await DocumentRepository.updateDocumentVersion(
             props.existingDocument.id,
             {
               googleDriveFileId: driveFile.id,
@@ -552,7 +552,7 @@ const uploadFiles = async () => {
           );
           uploadedDocuments.push(updatedDoc);
         } else {
-          const newDoc = await firebaseService.createDocument(documentData);
+          const newDoc = await DocumentRepository.createDocument(documentData);
           uploadedDocuments.push(newDoc);
         }
 

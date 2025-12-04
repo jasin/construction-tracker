@@ -1,5 +1,11 @@
-// Example usage schemas
-export const PROJECT_SCHEMA = {
+// Schema definitions for Firebase entities
+// These define the expected structure and types for each entity
+
+export interface SchemaDefinition {
+  [key: string]: string
+}
+
+export const PROJECT_SCHEMA: SchemaDefinition = {
   name: 'string',
   jobNumber: 'string',
   clientId: 'string',
@@ -13,9 +19,9 @@ export const PROJECT_SCHEMA = {
   endDate: 'date',
   address: 'string',
   description: 'string',
-};
+}
 
-export const TASK_SCHEMA = {
+export const TASK_SCHEMA: SchemaDefinition = {
   title: 'string',
   description: 'string',
   priority: 'string',
@@ -30,26 +36,26 @@ export const TASK_SCHEMA = {
   dependencies: 'array',
   startedAt: 'date',
   completedAt: 'date',
-};
+}
 
-export const CLIENT_SCHEMA = {
+export const CLIENT_SCHEMA: SchemaDefinition = {
   name: 'string',
   company: 'string',
   email: 'string',
   phone: 'string',
   address: 'string',
   notes: 'string',
-};
+}
 
-export const USER_SCHEMA = {
+export const USER_SCHEMA: SchemaDefinition = {
   name: 'string',
   email: 'string',
   role: 'string',
   phone: 'string',
   active: 'boolean',
-};
+}
 
-export const RFI_SCHEMA = {
+export const RFI_SCHEMA: SchemaDefinition = {
   title: 'string',
   description: 'string',
   priority: 'string',
@@ -61,9 +67,9 @@ export const RFI_SCHEMA = {
   response: 'string',
   attachment: 'array',
   attachmentCount: 'number',
-};
+}
 
-export const SUBMITTAL_SCHEMA = {
+export const SUBMITTAL_SCHEMA: SchemaDefinition = {
   title: 'string',
   description: 'string',
   status: 'string',
@@ -74,9 +80,9 @@ export const SUBMITTAL_SCHEMA = {
   comments: 'string',
   attachment: 'array',
   attachmentCount: 'number',
-};
+}
 
-export const CHANGE_ORDER_SCHEMA = {
+export const CHANGE_ORDER_SCHEMA: SchemaDefinition = {
   title: 'string',
   description: 'string',
   number: 'string',
@@ -89,9 +95,9 @@ export const CHANGE_ORDER_SCHEMA = {
   billable: 'boolean',
   attachment: 'array',
   attachmentCount: 'number',
-};
+}
 
-export const DOCUMENT_SCHEMA = {
+export const DOCUMENT_SCHEMA: SchemaDefinition = {
   name: 'string',
   description: 'string',
   category: 'string',
@@ -108,9 +114,9 @@ export const DOCUMENT_SCHEMA = {
   linkedEntityType: 'string',
   linkedEntityId: 'string',
   isAttachment: 'boolean',
-};
+}
 
-export const ATTACHMENT_SCHEMA = {
+export const ATTACHMENT_SCHEMA: SchemaDefinition = {
   name: 'string',
   originalName: 'string',
   description: 'string',
@@ -133,4 +139,4 @@ export const ATTACHMENT_SCHEMA = {
   previousVersions: 'array', // Array of previous version info
   virusScanStatus: 'string', // 'pending', 'clean', 'infected', 'error'
   extractedText: 'string', // OCR/extracted text for search
-};
+}

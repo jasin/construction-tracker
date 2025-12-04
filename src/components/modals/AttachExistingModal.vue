@@ -187,7 +187,7 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { Dialog, Button, InputText, ProgressSpinner } from 'primevue';
 import { DOCUMENT_CATEGORIES, getDocumentIcon } from '@/constants/documentCategories';
 import DocumentStatusBadge from '@/components/features/documents/DocumentStatusBadge.vue';
-import firebaseService from '@/services/firebase/firebaseService';
+import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository';
 import { formatFileSize, formatTimeAgo } from '@/utils/index';
 
 // Props
@@ -303,7 +303,7 @@ const loadAvailableDocuments = async () => {
     loading.value = true;
     error.value = '';
 
-    const documents = await firebaseService.getDocumentsByProject(props.projectId, {
+    const documents = await DocumentRepository.getDocumentsByProject(props.projectId, {
       attachmentsOnly: false, // Only get non-attachment documents
     });
 

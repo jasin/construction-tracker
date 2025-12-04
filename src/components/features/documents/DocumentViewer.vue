@@ -306,13 +306,13 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
-import { Dialog, Button, Textarea, Tag, ProgressSpinner } from 'primevue'
-import DocumentStatusBadge from './DocumentStatusBadge.vue'
-import DocumentUploader from './DocumentUploader.vue'
-import firebaseService from '@/services/firebase/firebaseService'
-import { formatFileSize, formatTimeAgo, formatDate } from '@/utils/index'
-import { getDocumentIcon, DOCUMENT_CATEGORIES } from '@/constants/documentCategories'
+import { ref, computed, watch, onMounted } from 'vue';
+import { Dialog, Button, Textarea, Tag, ProgressSpinner } from 'primevue';
+import DocumentStatusBadge from './DocumentStatusBadge.vue';
+import DocumentUploader from './DocumentUploader.vue';
+import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository';
+import { formatFileSize, formatTimeAgo, formatDate } from '@/utils/index';
+import { getDocumentIcon, DOCUMENT_CATEGORIES } from '@/constants/documentCategories';
 
 // Props
 const props = defineProps({
@@ -324,7 +324,7 @@ const props = defineProps({
     type: Object,
     default: null,
   },
-})
+});
 
 // Emits
 const emit = defineEmits([
@@ -332,88 +332,88 @@ const emit = defineEmits([
   'document-updated',
   'document-approved',
   'document-rejected',
-])
+]);
 
 // Reactive state
-const isFullscreen = ref(false)
-const reviewComments = ref('')
-const versionHistory = ref([])
-const showVersionUploader = ref(false)
-const loading = ref(false)
+const isFullscreen = ref(false);
+const reviewComments = ref('');
+const versionHistory = ref([]);
+const showVersionUploader = ref(false);
+const loading = ref(false);
 
 // Computed
 const isVisible = computed({
   get: () => props.visible,
   set: (value) => emit('update:visible', value),
-})
+});
 
 const canEdit = computed(() => {
   // Add your permission logic here
-  return true // Placeholder
-})
+  return true; // Placeholder
+});
 
 const canApprove = computed(() => {
   // Add your permission logic here
-  return props.document?.status === 'pending' || props.document?.status === 'review'
-})
+  return props.document?.status === 'pending' || props.document?.status === 'review';
+});
 
 const showApprovalSection = computed(() => {
   return (
     props.document?.status &&
     ['pending', 'review', 'approved', 'rejected'].includes(props.document.status)
-  )
-})
+  );
+});
 
 // Methods
 const getEmbedUrl = (fileId) => {
   //return `https://drive.google.com/file/d/${fileId}/preview`
   //return `https://drive.google.com/file/d/${fileId}/preview?rm=minimal&embedded=true`
-  return `https://docs.google.com/viewer?srcid=${fileId}&pid=explorer&efh=false&a=v&chrome=false&embedded=true`
-}
+  return `https://docs.google.com/viewer?srcid=${fileId}&pid=explorer&efh=false&a=v&chrome=false&embedded=true`;
+};
 
 const getFileExtension = (filename) => {
-  return filename.split('.').pop().toUpperCase()
-}
+  return filename.split('.').pop().toUpperCase();
+};
 
 const formatCategory = (category) => {
-  const config = DOCUMENT_CATEGORIES[category]
-  return config ? config.label : category
-}
+  const config = DOCUMENT_CATEGORIES[category];
+  return config ? config.label : category;
+};
 
 // Template ref for the iframe
-const previewIframe = ref(null)
+const previewIframe = ref(null);
 
 const refreshPreview = () => {
   // Force iframe reload using template ref
   if (previewIframe.value) {
-    const currentSrc = previewIframe.value.src
-    previewIframe.value.src = ''
+    const currentSrc = previewIframe.value.src;
+    previewIframe.value.src = '';
     // Small delay to ensure the iframe resets, then reload
     setTimeout(() => {
-      previewIframe.value.src = currentSrc
-    }, 100)
+      previewIframe.value.src = currentSrc;
+    }, 100);
   }
-}
+};
 
 const toggleFullscreen = () => {
-  isFullscreen.value = !isFullscreen.value
-}
+  isFullscreen.value = !isFullscreen.value;
+};
 
 const downloadDocument = () => {
   if (props.document?.googleDriveFileId) {
-    const downloadUrl = `https://drive.google.com/uc?export=download&id=${props.document.googleDriveFileId}`
-    window.open(downloadUrl, '_blank')
+    const downloadUrl = `https://drive.google.com/uc?export=download&id=${props.document.googleDriveFileId}`;
+    window.open(downloadUrl, '_blank');
   }
-}
+};
 
 const openInDrive = () => {
   if (props.document?.googleDriveLink) {
-    window.open(props.document.googleDriveLink, '_blank')
+    window.open(props.document.googleDriveLink, '_blank');
   }
-}
+};
 
 const editDocument = async () => {
-  console.log('Edit document:', document.id)
+  console.log('Edit document:', document.id);
 
   // Instead of calling Google Drive API directly,
   // just update the status in Firebase
@@ -421,120 +421,128 @@ const editDocument = async () => {
     const updates = {
       status: 'approved', // or whatever status change you want
       updatedAt: new Date().toISOString(),
-    }
+    };
 
-    await firebaseService.updateDocument(document.id, updates)
-    console.log('Document updated successfully')
+    await DocumentRepository.update(document.id, updates);
+    console.log('Document updated successfully');
 
     // Emit the update to parent component
-    emit('document-updated', { ...document, ...updates })
+    emit('document-updated', { ...document, ...updates });
   } catch (error) {
-    console.error('Error updating document:', error)
+    console.error('Error updating document:', error);
     // Show user-friendly error message
-    alert('Failed to update document. Please try again.')
+    alert('Failed to update document. Please try again.');
   }
-}
+};
 
 const uploadNewVersion = () => {
-  showVersionUploader.value = true
-}
+  showVersionUploader.value = true;
+};
 
 const approveDocument = async () => {
   try {
-    loading.value = true
-    await firebaseService.updateDocumentStatus(props.document.id, 'approved', reviewComments.value)
+    loading.value = true;
+    await DocumentRepository.updateDocumentStatus(
+      props.document.id,
+      'approved',
+      reviewComments.value
+    );
 
     emit('document-approved', {
       ...props.document,
       status: 'approved',
       reviewComments: reviewComments.value,
-    })
+    });
 
-    reviewComments.value = ''
+    reviewComments.value = '';
   } catch (error) {
-    console.error('Error approving document:', error)
+    console.error('Error approving document:', error);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const rejectDocument = async () => {
   if (!reviewComments.value.trim()) {
-    alert('Please provide rejection comments')
-    return
+    alert('Please provide rejection comments');
+    return;
   }
 
   try {
-    loading.value = true
-    await firebaseService.updateDocumentStatus(props.document.id, 'rejected', reviewComments.value)
+    loading.value = true;
+    await DocumentRepository.updateDocumentStatus(
+      props.document.id,
+      'rejected',
+      reviewComments.value
+    );
 
     emit('document-rejected', {
       ...props.document,
       status: 'rejected',
       reviewComments: reviewComments.value,
-    })
+    });
 
-    reviewComments.value = ''
+    reviewComments.value = '';
   } catch (error) {
-    console.error('Error rejecting document:', error)
+    console.error('Error rejecting document:', error);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const viewVersion = (version) => {
-  console.log('View version:', version.version)
+  console.log('View version:', version.version);
   // Implement version viewing
-}
+};
 
 const downloadVersion = (version) => {
   if (version.googleDriveFileId) {
-    const downloadUrl = `https://drive.google.com/uc?export=download&id=${version.googleDriveFileId}`
-    window.open(downloadUrl, '_blank')
+    const downloadUrl = `https://drive.google.com/uc?export=download&id=${version.googleDriveFileId}`;
+    window.open(downloadUrl, '_blank');
   }
-}
+};
 
 const handleVersionUploaded = (newVersion) => {
-  emit('document-updated', newVersion)
-  showVersionUploader.value = false
-  loadVersionHistory()
-}
+  emit('document-updated', newVersion);
+  showVersionUploader.value = false;
+  loadVersionHistory();
+};
 
 const loadVersionHistory = async () => {
-  if (!props.document?.id) return
+  if (!props.document?.id) return;
 
   try {
-    const history = await firebaseService.getDocumentVersionHistory(props.document.id)
-    versionHistory.value = history
+    const history = await DocumentRepository.getDocumentVersionHistory(props.document.id);
+    versionHistory.value = history;
   } catch (error) {
-    console.error('Error loading version history:', error)
-    versionHistory.value = []
+    console.error('Error loading version history:', error);
+    versionHistory.value = [];
   }
-}
+};
 
 const handleIframeError = () => {
-  console.log('Iframe failed to load, showing fallback')
+  console.log('Iframe failed to load, showing fallback');
   // You could show a fallback UI or direct link to Google Drive
-}
+};
 
 // Watch for document changes
 watch(
   () => props.document,
   (newDoc) => {
     if (newDoc) {
-      loadVersionHistory()
-      reviewComments.value = ''
+      loadVersionHistory();
+      reviewComments.value = '';
     }
   },
-  { immediate: true },
-)
+  { immediate: true }
+);
 
 // Load version history when component mounts
 onMounted(() => {
   if (props.document) {
-    loadVersionHistory()
+    loadVersionHistory();
   }
-})
+});
 </script>
 
 <style scoped>

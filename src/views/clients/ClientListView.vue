@@ -218,23 +218,23 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import Button from 'primevue/button'
-import InputText from 'primevue/inputtext'
-import ProgressSpinner from 'primevue/progressspinner'
-import firebaseService from '@/services/firebase/firebaseService'
-import ClientDialog from '@/components/forms/ClientDialog.vue'
+import { ref, computed, onMounted } from 'vue';
+import Button from 'primevue/button';
+import InputText from 'primevue/inputtext';
+import ProgressSpinner from 'primevue/progressspinner';
+import ClientRepository from '@/services/firebase/Repositories/ClientRepository';
+import ClientDialog from '@/components/forms/ClientDialog.vue';
 
 // ==================== REACTIVE STATE ====================
 // These are Vue 3 "ref" - they create reactive data that Vue watches for changes
 
-const loading = ref(true) // Boolean: shows/hides loading spinner
-const error = ref(null) // String or null: holds error messages
-const clients = ref([]) // Array: holds all client data from Firebase
-const searchQuery = ref('') // String: holds the search input value
-const showCreateClient = ref(false) // Boolean: controls create client modal
-const editingClient = ref(null) // Object or null: holds client being edited
-const lastUpdated = ref('') // String: shows when data was last loaded
+const loading = ref(true); // Boolean: shows/hides loading spinner
+const error = ref(null); // String or null: holds error messages
+const clients = ref([]); // Array: holds all client data from Firebase
+const searchQuery = ref(''); // String: holds the search input value
+const showCreateClient = ref(false); // Boolean: controls create client modal
+const editingClient = ref(null); // Object or null: holds client being edited
+const lastUpdated = ref(''); // String: shows when data was last loaded
 
 // ==================== COMPUTED PROPERTIES ====================
 // These are reactive and automatically update when their dependencies change
@@ -242,10 +242,10 @@ const lastUpdated = ref('') // String: shows when data was last loaded
 // Filters clients based on search query
 const filteredClients = computed(() => {
   if (!searchQuery.value) {
-    return clients.value // If no search, return all clients
+    return clients.value; // If no search, return all clients
   }
 
-  const query = searchQuery.value.toLowerCase()
+  const query = searchQuery.value.toLowerCase();
   return clients.value.filter((client) => {
     // Search in multiple fields
     return (
@@ -253,36 +253,36 @@ const filteredClients = computed(() => {
       client.email?.toLowerCase().includes(query) ||
       client.company?.toLowerCase().includes(query) ||
       client.phone?.toLowerCase().includes(query)
-    )
-  })
-})
+    );
+  });
+});
 
 // Calculate total number of clients
 const totalClients = computed(() => {
-  return clients.value.length
-})
+  return clients.value.length;
+});
 
 // This is a placeholder - we'll calculate this properly later
 const activeProjectsCount = computed(() => {
   // TODO: We'll need to fetch and count projects by client
-  return 0
-})
+  return 0;
+});
 
 // This is a placeholder - we'll calculate this properly later
 const recentActivityCount = computed(() => {
   // TODO: We'll need to fetch recent activities
-  return 0
-})
+  return 0;
+});
 
 // Determine if modal should be visible
 const isModalVisible = computed(() => {
-  return showCreateClient.value || editingClient.value !== null
-})
+  return showCreateClient.value || editingClient.value !== null;
+});
 
 // Get the client for editing (or null for new client)
 const modalClient = computed(() => {
-  return editingClient.value
-})
+  return editingClient.value;
+});
 
 // ==================== METHODS ====================
 // These are functions that can be called from the template or other methods
@@ -290,139 +290,139 @@ const modalClient = computed(() => {
 // Load all clients from Firebase
 const loadClients = async () => {
   try {
-    loading.value = true
-    error.value = null
+    loading.value = true;
+    error.value = null;
 
-    console.log('Starting to load clients from Firebase...')
+    console.log('Starting to load clients from Firebase...');
 
-    // Call Firebase service to get all clients
-    const clientData = await firebaseService.getAllClients()
+    // Call ClientRepository to get all clients
+    const clientData = await ClientRepository.getAllClients();
 
-    console.log('Loaded client data:', clientData)
+    console.log('Loaded client data:', clientData);
 
     // Update our reactive data
-    clients.value = clientData
-    lastUpdated.value = new Date().toLocaleTimeString()
+    clients.value = clientData;
+    lastUpdated.value = new Date().toLocaleTimeString();
   } catch (err) {
-    console.error('Error loading clients:', err)
-    error.value = err.message || 'Failed to load clients'
+    console.error('Error loading clients:', err);
+    error.value = err.message || 'Failed to load clients';
   } finally {
     // Always set loading to false, whether success or error
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // Helper function to get client initials for avatar
 const getClientInitials = (client) => {
-  if (!client.name) return '??'
+  if (!client.name) return '??';
 
   return client.name
     .split(' ')
     .map((word) => word[0])
     .join('')
     .toUpperCase()
-    .slice(0, 2) // Only take first 2 letters
-}
+    .slice(0, 2); // Only take first 2 letters
+};
 
 // Helper function to count projects per client
 const getClientProjectCount = (client) => {
   // TODO: We'll implement this when we link clients to projects
-  return 0
-}
+  return 0;
+};
 
 // Helper function to format dates
 const formatDate = (dateString) => {
-  if (!dateString) return 'Unknown'
+  if (!dateString) return 'Unknown';
 
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-  })
-}
+  });
+};
 
 // Clear search functionality
 const clearSearch = () => {
-  searchQuery.value = ''
-}
+  searchQuery.value = '';
+};
 
 // Open modal for creating new client
 const openCreateClient = () => {
-  editingClient.value = null
-  showCreateClient.value = true
-}
+  editingClient.value = null;
+  showCreateClient.value = true;
+};
 
 // Open modal for editing existing client
 const editClient = (client) => {
-  console.log('Edit client:', client)
-  showCreateClient.value = false
-  editingClient.value = client
-}
+  console.log('Edit client:', client);
+  showCreateClient.value = false;
+  editingClient.value = client;
+};
 
 // Close the modal
 const closeModal = () => {
-  showCreateClient.value = false
-  editingClient.value = null
-}
+  showCreateClient.value = false;
+  editingClient.value = null;
+};
 
 // Handle when a new client is created
 const handleClientCreated = (newClient) => {
-  console.log('New client created:', newClient)
+  console.log('New client created:', newClient);
 
   // Add the new client to our list
-  clients.value.unshift(newClient)
+  clients.value.unshift(newClient);
 
   // Close the modal
-  closeModal()
-}
+  closeModal();
+};
 
 // Handle when a client is updated
 const handleClientUpdated = (updatedClient) => {
-  console.log('Client updated:', updatedClient)
+  console.log('Client updated:', updatedClient);
 
   // Find and replace the client in our list
-  const index = clients.value.findIndex((c) => c.id === updatedClient.id)
+  const index = clients.value.findIndex((c) => c.id === updatedClient.id);
   if (index !== -1) {
-    clients.value[index] = updatedClient
+    clients.value[index] = updatedClient;
   }
 
   // Close the modal
-  closeModal()
-}
+  closeModal();
+};
 
 // Placeholder functions for future development
 const viewClientDetails = (client) => {
-  console.log('View client details:', client)
+  console.log('View client details:', client);
   // TODO: Navigate to client detail page or show modal
-}
+};
 
 const deleteClient = async (clientId) => {
-  console.log('Delete client:', clientId)
+  console.log('Delete client:', clientId);
 
   // TODO: Show confirmation dialog first
   if (confirm('Are you sure you want to delete this client?')) {
     try {
-      await firebaseService.deleteClient(clientId)
+      await ClientRepository.deleteClient(clientId);
 
       // Remove from local list
-      clients.value = clients.value.filter((c) => c.id !== clientId)
+      clients.value = clients.value.filter((c) => c.id !== clientId);
 
-      console.log('Client deleted successfully')
+      console.log('Client deleted successfully');
     } catch (err) {
-      console.error('Error deleting client:', err)
-      alert('Failed to delete client')
+      console.error('Error deleting client:', err);
+      alert('Failed to delete client');
     }
   }
-}
+};
 
 // ==================== LIFECYCLE HOOKS ====================
 // These run at specific times in the component's life
 
 // onMounted runs after the component is added to the DOM
 onMounted(() => {
-  console.log('ClientsPage component mounted, loading data...')
-  loadClients()
-})
+  console.log('ClientsPage component mounted, loading data...');
+  loadClients();
+});
 </script>
 
 <style scoped>

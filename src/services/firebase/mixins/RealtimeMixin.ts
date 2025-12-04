@@ -1,22 +1,58 @@
-// src/services/firebase/mixins/RealtimeMixin.js
-import { ref, onValue, query, orderByChild, equalTo } from 'firebase/database';
+// src/services/firebase/mixins/RealtimeMixin.ts
+import {
+  ref,
+  onValue,
+  query,
+  orderByChild,
+  equalTo,
+  type Database,
+  type DataSnapshot,
+} from 'firebase/database';
 import { handleError } from '@/utils/errorHandler';
+
+/**
+ * Type for the base class constructor
+ */
+type Constructor<T = {}> = new (...args: unknown[]) => T;
+
+/**
+ * Base repository interface that mixins can extend
+ */
+export interface BaseRepositoryInterface {
+  collectionName: string;
+  entityName: string;
+  db: Database;
+}
+
+/**
+ * Callback function for realtime data updates
+ */
+type DataCallback<T = any> = (data: T) => void;
+
+/**
+ * Error callback function
+ */
+type ErrorCallback = (error: Error) => void;
+
+/**
+ * Sort function for entity arrays
+ */
+type SortFunction<T = any> = (a: T, b: T) => number;
 
 /**
  * Mixin providing realtime subscription capabilities for Firebase repositories (RTDB).
  * Returns unsubscribe functions directly - caller is responsible for cleanup.
- * @mixin
  */
-export function RealtimeMixin(base) {
-  return class extends base {
+export function RealtimeMixin<T extends Constructor<BaseRepositoryInterface>>(Base: T) {
+  return class extends Base {
     /**
      * Subscribe to realtime updates for all entities in the collection.
-     * @param {Function} callback - Callback to receive entities (array of objects with id).
-     * @param {Function|null} sortFn - Optional sorting function for the entities array.
-     * @param {Function} [errorCallback] - Optional callback for errors.
-     * @returns {Function} Unsubscribe function - caller MUST call this to cleanup.
      */
-    subscribeToAll(callback, sortFn = null, errorCallback = () => {}) {
+    subscribeToAll(
+      callback: DataCallback<any[]>,
+      sortFn: SortFunction | null = null,
+      errorCallback: ErrorCallback = () => {}
+    ): () => void {
       const entitiesRef = ref(this.db, this.collectionName);
 
       if (!entitiesRef) {
@@ -27,7 +63,7 @@ export function RealtimeMixin(base) {
         return () => {}; // Return noop unsubscribe
       }
 
-      const listener = (snapshot) => {
+      const listener = (snapshot: DataSnapshot) => {
         try {
           const data = snapshot.val();
           console.log(
@@ -37,7 +73,7 @@ export function RealtimeMixin(base) {
           if (data) {
             const entities = Object.entries(data).map(([id, entityData]) => ({
               id,
-              ...entityData,
+              ...(entityData as Record<string, any>),
             }));
             const sorted =
               sortFn && typeof sortFn === 'function' ? entities.sort(sortFn) : entities;
@@ -47,12 +83,15 @@ export function RealtimeMixin(base) {
           }
         } catch (error) {
           console.error(`[RealtimeMixin] Error in listener for ${this.collectionName}:`, error);
-          handleError(error, `Realtime subscription listener error for ${this.collectionName}`);
-          errorCallback(error);
+          handleError(
+            error as Error,
+            `Realtime subscription listener error for ${this.collectionName}`
+          );
+          errorCallback(error as Error);
         }
       };
 
-      const errorListener = (error) => {
+      const errorListener = (error: Error) => {
         console.error(`[RealtimeMixin] Firebase error for ${this.collectionName}:`, error);
         handleError(error, `Realtime subscription error for ${this.collectionName}`);
         errorCallback(error);
@@ -67,12 +106,12 @@ export function RealtimeMixin(base) {
 
     /**
      * Subscribe to a single entity by ID.
-     * @param {string} entityId - The ID of the entity to subscribe to.
-     * @param {Function} callback - Callback to receive entity data (object with id or null).
-     * @param {Function} [errorCallback] - Optional callback for errors.
-     * @returns {Function} Unsubscribe function - caller MUST call this to cleanup.
      */
-    subscribeToOne(entityId, callback, errorCallback = () => {}) {
+    subscribeToOne(
+      entityId: string,
+      callback: DataCallback<any | null>,
+      errorCallback: ErrorCallback = () => {}
+    ): () => void {
       if (!entityId) {
         handleError(
           new Error('subscribeToOne called with falsy entityId'),
@@ -83,7 +122,7 @@ export function RealtimeMixin(base) {
 
       const entityRef = ref(this.db, `${this.collectionName}/${entityId}`);
 
-      const listener = (snapshot) => {
+      const listener = (snapshot: DataSnapshot) => {
         try {
           const data = snapshot.val();
           if (data) {
@@ -93,12 +132,12 @@ export function RealtimeMixin(base) {
           }
         } catch (error) {
           console.error(`[RealtimeMixin] Error in listener for ${entityId}:`, error);
-          handleError(error, `Realtime subscription error for ${entityId}`);
-          errorCallback(error);
+          handleError(error as Error, `Realtime subscription error for ${entityId}`);
+          errorCallback(error as Error);
         }
       };
 
-      const errorListener = (error) => {
+      const errorListener = (error: Error) => {
         console.error(`[RealtimeMixin] Firebase error for ${entityId}:`, error);
         handleError(error, `Realtime subscription error for ${entityId}`);
         errorCallback(error);
@@ -110,14 +149,14 @@ export function RealtimeMixin(base) {
 
     /**
      * Subscribe to entities by field value.
-     * @param {string} fieldName - Field to query by.
-     * @param {any} value - Value to match.
-     * @param {Function} callback - Callback to receive entities (array of objects with id).
-     * @param {Function|null} sortFn - Optional sorting function for the entities array.
-     * @param {Function} [errorCallback] - Optional callback for errors.
-     * @returns {Function} Unsubscribe function - caller MUST call this to cleanup.
      */
-    subscribeToByField(fieldName, value, callback, sortFn = null, errorCallback = () => {}) {
+    subscribeToByField(
+      fieldName: string,
+      value: any,
+      callback: DataCallback<any[]>,
+      sortFn: SortFunction | null = null,
+      errorCallback: ErrorCallback = () => {}
+    ): () => void {
       if (!fieldName || value === undefined) {
         handleError(
           new Error('subscribeToByField called with invalid parameters'),
@@ -129,7 +168,7 @@ export function RealtimeMixin(base) {
       const entitiesRef = ref(this.db, this.collectionName);
       const fieldQuery = query(entitiesRef, orderByChild(fieldName), equalTo(value));
 
-      const listener = (snapshot) => {
+      const listener = (snapshot: DataSnapshot) => {
         try {
           const data = snapshot.val();
           console.log(
@@ -139,7 +178,7 @@ export function RealtimeMixin(base) {
           if (data) {
             const entities = Object.entries(data).map(([id, entityData]) => ({
               id,
-              ...entityData,
+              ...(entityData as Record<string, any>),
             }));
             const sorted =
               sortFn && typeof sortFn === 'function' ? entities.sort(sortFn) : entities;
@@ -149,12 +188,12 @@ export function RealtimeMixin(base) {
           }
         } catch (error) {
           console.error(`[RealtimeMixin] Error in listener:`, error);
-          handleError(error, `Realtime subscription listener error`);
-          errorCallback(error);
+          handleError(error as Error, `Realtime subscription listener error`);
+          errorCallback(error as Error);
         }
       };
 
-      const errorListener = (error) => {
+      const errorListener = (error: Error) => {
         console.error(`[RealtimeMixin] Firebase error:`, error);
         handleError(error, `Realtime subscription error`);
         errorCallback(error);

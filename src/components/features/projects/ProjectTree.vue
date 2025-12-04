@@ -22,21 +22,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
-import { Tree } from 'primevue'
-import firebaseService from '@/services/firebaseService'
+import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { useRouter } from 'vue-router';
+import { Tree } from 'primevue';
+import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository';
 
 // Reactive state
-const treeData = ref([])
-const loading = ref(true)
-const error = ref(null)
-const router = useRouter()
-let unsubscribe = null
+const treeData = ref([]);
+const loading = ref(true);
+const error = ref(null);
+const router = useRouter();
+let unsubscribe = null;
 
 function transformToTreeNodes(projects) {
   if (!projects || projects.length === 0) {
-    return []
+    return [];
   }
 
   // Helper function to create project nodes
@@ -47,7 +47,7 @@ function transformToTreeNodes(projects) {
       data: project,
       type: 'project',
       children: [],
-    }
+    };
   }
 
   // Define the base node structure
@@ -60,62 +60,58 @@ function transformToTreeNodes(projects) {
       { key: 'phase-close-out', label: 'Close-Out', children: [], type: 'phase' },
       { key: 'phase-complete', label: 'Complete', children: [], type: 'phase' },
     ],
-  }
+  };
 
   // Distribute projects into appropriate phases
   projects.forEach((project) => {
-    const phase = project.phase || 'pre-construction'
-    const targetPhaseNode = baseNode.children.find((node) => node.key === `phase-${phase}`)
+    const phase = project.phase || 'pre-construction';
+    const targetPhaseNode = baseNode.children.find((node) => node.key === `phase-${phase}`);
 
     if (targetPhaseNode) {
-      targetPhaseNode.children.push(createProjectNode(project))
+      targetPhaseNode.children.push(createProjectNode(project));
     } else {
       // Default to pre-construction if phase doesn't match
       baseNode.children
         .find((node) => node.key === 'phase-pre-construction')
-        .children.push(createProjectNode(project))
+        .children.push(createProjectNode(project));
     }
-  })
+  });
 
-  return [baseNode]
+  return [baseNode];
 }
 
 function onNodeSelect(node) {
   // Only navigate if it's a project node
   if (node.type === 'project' && node.data) {
-    router.push(`/project/${node.data.id}`)
+    router.push(`/project/${node.data.id}`);
   }
 }
 
 // Fetch projects using the service
 onMounted(async () => {
-  console.log('ProjectTree.vue mounted. Fetching data...')
+  console.log('ProjectTree.vue mounted. Fetching data...');
 
   try {
     // Set up real-time listener for all projects
-    unsubscribe = firebaseService.subscribeToProjects((projects) => {
-      console.log('Projects updated:', projects)
-      treeData.value = transformToTreeNodes(projects)
-      loading.value = false
-    })
+    unsubscribe = ProjectRepository.subscribeToProjects({}, (projects) => {
+      console.log('Projects updated:', projects);
+      treeData.value = transformToTreeNodes(projects);
+      loading.value = false;
+    });
   } catch (err) {
-    console.error('Error fetching projects:', err)
-    error.value = 'Failed to load projects.'
-    loading.value = false
+    console.error('Error fetching projects:', err);
+    error.value = 'Failed to load projects.';
+    loading.value = false;
   }
-})
+});
 
 // Clean up Firebase listener
 onBeforeUnmount(() => {
-  if (unsubscribe) {
-    console.log('Cleaning up ProjectTree listeners')
-    if (typeof unsubscribe === 'function') {
-      unsubscribe()
-    } else {
-      firebaseService.unsubscribe(unsubscribe)
-    }
+  if (unsubscribe && typeof unsubscribe === 'function') {
+    console.log('Cleaning up ProjectTree listeners');
+    unsubscribe();
   }
-})
+});
 </script>
 
 <style scoped>
