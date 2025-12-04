@@ -1,9 +1,47 @@
-// src/services/firebase/repositories/ClientRepository.js
+// src/services/firebase/repositories/ClientRepository.ts
 import BaseRepository from '../core/BaseRepository'
 import { CrudMixin } from '../mixins/CrudMixin'
 import { RealtimeMixin } from '../mixins/RealtimeMixin'
 import ActivityService from '../../logging/ActivityService'
 import { CLIENT_SCHEMA } from '../schemas'
+import type { Client, ValidationResult } from '@/types/models'
+
+interface ClientFilters {
+  active?: boolean
+  company?: string
+  hasProjects?: boolean
+  sortBy?: string
+  sortDirection?: 'asc' | 'desc'
+}
+
+interface ClientStatistics {
+  total: number
+  active: number
+  inactive: number
+  withProjects: number
+  withoutProjects: number
+  totalProjectValue: number
+  averageProjectValue: number
+  byCompanySize: {
+    individual: number
+    small: number
+    medium: number
+    large: number
+  }
+  recentlyContacted: number
+  needsFollow: number
+}
+
+interface ClientProjectSummary {
+  clientId: string
+  clientName: string
+  totalProjects: number
+  totalProjectValue: number
+  averageProjectValue: number
+  lastProjectDate: string | null | undefined
+  lastContactDate: string | null | undefined
+  active: boolean
+}
 
 /**
  * Client Repository - handles all client-related Firebase operations
@@ -17,7 +55,7 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Create a new client with validation and activity logging
    */
-  async createClient(clientData) {
+  async createClient(clientData: Partial<Client>): Promise<Client> {
     try {
       const validation = this.validateData(clientData, ['name', 'email'])
       if (!validation.isValid) {
@@ -34,7 +72,7 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         lastContactDate: null,
       }
 
-      const newClient = await this.create(clientDataWithDefaults, CLIENT_SCHEMA)
+      const newClient = await this.create(clientDataWithDefaults, CLIENT_SCHEMA) as Client
 
       // Log activity - clients are independent entities
       await ActivityService.logActivity(
@@ -43,7 +81,7 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         'client',
         newClient.id,
         `Created client: ${newClient.name}`,
-        { company: newClient.company },
+        { company: (newClient as any).company },
       )
 
       return newClient
@@ -56,24 +94,24 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Get all clients with optional filtering
    */
-  async getAllClients(filters = {}) {
+  async getAllClients(filters: ClientFilters = {}): Promise<Client[]> {
     try {
-      let clients = await this.getAll()
+      let clients = await this.getAll() as Client[]
 
       // Apply filters
       if (filters.active !== undefined) {
-        clients = clients.filter((client) => client.active === filters.active)
+        clients = clients.filter((client) => (client as any).active === filters.active)
       }
 
       if (filters.company) {
         clients = clients.filter((client) =>
-          client.company?.toLowerCase().includes(filters.company.toLowerCase()),
+          (client as any).company?.toLowerCase().includes(filters.company!.toLowerCase()),
         )
       }
 
       if (filters.hasProjects !== undefined) {
         clients = clients.filter((client) => {
-          const hasProjects = client.projects && client.projects.length > 0
+          const hasProjects = (client as any).projects && (client as any).projects.length > 0
           return filters.hasProjects ? hasProjects : !hasProjects
         })
       }
@@ -93,10 +131,10 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Get active clients only
    */
-  async getActiveClients() {
+  async getActiveClients(): Promise<Client[]> {
     try {
-      const allClients = await this.getAll()
-      return allClients.filter((client) => client.active !== false)
+      const allClients = await this.getAll() as Client[]
+      return allClients.filter((client) => (client as any).active !== false)
     } catch (error) {
       console.error('Error getting active clients:', error)
       throw error
@@ -106,10 +144,10 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Get clients with projects
    */
-  async getClientsWithProjects() {
+  async getClientsWithProjects(): Promise<Client[]> {
     try {
-      const allClients = await this.getAll()
-      return allClients.filter((client) => client.projects && client.projects.length > 0)
+      const allClients = await this.getAll() as Client[]
+      return allClients.filter((client) => (client as any).projects && (client as any).projects.length > 0)
     } catch (error) {
       console.error('Error getting clients with projects:', error)
       throw error
@@ -119,15 +157,15 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Search clients by name, company, or email
    */
-  async searchClients(searchTerm) {
+  async searchClients(searchTerm: string): Promise<Client[]> {
     try {
-      const allClients = await this.getAll()
+      const allClients = await this.getAll() as Client[]
       const term = searchTerm.toLowerCase().trim()
 
       return allClients.filter((client) => {
         return (
           client.name?.toLowerCase().includes(term) ||
-          client.company?.toLowerCase().includes(term) ||
+          (client as any).company?.toLowerCase().includes(term) ||
           client.email?.toLowerCase().includes(term) ||
           client.contactPerson?.toLowerCase().includes(term)
         )
@@ -141,9 +179,9 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Update client with validation and activity logging
    */
-  async updateClient(clientId, updates) {
+  async updateClient(clientId: string, updates: Partial<Client>): Promise<any> {
     try {
-      const originalClient = await this.getById(clientId)
+      const originalClient = await this.getById(clientId) as Client
       if (!originalClient) {
         throw new Error('Client not found')
       }
@@ -153,7 +191,7 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       // Log significant updates
       const significantFields = ['name', 'company', 'email', 'active']
       const significantChanges = Object.keys(updates).filter(
-        (key) => significantFields.includes(key) && updates[key] !== originalClient[key],
+        (key) => significantFields.includes(key) && (updates as any)[key] !== (originalClient as any)[key],
       )
 
       if (significantChanges.length > 0) {
@@ -162,13 +200,13 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           'client',
           clientId,
           originalClient.name,
-          Object.fromEntries(significantChanges.map((key) => [key, updates[key]])),
+          Object.fromEntries(significantChanges.map((key) => [key, (updates as any)[key]])),
         )
       }
 
       // Special logging for status changes
-      if (updates.active !== undefined && updates.active !== originalClient.active) {
-        const action = updates.active ? 'reactivated' : 'deactivated'
+      if ((updates as any).active !== undefined && (updates as any).active !== (originalClient as any).active) {
+        const action = (updates as any).active ? 'reactivated' : 'deactivated'
         await ActivityService.logActivity(
           null,
           `${action}_client`,
@@ -188,9 +226,9 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Deactivate client instead of deleting
    */
-  async deactivateClient(clientId) {
+  async deactivateClient(clientId: string): Promise<any> {
     try {
-      return await this.updateClient(clientId, { active: false })
+      return await this.updateClient(clientId, { active: false } as any)
     } catch (error) {
       console.error('Error deactivating client:', error)
       throw error
@@ -200,9 +238,9 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Reactivate client
    */
-  async reactivateClient(clientId) {
+  async reactivateClient(clientId: string): Promise<any> {
     try {
-      return await this.updateClient(clientId, { active: true })
+      return await this.updateClient(clientId, { active: true } as any)
     } catch (error) {
       console.error('Error reactivating client:', error)
       throw error
@@ -212,15 +250,15 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Delete client (hard delete)
    */
-  async deleteClient(clientId) {
+  async deleteClient(clientId: string): Promise<{ success: boolean; id: string }> {
     try {
-      const client = await this.getById(clientId)
+      const client = await this.getById(clientId) as Client
       if (!client) {
         throw new Error('Client not found')
       }
 
       // Check if client has active projects
-      if (client.projects && client.projects.length > 0) {
+      if ((client as any).projects && (client as any).projects.length > 0) {
         throw new Error(
           'Cannot delete client with active projects. Please remove or reassign projects first.',
         )
@@ -248,20 +286,20 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Add project to client
    */
-  async addProjectToClient(clientId, projectId, projectValue = 0) {
+  async addProjectToClient(clientId: string, projectId: string, projectValue: number = 0): Promise<boolean> {
     try {
-      const client = await this.getById(clientId)
+      const client = await this.getById(clientId) as Client
       if (!client) {
         throw new Error('Client not found')
       }
 
-      const projects = client.projects || []
+      const projects = (client as any).projects || []
       if (!projects.includes(projectId)) {
         projects.push(projectId)
 
         const updates = {
           projects,
-          totalProjectValue: (client.totalProjectValue || 0) + projectValue,
+          totalProjectValue: ((client as any).totalProjectValue || 0) + projectValue,
           lastProjectDate: new Date().toISOString(),
         }
 
@@ -288,18 +326,18 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Remove project from client
    */
-  async removeProjectFromClient(clientId, projectId, projectValue = 0) {
+  async removeProjectFromClient(clientId: string, projectId: string, projectValue: number = 0): Promise<boolean> {
     try {
-      const client = await this.getById(clientId)
+      const client = await this.getById(clientId) as Client
       if (!client) {
         throw new Error('Client not found')
       }
 
-      const projects = (client.projects || []).filter((id) => id !== projectId)
+      const projects = ((client as any).projects || []).filter((id: string) => id !== projectId)
 
       const updates = {
         projects,
-        totalProjectValue: Math.max(0, (client.totalProjectValue || 0) - projectValue),
+        totalProjectValue: Math.max(0, ((client as any).totalProjectValue || 0) - projectValue),
       }
 
       await this.update(clientId, updates)
@@ -324,7 +362,7 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Update client's last contact date
    */
-  async updateLastContact(clientId, contactDate = null, notes = '') {
+  async updateLastContact(clientId: string, contactDate: string | null = null, notes: string = ''): Promise<any> {
     try {
       const updates = {
         lastContactDate: contactDate || new Date().toISOString(),
@@ -334,7 +372,7 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       const result = await this.update(clientId, updates)
 
       // Log activity
-      const client = await this.getById(clientId)
+      const client = await this.getById(clientId) as Client
       await ActivityService.logActivity(
         null,
         'updated_client_contact',
@@ -356,29 +394,29 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Get client statistics
    */
-  async getClientStatistics() {
+  async getClientStatistics(): Promise<ClientStatistics> {
     try {
-      const allClients = await this.getAll()
+      const allClients = await this.getAll() as Client[]
 
-      const stats = {
+      const stats: ClientStatistics = {
         total: allClients.length,
-        active: allClients.filter((c) => c.active !== false).length,
-        inactive: allClients.filter((c) => c.active === false).length,
-        withProjects: allClients.filter((c) => c.projects && c.projects.length > 0).length,
-        withoutProjects: allClients.filter((c) => !c.projects || c.projects.length === 0).length,
+        active: allClients.filter((c) => (c as any).active !== false).length,
+        inactive: allClients.filter((c) => (c as any).active === false).length,
+        withProjects: allClients.filter((c) => (c as any).projects && (c as any).projects.length > 0).length,
+        withoutProjects: allClients.filter((c) => !(c as any).projects || (c as any).projects.length === 0).length,
         totalProjectValue: allClients.reduce(
-          (sum, client) => sum + (client.totalProjectValue || 0),
+          (sum, client) => sum + ((client as any).totalProjectValue || 0),
           0,
         ),
         averageProjectValue: 0,
         byCompanySize: {
-          individual: 0, // No company name
-          small: 0, // 1-50 (estimated based on project count)
-          medium: 0, // 51-200
-          large: 0, // 200+
+          individual: 0,
+          small: 0,
+          medium: 0,
+          large: 0,
         },
-        recentlyContacted: 0, // Last 30 days
-        needsFollow: 0, // No contact in 90+ days
+        recentlyContacted: 0,
+        needsFollow: 0,
       }
 
       // Calculate averages
@@ -393,10 +431,10 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
 
       allClients.forEach((client) => {
         // Company size estimation
-        if (!client.company || client.company.trim() === '') {
+        if (!(client as any).company || (client as any).company.trim() === '') {
           stats.byCompanySize.individual++
         } else {
-          const projectCount = client.projects ? client.projects.length : 0
+          const projectCount = (client as any).projects ? (client as any).projects.length : 0
           if (projectCount <= 2) {
             stats.byCompanySize.small++
           } else if (projectCount <= 5) {
@@ -407,8 +445,8 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         }
 
         // Contact analysis
-        if (client.lastContactDate) {
-          const lastContact = new Date(client.lastContactDate)
+        if ((client as any).lastContactDate) {
+          const lastContact = new Date((client as any).lastContactDate)
           if (lastContact > thirtyDaysAgo) {
             stats.recentlyContacted++
           } else if (lastContact < ninetyDaysAgo) {
@@ -429,9 +467,9 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Get client project summary
    */
-  async getClientProjectSummary(clientId) {
+  async getClientProjectSummary(clientId: string): Promise<ClientProjectSummary> {
     try {
-      const client = await this.getById(clientId)
+      const client = await this.getById(clientId) as Client
       if (!client) {
         throw new Error('Client not found')
       }
@@ -439,15 +477,15 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       return {
         clientId,
         clientName: client.name,
-        totalProjects: client.projects ? client.projects.length : 0,
-        totalProjectValue: client.totalProjectValue || 0,
+        totalProjects: (client as any).projects ? (client as any).projects.length : 0,
+        totalProjectValue: (client as any).totalProjectValue || 0,
         averageProjectValue:
-          client.projects && client.projects.length > 0
-            ? (client.totalProjectValue || 0) / client.projects.length
+          (client as any).projects && (client as any).projects.length > 0
+            ? ((client as any).totalProjectValue || 0) / (client as any).projects.length
             : 0,
-        lastProjectDate: client.lastProjectDate,
-        lastContactDate: client.lastContactDate,
-        active: client.active !== false,
+        lastProjectDate: (client as any).lastProjectDate,
+        lastContactDate: (client as any).lastContactDate,
+        active: (client as any).active !== false,
       }
     } catch (error) {
       console.error('Error getting client project summary:', error)
@@ -460,7 +498,7 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Bulk deactivate clients
    */
-  async bulkDeactivateClients(clientIds) {
+  async bulkDeactivateClients(clientIds: string[]): Promise<any[]> {
     try {
       const updates = { active: false }
       const results = await this.bulkUpdate(clientIds, updates)
@@ -483,7 +521,7 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Bulk update client information
    */
-  async bulkUpdateClients(clientIds, updates) {
+  async bulkUpdateClients(clientIds: string[], updates: Partial<Client>): Promise<any[]> {
     try {
       const results = await this.bulkUpdate(clientIds, updates)
 
@@ -508,8 +546,8 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Subscribe to all clients with sorting
    */
-  subscribeToClients(callback) {
-    const sortByName = (a, b) => {
+  subscribeToClients(callback: (clients: Client[]) => void): () => void {
+    const sortByName = (a: Client, b: Client) => {
       const nameA = (a.name || '').toLowerCase()
       const nameB = (b.name || '').toLowerCase()
       return nameA.localeCompare(nameB)
@@ -521,8 +559,8 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Subscribe to active clients only
    */
-  subscribeToActiveClients(callback) {
-    const filterActive = (clients) => {
+  subscribeToActiveClients(callback: (clients: Client[]) => void): () => void {
+    const filterActive = (clients: any[]) => {
       const activeClients = clients
         .filter((client) => client.active !== false)
         .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
@@ -535,8 +573,8 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Subscribe to clients with projects
    */
-  subscribeToClientsWithProjects(callback) {
-    const filterWithProjects = (clients) => {
+  subscribeToClientsWithProjects(callback: (clients: Client[]) => void): () => void {
+    const filterWithProjects = (clients: any[]) => {
       const clientsWithProjects = clients
         .filter((client) => client.projects && client.projects.length > 0)
         .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
@@ -551,9 +589,9 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Sort clients by various criteria
    */
-  sortClients(clients, sortBy = 'name', direction = 'asc') {
+  sortClients(clients: Client[], sortBy: string = 'name', direction: 'asc' | 'desc' = 'asc'): Client[] {
     return clients.sort((a, b) => {
-      let aVal, bVal
+      let aVal: any, bVal: any
 
       switch (sortBy) {
         case 'name':
@@ -562,8 +600,8 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           break
 
         case 'company':
-          aVal = (a.company || '').toLowerCase()
-          bVal = (b.company || '').toLowerCase()
+          aVal = ((a as any).company || '').toLowerCase()
+          bVal = ((b as any).company || '').toLowerCase()
           break
 
         case 'email':
@@ -572,18 +610,18 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           break
 
         case 'projectCount':
-          aVal = a.projects ? a.projects.length : 0
-          bVal = b.projects ? b.projects.length : 0
+          aVal = (a as any).projects ? (a as any).projects.length : 0
+          bVal = (b as any).projects ? (b as any).projects.length : 0
           break
 
         case 'totalProjectValue':
-          aVal = a.totalProjectValue || 0
-          bVal = b.totalProjectValue || 0
+          aVal = (a as any).totalProjectValue || 0
+          bVal = (b as any).totalProjectValue || 0
           break
 
         case 'lastContactDate':
-          aVal = a.lastContactDate ? new Date(a.lastContactDate) : new Date(0)
-          bVal = b.lastContactDate ? new Date(b.lastContactDate) : new Date(0)
+          aVal = (a as any).lastContactDate ? new Date((a as any).lastContactDate) : new Date(0)
+          bVal = (b as any).lastContactDate ? new Date((b as any).lastContactDate) : new Date(0)
           break
 
         case 'createdAt':
@@ -592,8 +630,8 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           break
 
         default:
-          aVal = a[sortBy] || ''
-          bVal = b[sortBy] || ''
+          aVal = (a as any)[sortBy] || ''
+          bVal = (b as any)[sortBy] || ''
       }
 
       if (direction === 'desc') {
@@ -606,7 +644,7 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Validate client-specific data
    */
-  validateClientData(clientData) {
+  validateClientData(clientData: any): ValidationResult {
     const validation = super.validateData(clientData, ['name', 'email'])
 
     // Add client-specific validations
@@ -635,7 +673,7 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Email validation helper
    */
-  isValidEmail(email) {
+  isValidEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     return emailRegex.test(email)
   }
@@ -643,7 +681,7 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Website URL validation helper
    */
-  isValidWebsite(website) {
+  isValidWebsite(website: string): boolean {
     try {
       new URL(website.startsWith('http') ? website : `https://${website}`)
       return true
@@ -655,8 +693,7 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Phone validation helper
    */
-  isValidPhone(phone) {
-    // Basic phone validation - adjust regex based on your needs
+  isValidPhone(phone: string): boolean {
     const phoneRegex = /^[+]?[\d\s\-()]+$/
     return phoneRegex.test(phone) && phone.replace(/\D/g, '').length >= 10
   }
@@ -664,11 +701,11 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Format client display name
    */
-  getDisplayName(client) {
+  getDisplayName(client: Client): string {
     if (!client) return 'Unknown Client'
 
-    if (client.company && client.company.trim()) {
-      return `${client.name} (${client.company})`
+    if ((client as any).company && (client as any).company.trim()) {
+      return `${client.name} (${(client as any).company})`
     }
 
     return client.name || 'Unknown Client'
@@ -677,10 +714,10 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Check if client needs follow-up
    */
-  needsFollowUp(client, daysThreshold = 90) {
-    if (!client.lastContactDate) return true
+  needsFollowUp(client: Client, daysThreshold: number = 90): boolean {
+    if (!(client as any).lastContactDate) return true
 
-    const lastContact = new Date(client.lastContactDate)
+    const lastContact = new Date((client as any).lastContactDate)
     const threshold = new Date()
     threshold.setDate(threshold.getDate() - daysThreshold)
 
@@ -690,21 +727,21 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Get client health score (0-100)
    */
-  getHealthScore(client) {
+  getHealthScore(client: Client): number {
     let score = 50 // Base score
 
     // Active client bonus
-    if (client.active !== false) score += 10
+    if ((client as any).active !== false) score += 10
 
     // Project activity bonus
-    const projectCount = client.projects ? client.projects.length : 0
+    const projectCount = (client as any).projects ? (client as any).projects.length : 0
     if (projectCount > 0) score += 15
     if (projectCount > 3) score += 10
 
     // Recent contact bonus
-    if (client.lastContactDate) {
+    if ((client as any).lastContactDate) {
       const daysSinceContact =
-        (new Date() - new Date(client.lastContactDate)) / (1000 * 60 * 60 * 24)
+        (new Date().getTime() - new Date((client as any).lastContactDate).getTime()) / (1000 * 60 * 60 * 24)
       if (daysSinceContact < 30) score += 15
       else if (daysSinceContact < 90) score += 5
       else score -= 10
@@ -717,8 +754,8 @@ class ClientRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
     if (client.name) completeness++
     if (client.email) completeness++
     if (client.phone) completeness++
-    if (client.company) completeness++
-    if (client.address) completeness++
+    if ((client as any).company) completeness++
+    if ((client as any).address) completeness++
 
     score += (completeness / 5) * 10
 

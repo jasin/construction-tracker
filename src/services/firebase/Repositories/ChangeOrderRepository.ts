@@ -1,4 +1,4 @@
-// src/services/firebase/repositories/ChangeOrderRepository.js
+// src/services/firebase/repositories/ChangeOrderRepository.ts
 import BaseRepository from '@/services/firebase/core/BaseRepository'
 import { CrudMixin } from '../mixins/CrudMixin'
 import { RealtimeMixin } from '../mixins/RealtimeMixin'
@@ -6,6 +6,57 @@ import ActivityService from '@/services/logging/ActivityService'
 import firebaseCore from '@/services/firebase/core/FirebaseCore'
 import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database'
 import { CHANGE_ORDER_SCHEMA } from '../schemas'
+import type { ChangeOrder, ValidationResult } from '@/types/models'
+
+interface ChangeOrderFilters {
+  status?: string[]
+  type?: string[]
+  requestedBy?: string
+  billable?: boolean
+  minCostImpact?: number
+  maxCostImpact?: number
+  requestedAfter?: string
+  sortBy?: string
+  sortDirection?: 'asc' | 'desc'
+  limit?: number
+}
+
+interface ProjectImpact {
+  totalCostImpact: number
+  totalTimeImpact: number
+  additionsCost: number
+  deletionsCost: number
+  modificationsCost: number
+  creditsCost: number
+  billableAmount: number
+  nonBillableAmount: number
+  changeOrderCount: number
+}
+
+interface ChangeOrderStatistics {
+  total: number
+  byStatus: Record<string, number>
+  byType: Record<string, number>
+  totalCostImpact: number
+  totalTimeImpact: number
+  averageCostImpact: number
+  averageTimeImpact: number
+  billableAmount: number
+  nonBillableAmount: number
+  averageApprovalTime: number
+  byRequester: Record<string, number>
+  pendingApproval: number
+  recentActivity: number
+}
+
+interface ImpactSummary {
+  costImpact: number
+  timeImpact: number
+  type: string
+  billable: boolean
+  hasFinancialImpact: boolean
+  hasScheduleImpact: boolean
+}
 
 /**
  * Change Order Repository - handles all change order-related Firebase operations
@@ -19,7 +70,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Create a new change order with validation and activity logging
    */
-  async createChangeOrder(changeOrderData) {
+  async createChangeOrder(changeOrderData: Partial<ChangeOrder>): Promise<ChangeOrder> {
     try {
       const validation = this.validateData(changeOrderData, ['title', 'projectId'])
       if (!validation.isValid) {
@@ -41,7 +92,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         attachmentCount: validation.cleanData.attachmentCount || 0,
       }
 
-      const newCO = await this.create(coDataWithDefaults, CHANGE_ORDER_SCHEMA)
+      const newCO = await this.create(coDataWithDefaults, CHANGE_ORDER_SCHEMA) as ChangeOrder
 
       // Log activity
       await ActivityService.logEntityCreated(newCO.projectId, 'changeOrder', newCO.id, newCO.title)
@@ -56,17 +107,17 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Get change orders by project with optional filtering
    */
-  async getChangeOrdersByProject(projectId, filters = {}) {
+  async getChangeOrdersByProject(projectId: string, filters: ChangeOrderFilters = {}): Promise<ChangeOrder[]> {
     try {
-      let changeOrders = await this.getByField('projectId', projectId)
+      let changeOrders = await this.getByField('projectId', projectId) as ChangeOrder[]
 
       // Apply filters
       if (filters.status && filters.status.length > 0) {
-        changeOrders = changeOrders.filter((co) => filters.status.includes(co.status))
+        changeOrders = changeOrders.filter((co) => filters.status!.includes(co.status))
       }
 
       if (filters.type && filters.type.length > 0) {
-        changeOrders = changeOrders.filter((co) => filters.type.includes(co.type))
+        changeOrders = changeOrders.filter((co) => filters.type!.includes((co as any).type))
       }
 
       if (filters.requestedBy) {
@@ -74,20 +125,20 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       }
 
       if (filters.billable !== undefined) {
-        changeOrders = changeOrders.filter((co) => co.billable === filters.billable)
+        changeOrders = changeOrders.filter((co) => (co as any).billable === filters.billable)
       }
 
       if (filters.minCostImpact !== undefined) {
-        changeOrders = changeOrders.filter((co) => (co.costImpact || 0) >= filters.minCostImpact)
+        changeOrders = changeOrders.filter((co) => ((co as any).costImpact || 0) >= filters.minCostImpact!)
       }
 
       if (filters.maxCostImpact !== undefined) {
-        changeOrders = changeOrders.filter((co) => (co.costImpact || 0) <= filters.maxCostImpact)
+        changeOrders = changeOrders.filter((co) => ((co as any).costImpact || 0) <= filters.maxCostImpact!)
       }
 
       if (filters.requestedAfter) {
         changeOrders = changeOrders.filter(
-          (co) => co.requestedAt && new Date(co.requestedAt) >= new Date(filters.requestedAfter),
+          (co) => (co as any).requestedAt && new Date((co as any).requestedAt) >= new Date(filters.requestedAfter!),
         )
       }
 
@@ -97,6 +148,11 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         filters.sortBy || 'requestedAt',
         filters.sortDirection || 'desc',
       )
+
+      // Apply limit if specified
+      if (filters.limit && filters.limit > 0) {
+        changeOrders = changeOrders.slice(0, filters.limit)
+      }
 
       return changeOrders
     } catch (error) {
@@ -108,11 +164,11 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Get change orders by status
    */
-  async getChangeOrdersByStatus(status, projectId = null) {
+  async getChangeOrdersByStatus(status: string, projectId: string | null = null): Promise<ChangeOrder[]> {
     try {
       let changeOrders = projectId
         ? await this.getChangeOrdersByProject(projectId)
-        : await this.getAll()
+        : await this.getAll() as ChangeOrder[]
       return changeOrders.filter((co) => co.status === status)
     } catch (error) {
       console.error('Error getting change orders by status:', error)
@@ -123,7 +179,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Get pending change orders
    */
-  async getPendingChangeOrders(projectId = null) {
+  async getPendingChangeOrders(projectId: string | null = null): Promise<ChangeOrder[]> {
     try {
       return await this.getChangeOrdersByStatus('submitted', projectId)
     } catch (error) {
@@ -135,7 +191,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Get approved change orders
    */
-  async getApprovedChangeOrders(projectId = null) {
+  async getApprovedChangeOrders(projectId: string | null = null): Promise<ChangeOrder[]> {
     try {
       return await this.getChangeOrdersByStatus('approved', projectId)
     } catch (error) {
@@ -147,19 +203,19 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Search change orders
    */
-  async searchChangeOrders(searchTerm, projectId = null) {
+  async searchChangeOrders(searchTerm: string, projectId: string | null = null): Promise<ChangeOrder[]> {
     try {
       let changeOrders = projectId
         ? await this.getChangeOrdersByProject(projectId)
-        : await this.getAll()
+        : await this.getAll() as ChangeOrder[]
       const term = searchTerm.toLowerCase().trim()
 
       return changeOrders.filter((co) => {
         return (
           co.title?.toLowerCase().includes(term) ||
           co.description?.toLowerCase().includes(term) ||
-          co.number?.toLowerCase().includes(term) ||
-          co.reason?.toLowerCase().includes(term) ||
+          (co as any).number?.toLowerCase().includes(term) ||
+          (co as any).reason?.toLowerCase().includes(term) ||
           co.requestedByName?.toLowerCase().includes(term)
         )
       })
@@ -172,9 +228,9 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Update change order with validation and activity logging
    */
-  async updateChangeOrder(changeOrderId, updates) {
+  async updateChangeOrder(changeOrderId: string, updates: Partial<ChangeOrder>): Promise<any> {
     try {
-      const originalCO = await this.getById(changeOrderId)
+      const originalCO = await this.getById(changeOrderId) as ChangeOrder
       if (!originalCO) {
         throw new Error('Change order not found')
       }
@@ -193,30 +249,30 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         )
       }
 
-      if (updates.costImpact !== undefined && updates.costImpact !== originalCO.costImpact) {
+      if ((updates as any).costImpact !== undefined && (updates as any).costImpact !== (originalCO as any).costImpact) {
         await ActivityService.logActivity(
           originalCO.projectId,
           'updated_change_order_cost',
           'changeOrder',
           changeOrderId,
-          `Updated change order "${originalCO.title}" cost impact from ${originalCO.costImpact || 0} to ${updates.costImpact}`,
+          `Updated change order "${originalCO.title}" cost impact from ${(originalCO as any).costImpact || 0} to ${(updates as any).costImpact}`,
           {
-            oldCostImpact: originalCO.costImpact || 0,
-            newCostImpact: updates.costImpact,
+            oldCostImpact: (originalCO as any).costImpact || 0,
+            newCostImpact: (updates as any).costImpact,
           },
         )
       }
 
-      if (updates.timeImpact !== undefined && updates.timeImpact !== originalCO.timeImpact) {
+      if ((updates as any).timeImpact !== undefined && (updates as any).timeImpact !== (originalCO as any).timeImpact) {
         await ActivityService.logActivity(
           originalCO.projectId,
           'updated_change_order_time',
           'changeOrder',
           changeOrderId,
-          `Updated change order "${originalCO.title}" time impact from ${originalCO.timeImpact || 0} days to ${updates.timeImpact} days`,
+          `Updated change order "${originalCO.title}" time impact from ${(originalCO as any).timeImpact || 0} days to ${(updates as any).timeImpact} days`,
           {
-            oldTimeImpact: originalCO.timeImpact || 0,
-            newTimeImpact: updates.timeImpact,
+            oldTimeImpact: (originalCO as any).timeImpact || 0,
+            newTimeImpact: (updates as any).timeImpact,
           },
         )
       }
@@ -231,7 +287,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Approve change order
    */
-  async approveChangeOrder(changeOrderId, approvedBy = null, approvalNotes = '') {
+  async approveChangeOrder(changeOrderId: string, approvedBy: string | null = null, approvalNotes: string = ''): Promise<any> {
     try {
       const updates = {
         status: 'approved',
@@ -244,7 +300,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       const result = await this.update(changeOrderId, updates, CHANGE_ORDER_SCHEMA)
 
       // Log approval activity
-      const co = await this.getById(changeOrderId)
+      const co = await this.getById(changeOrderId) as ChangeOrder
       if (co && co.projectId) {
         await ActivityService.logActivity(
           co.projectId,
@@ -254,8 +310,8 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           `Approved change order: ${co.title}`,
           {
             approvedBy: updates.approvedByName,
-            costImpact: co.costImpact,
-            timeImpact: co.timeImpact,
+            costImpact: (co as any).costImpact,
+            timeImpact: (co as any).timeImpact,
             approvalNotes,
           },
         )
@@ -271,7 +327,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Reject change order
    */
-  async rejectChangeOrder(changeOrderId, rejectedBy = null, rejectionReason = '') {
+  async rejectChangeOrder(changeOrderId: string, rejectedBy: string | null = null, rejectionReason: string = ''): Promise<any> {
     try {
       const updates = {
         status: 'rejected',
@@ -284,7 +340,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       const result = await this.update(changeOrderId, updates, CHANGE_ORDER_SCHEMA)
 
       // Log rejection activity
-      const co = await this.getById(changeOrderId)
+      const co = await this.getById(changeOrderId) as ChangeOrder
       if (co && co.projectId) {
         await ActivityService.logActivity(
           co.projectId,
@@ -309,7 +365,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Execute change order
    */
-  async executeChangeOrder(changeOrderId, executedBy = null, executionNotes = '') {
+  async executeChangeOrder(changeOrderId: string, executedBy: string | null = null, executionNotes: string = ''): Promise<any> {
     try {
       const updates = {
         status: 'executed',
@@ -322,7 +378,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       const result = await this.update(changeOrderId, updates, CHANGE_ORDER_SCHEMA)
 
       // Log execution activity
-      const co = await this.getById(changeOrderId)
+      const co = await this.getById(changeOrderId) as ChangeOrder
       if (co && co.projectId) {
         await ActivityService.logActivity(
           co.projectId,
@@ -347,9 +403,9 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Delete change order
    */
-  async deleteChangeOrder(changeOrderId) {
+  async deleteChangeOrder(changeOrderId: string): Promise<{ success: boolean; id: string }> {
     try {
-      const co = await this.getById(changeOrderId)
+      const co = await this.getById(changeOrderId) as ChangeOrder
       if (!co) {
         throw new Error('Change order not found')
       }
@@ -373,14 +429,14 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Calculate total project impact from approved change orders
    */
-  async calculateProjectImpact(projectId) {
+  async calculateProjectImpact(projectId: string): Promise<ProjectImpact> {
     try {
       const approvedCOs = await this.getChangeOrdersByStatus('approved', projectId)
       const executedCOs = await this.getChangeOrdersByStatus('executed', projectId)
 
       const allEffectiveCOs = [...approvedCOs, ...executedCOs]
 
-      const impact = {
+      const impact: ProjectImpact = {
         totalCostImpact: 0,
         totalTimeImpact: 0,
         additionsCost: 0,
@@ -393,14 +449,14 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       }
 
       allEffectiveCOs.forEach((co) => {
-        const costImpact = co.costImpact || 0
-        const timeImpact = co.timeImpact || 0
+        const costImpact = (co as any).costImpact || 0
+        const timeImpact = (co as any).timeImpact || 0
 
         impact.totalCostImpact += costImpact
         impact.totalTimeImpact += timeImpact
 
         // Track by type
-        switch (co.type) {
+        switch ((co as any).type) {
           case 'addition':
             impact.additionsCost += costImpact
             break
@@ -416,7 +472,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         }
 
         // Track billable vs non-billable
-        if (co.billable) {
+        if ((co as any).billable) {
           impact.billableAmount += costImpact
         } else {
           impact.nonBillableAmount += costImpact
@@ -435,13 +491,13 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Get change order statistics
    */
-  async getChangeOrderStatistics(projectId = null) {
+  async getChangeOrderStatistics(projectId: string | null = null): Promise<ChangeOrderStatistics> {
     try {
       let changeOrders = projectId
         ? await this.getChangeOrdersByProject(projectId)
-        : await this.getAll()
+        : await this.getAll() as ChangeOrder[]
 
-      const stats = {
+      const stats: ChangeOrderStatistics = {
         total: changeOrders.length,
         byStatus: {
           proposed: changeOrders.filter((co) => co.status === 'proposed').length,
@@ -452,13 +508,13 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           executed: changeOrders.filter((co) => co.status === 'executed').length,
         },
         byType: {
-          addition: changeOrders.filter((co) => co.type === 'addition').length,
-          deletion: changeOrders.filter((co) => co.type === 'deletion').length,
-          modification: changeOrders.filter((co) => co.type === 'modification').length,
-          credit: changeOrders.filter((co) => co.type === 'credit').length,
+          addition: changeOrders.filter((co) => (co as any).type === 'addition').length,
+          deletion: changeOrders.filter((co) => (co as any).type === 'deletion').length,
+          modification: changeOrders.filter((co) => (co as any).type === 'modification').length,
+          credit: changeOrders.filter((co) => (co as any).type === 'credit').length,
         },
-        totalCostImpact: changeOrders.reduce((sum, co) => sum + (co.costImpact || 0), 0),
-        totalTimeImpact: changeOrders.reduce((sum, co) => sum + (co.timeImpact || 0), 0),
+        totalCostImpact: changeOrders.reduce((sum, co) => sum + ((co as any).costImpact || 0), 0),
+        totalTimeImpact: changeOrders.reduce((sum, co) => sum + ((co as any).timeImpact || 0), 0),
         averageCostImpact: 0,
         averageTimeImpact: 0,
         billableAmount: 0,
@@ -466,7 +522,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         averageApprovalTime: 0,
         byRequester: {},
         pendingApproval: changeOrders.filter((co) => co.status === 'submitted').length,
-        recentActivity: 0, // Last 7 days
+        recentActivity: 0,
       }
 
       // Calculate averages
@@ -477,20 +533,20 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
 
       // Calculate billable amounts
       changeOrders.forEach((co) => {
-        if (co.billable) {
-          stats.billableAmount += co.costImpact || 0
+        if ((co as any).billable) {
+          stats.billableAmount += (co as any).costImpact || 0
         } else {
-          stats.nonBillableAmount += co.costImpact || 0
+          stats.nonBillableAmount += (co as any).costImpact || 0
         }
       })
 
       // Calculate approval times
-      const approvedCOs = changeOrders.filter((co) => co.approvedAt && co.submittedAt)
+      const approvedCOs = changeOrders.filter((co) => (co as any).approvedAt && (co as any).submittedAt)
       if (approvedCOs.length > 0) {
         const totalApprovalTime = approvedCOs.reduce((sum, co) => {
-          const submitted = new Date(co.submittedAt)
-          const approved = new Date(co.approvedAt)
-          return sum + (approved - submitted)
+          const submitted = new Date((co as any).submittedAt)
+          const approved = new Date((co as any).approvedAt)
+          return sum + (approved.getTime() - submitted.getTime())
         }, 0)
         stats.averageApprovalTime = totalApprovalTime / approvedCOs.length / (1000 * 60 * 60 * 24) // Days
       }
@@ -521,9 +577,9 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Bulk update change order status
    */
-  async bulkUpdateChangeOrderStatus(changeOrderIds, status) {
+  async bulkUpdateChangeOrderStatus(changeOrderIds: string[], status: string): Promise<any[]> {
     try {
-      const updates = {
+      const updates: any = {
         status,
         ...(status === 'approved' && {
           approvedAt: new Date().toISOString(),
@@ -558,7 +614,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Bulk approve change orders
    */
-  async bulkApproveChangeOrders(changeOrderIds, approvalNotes = '') {
+  async bulkApproveChangeOrders(changeOrderIds: string[], approvalNotes: string = ''): Promise<any[]> {
     try {
       return await this.bulkUpdateChangeOrderStatus(changeOrderIds, 'approved')
     } catch (error) {
@@ -572,14 +628,14 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Subscribe to change orders by project
    */
-  subscribeToChangeOrdersByProject(projectId, callback) {
+  subscribeToChangeOrdersByProject(projectId: string, callback: (changeOrders: ChangeOrder[]) => void): any {
     try {
       const changeOrdersRef = ref(firebaseCore.database, this.collectionName)
       const projectCOsQuery = query(changeOrdersRef, orderByChild('projectId'), equalTo(projectId))
 
       onValue(projectCOsQuery, (snapshot) => {
-        const changeOrders = snapshot.exists()
-          ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
+        const changeOrders: ChangeOrder[] = snapshot.exists()
+          ? Object.entries(snapshot.val()).map(([id, data]: [string, any]) => ({ id, ...data }))
           : []
 
         // Sort by requested date (newest first)
@@ -597,10 +653,10 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Subscribe to all change orders
    */
-  subscribeToChangeOrders(callback) {
-    const sortByStatusAndDate = (a, b) => {
+  subscribeToChangeOrders(callback: (changeOrders: ChangeOrder[]) => void): () => void {
+    const sortByStatusAndDate = (a: ChangeOrder, b: ChangeOrder) => {
       // First sort by status priority (pending items first)
-      const statusOrder = {
+      const statusOrder: Record<string, number> = {
         proposed: 0,
         submitted: 1,
         under_review: 2,
@@ -616,9 +672,9 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       }
 
       // Then by requested date (newest first)
-      const aDate = new Date(a.requestedAt || a.createdAt || 0)
-      const bDate = new Date(b.requestedAt || b.createdAt || 0)
-      return bDate - aDate
+      const aDate = new Date((a as any).requestedAt || a.createdAt || 0)
+      const bDate = new Date((b as any).requestedAt || b.createdAt || 0)
+      return bDate.getTime() - aDate.getTime()
     }
 
     return this.subscribeToAll(callback, sortByStatusAndDate)
@@ -627,8 +683,8 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Subscribe to change orders by status
    */
-  subscribeToChangeOrdersByStatus(status, callback) {
-    const filterByStatus = (changeOrders) => {
+  subscribeToChangeOrdersByStatus(status: string, callback: (changeOrders: ChangeOrder[]) => void): () => void {
+    const filterByStatus = (changeOrders: any[]) => {
       const filtered = changeOrders.filter((co) => co.status === status)
       callback(filtered)
     }
@@ -641,19 +697,19 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Sort change orders by various criteria
    */
-  sortChangeOrders(changeOrders, sortBy = 'requestedAt', direction = 'desc') {
+  sortChangeOrders(changeOrders: ChangeOrder[], sortBy: string = 'requestedAt', direction: 'asc' | 'desc' = 'desc'): ChangeOrder[] {
     return changeOrders.sort((a, b) => {
-      let aVal, bVal
+      let aVal: any, bVal: any
 
       switch (sortBy) {
         case 'title':
         case 'number':
-          aVal = (a[sortBy] || '').toLowerCase()
-          bVal = (b[sortBy] || '').toLowerCase()
+          aVal = ((a as any)[sortBy] || '').toLowerCase()
+          bVal = ((b as any)[sortBy] || '').toLowerCase()
           break
 
         case 'status': {
-          const statusOrder = {
+          const statusOrder: Record<string, number> = {
             proposed: 0,
             submitted: 1,
             under_review: 2,
@@ -667,16 +723,16 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         }
 
         case 'type': {
-          const typeOrder = { addition: 0, modification: 1, deletion: 2, credit: 3 }
-          aVal = typeOrder[a.type] ?? 1
-          bVal = typeOrder[b.type] ?? 1
+          const typeOrder: Record<string, number> = { addition: 0, modification: 1, deletion: 2, credit: 3 }
+          aVal = typeOrder[(a as any).type] ?? 1
+          bVal = typeOrder[(b as any).type] ?? 1
           break
         }
 
         case 'costImpact':
         case 'timeImpact':
-          aVal = a[sortBy] || 0
-          bVal = b[sortBy] || 0
+          aVal = (a as any)[sortBy] || 0
+          bVal = (b as any)[sortBy] || 0
           break
 
         case 'requestedAt':
@@ -684,13 +740,13 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         case 'rejectedAt':
         case 'executedAt':
         case 'createdAt':
-          aVal = a[sortBy] ? new Date(a[sortBy]) : new Date(0)
-          bVal = b[sortBy] ? new Date(b[sortBy]) : new Date(0)
+          aVal = (a as any)[sortBy] ? new Date((a as any)[sortBy]) : new Date(0)
+          bVal = (b as any)[sortBy] ? new Date((b as any)[sortBy]) : new Date(0)
           break
 
         default:
-          aVal = a[sortBy] || ''
-          bVal = b[sortBy] || ''
+          aVal = (a as any)[sortBy] || ''
+          bVal = (b as any)[sortBy] || ''
       }
 
       if (direction === 'desc') {
@@ -703,7 +759,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Validate change order-specific data
    */
-  validateChangeOrderData(changeOrderData) {
+  validateChangeOrderData(changeOrderData: any): ValidationResult {
     const validation = super.validateData(changeOrderData, ['title', 'projectId'])
 
     // Add change order-specific validations
@@ -748,7 +804,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Generate next change order number for project
    */
-  async generateChangeOrderNumber(projectId) {
+  async generateChangeOrderNumber(projectId: string): Promise<string> {
     try {
       const projectCOs = await this.getChangeOrdersByProject(projectId)
       const nextNumber = projectCOs.length + 1
@@ -762,24 +818,24 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Check if change order needs approval
    */
-  needsApproval(changeOrder, approvalThreshold = 1000) {
+  needsApproval(changeOrder: ChangeOrder, approvalThreshold: number = 1000): boolean {
     return (
       changeOrder.status === 'submitted' &&
-      Math.abs(changeOrder.costImpact || 0) >= approvalThreshold
+      Math.abs((changeOrder as any).costImpact || 0) >= approvalThreshold
     )
   }
 
   /**
    * Get change order impact summary
    */
-  getImpactSummary(changeOrder) {
+  getImpactSummary(changeOrder: ChangeOrder): ImpactSummary {
     return {
-      costImpact: changeOrder.costImpact || 0,
-      timeImpact: changeOrder.timeImpact || 0,
-      type: changeOrder.type || 'modification',
-      billable: changeOrder.billable !== false,
-      hasFinancialImpact: Math.abs(changeOrder.costImpact || 0) > 0,
-      hasScheduleImpact: Math.abs(changeOrder.timeImpact || 0) > 0,
+      costImpact: (changeOrder as any).costImpact || 0,
+      timeImpact: (changeOrder as any).timeImpact || 0,
+      type: (changeOrder as any).type || 'modification',
+      billable: (changeOrder as any).billable !== false,
+      hasFinancialImpact: Math.abs((changeOrder as any).costImpact || 0) > 0,
+      hasScheduleImpact: Math.abs((changeOrder as any).timeImpact || 0) > 0,
     }
   }
 }

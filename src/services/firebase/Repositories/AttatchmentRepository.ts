@@ -1,4 +1,13 @@
-// src/services/firebase/repositories/AttachmentRepository.js
+// src/services/firebase/repositories/AttachmentRepository.ts
+import type {
+  Attachment,
+  AttachmentFilters,
+  AttachmentStatistics,
+  AttachmentSummary,
+  AttachmentFileType,
+  EntityType,
+  ValidationResult,
+} from '@/types/models'
 import BaseRepository from '../core/BaseRepository'
 import { CrudMixin } from '../mixins/CrudMixin'
 import { RealtimeMixin } from '../mixins/RealtimeMixin'
@@ -18,17 +27,20 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Get attachments for a specific entity
    */
-  async getEntityAttachments(entityType, entityId) {
+  async getEntityAttachments(entityType: EntityType, entityId: string): Promise<Attachment[]> {
     try {
       const allAttachments = await this.getAll()
 
       const entityAttachments = allAttachments.filter(
-        (attachment) => attachment.entityType === entityType && attachment.entityId === entityId,
+        (attachment: Attachment) =>
+          attachment.entityType === entityType && attachment.entityId === entityId,
       )
 
       // Sort by upload date (newest first)
       return entityAttachments.sort(
-        (a, b) => new Date(b.uploadedAt || b.createdAt) - new Date(a.uploadedAt || a.createdAt),
+        (a, b) =>
+          new Date(b.uploadedAt || b.createdAt).getTime() -
+          new Date(a.uploadedAt || a.createdAt).getTime(),
       )
     } catch (error) {
       console.error('Error getting entity attachments:', error)
@@ -39,7 +51,12 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Add attachment to entity
    */
-  async addEntityAttachment(entityType, entityId, attachmentData, projectId = null) {
+  async addEntityAttachment(
+    entityType: EntityType,
+    entityId: string,
+    attachmentData: Partial<Attachment>,
+    projectId: string | null = null,
+  ): Promise<Attachment> {
     try {
       const validation = this.validateData(attachmentData, ['name', 'fileSize'])
       if (!validation.isValid) {
@@ -57,7 +74,7 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         version: validation.cleanData.version || 1,
         isPublic:
           validation.cleanData.isPublic !== undefined ? validation.cleanData.isPublic : false,
-        virusScanStatus: 'pending',
+        virusScanStatus: 'pending' as const,
         tags: validation.cleanData.tags || [],
         permissions: validation.cleanData.permissions || {
           view: ['team', 'pm', 'admin'],
@@ -92,7 +109,10 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Remove attachment from entity
    */
-  async removeEntityAttachment(attachmentId, projectId = null) {
+  async removeEntityAttachment(
+    attachmentId: string,
+    projectId: string | null = null,
+  ): Promise<{ success: boolean; id: string }> {
     try {
       const attachment = await this.getById(attachmentId)
       if (!attachment) {
@@ -124,14 +144,16 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Get attachments by entity type (all entities of that type)
    */
-  async getAttachmentsByEntityType(entityType) {
+  async getAttachmentsByEntityType(entityType: EntityType): Promise<Attachment[]> {
     try {
       const allAttachments = await this.getAll()
 
       return allAttachments
-        .filter((attachment) => attachment.entityType === entityType)
+        .filter((attachment: Attachment) => attachment.entityType === entityType)
         .sort(
-          (a, b) => new Date(b.uploadedAt || b.createdAt) - new Date(a.uploadedAt || a.createdAt),
+          (a, b) =>
+            new Date(b.uploadedAt || b.createdAt).getTime() -
+            new Date(a.uploadedAt || a.createdAt).getTime(),
         )
     } catch (error) {
       console.error('Error getting attachments by entity type:', error)
@@ -142,26 +164,37 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Get attachments by file type
    */
-  async getAttachmentsByFileType(fileType, entityType = null, entityId = null) {
+  async getAttachmentsByFileType(
+    fileType: string,
+    entityType: EntityType | null = null,
+    entityId: string | null = null,
+  ): Promise<Attachment[]> {
     try {
       let attachments = await this.getAll()
 
       // Filter by file type
       attachments = attachments.filter(
-        (attachment) => attachment.fileType === fileType || attachment.mimeType?.includes(fileType),
+        (attachment: Attachment) =>
+          attachment.fileType === fileType || attachment.mimeType?.includes(fileType),
       )
 
       // Additional filters if provided
       if (entityType) {
-        attachments = attachments.filter((attachment) => attachment.entityType === entityType)
+        attachments = attachments.filter(
+          (attachment: Attachment) => attachment.entityType === entityType,
+        )
       }
 
       if (entityId) {
-        attachments = attachments.filter((attachment) => attachment.entityId === entityId)
+        attachments = attachments.filter(
+          (attachment: Attachment) => attachment.entityId === entityId,
+        )
       }
 
       return attachments.sort(
-        (a, b) => new Date(b.uploadedAt || b.createdAt) - new Date(a.uploadedAt || a.createdAt),
+        (a, b) =>
+          new Date(b.uploadedAt || b.createdAt).getTime() -
+          new Date(a.uploadedAt || a.createdAt).getTime(),
       )
     } catch (error) {
       console.error('Error getting attachments by file type:', error)
@@ -172,13 +205,16 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Search attachments across all entities
    */
-  async searchAttachments(searchTerm, filters = {}) {
+  async searchAttachments(
+    searchTerm: string,
+    filters: AttachmentFilters = {},
+  ): Promise<Attachment[]> {
     try {
       let attachments = await this.getAll()
       const term = searchTerm.toLowerCase().trim()
 
       // Text search
-      attachments = attachments.filter((attachment) => {
+      attachments = attachments.filter((attachment: Attachment) => {
         return (
           attachment.name?.toLowerCase().includes(term) ||
           attachment.originalName?.toLowerCase().includes(term) ||
@@ -190,35 +226,39 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
 
       // Apply filters
       if (filters.entityType) {
-        attachments = attachments.filter((a) => a.entityType === filters.entityType)
+        attachments = attachments.filter((a: Attachment) => a.entityType === filters.entityType)
       }
 
       if (filters.entityId) {
-        attachments = attachments.filter((a) => a.entityId === filters.entityId)
+        attachments = attachments.filter((a: Attachment) => a.entityId === filters.entityId)
       }
 
       if (filters.fileType) {
         attachments = attachments.filter(
-          (a) => a.fileType === filters.fileType || a.mimeType?.includes(filters.fileType),
+          (a: Attachment) =>
+            a.fileType === filters.fileType || a.mimeType?.includes(filters.fileType),
         )
       }
 
       if (filters.uploadedBy) {
-        attachments = attachments.filter((a) => a.uploadedBy === filters.uploadedBy)
+        attachments = attachments.filter((a: Attachment) => a.uploadedBy === filters.uploadedBy)
       }
 
       if (filters.uploadedAfter) {
         attachments = attachments.filter(
-          (a) => a.uploadedAt && new Date(a.uploadedAt) >= new Date(filters.uploadedAfter),
+          (a: Attachment) =>
+            a.uploadedAt && new Date(a.uploadedAt) >= new Date(filters.uploadedAfter!),
         )
       }
 
       if (filters.isPublic !== undefined) {
-        attachments = attachments.filter((a) => a.isPublic === filters.isPublic)
+        attachments = attachments.filter((a: Attachment) => a.isPublic === filters.isPublic)
       }
 
       return attachments.sort(
-        (a, b) => new Date(b.uploadedAt || b.createdAt) - new Date(a.uploadedAt || a.createdAt),
+        (a, b) =>
+          new Date(b.uploadedAt || b.createdAt).getTime() -
+          new Date(a.uploadedAt || a.createdAt).getTime(),
       )
     } catch (error) {
       console.error('Error searching attachments:', error)
@@ -229,7 +269,11 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Update attachment metadata
    */
-  async updateAttachment(attachmentId, updates, projectId = null) {
+  async updateAttachment(
+    attachmentId: string,
+    updates: Partial<Attachment>,
+    projectId: string | null = null,
+  ): Promise<Attachment> {
     try {
       const originalAttachment = await this.getById(attachmentId)
       if (!originalAttachment) {
@@ -241,7 +285,9 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       // Log significant updates
       const significantFields = ['name', 'description', 'isPublic', 'permissions']
       const significantChanges = Object.keys(updates).filter(
-        (key) => significantFields.includes(key) && updates[key] !== originalAttachment[key],
+        (key) =>
+          significantFields.includes(key) &&
+          updates[key as keyof Attachment] !== originalAttachment[key as keyof Attachment],
       )
 
       if (significantChanges.length > 0) {
@@ -253,7 +299,9 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           `Updated attachment "${originalAttachment.name}"`,
           {
             attachmentId,
-            changes: Object.fromEntries(significantChanges.map((key) => [key, updates[key]])),
+            changes: Object.fromEntries(
+              significantChanges.map((key) => [key, updates[key as keyof Attachment]]),
+            ),
           },
         )
       }
@@ -270,7 +318,11 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Bulk delete attachments for an entity
    */
-  async bulkDeleteEntityAttachments(entityType, entityId, projectId = null) {
+  async bulkDeleteEntityAttachments(
+    entityType: EntityType,
+    entityId: string,
+    projectId: string | null = null,
+  ): Promise<{ deleted: number; attachments: Attachment[] }> {
     try {
       const entityAttachments = await this.getEntityAttachments(entityType, entityId)
       const attachmentIds = entityAttachments.map((a) => a.id)
@@ -301,7 +353,11 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Bulk update attachment permissions
    */
-  async bulkUpdateAttachmentPermissions(attachmentIds, permissions, projectId = null) {
+  async bulkUpdateAttachmentPermissions(
+    attachmentIds: string[],
+    permissions: Attachment['permissions'],
+    projectId: string | null = null,
+  ): Promise<any> {
     try {
       const updates = { permissions }
       const results = await this.bulkUpdate(attachmentIds, updates)
@@ -326,14 +382,17 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Get attachment statistics
    */
-  async getAttachmentStatistics(entityType = null, entityId = null) {
+  async getAttachmentStatistics(
+    entityType: EntityType | null = null,
+    entityId: string | null = null,
+  ): Promise<AttachmentStatistics> {
     try {
-      let attachments =
+      let attachments: Attachment[] =
         entityType && entityId
           ? await this.getEntityAttachments(entityType, entityId)
           : await this.getAll()
 
-      const stats = {
+      const stats: AttachmentStatistics = {
         total: attachments.length,
         totalSize: attachments.reduce((sum, a) => sum + (a.fileSize || 0), 0),
         averageSize: 0,
@@ -406,16 +465,22 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Subscribe to attachments for a specific entity
    */
-  subscribeToEntityAttachments(entityType, entityId, callback) {
+  subscribeToEntityAttachments(
+    entityType: EntityType,
+    entityId: string,
+    callback: (attachments: Attachment[]) => void,
+  ): () => void {
     try {
-      const filterEntityAttachments = (attachments) => {
+      const filterEntityAttachments = (attachments: Attachment[]) => {
         const entityAttachments = attachments
           .filter(
             (attachment) =>
               attachment.entityType === entityType && attachment.entityId === entityId,
           )
           .sort(
-            (a, b) => new Date(b.uploadedAt || b.createdAt) - new Date(a.uploadedAt || a.createdAt),
+            (a, b) =>
+              new Date(b.uploadedAt || b.createdAt).getTime() -
+              new Date(a.uploadedAt || a.createdAt).getTime(),
           )
 
         callback(entityAttachments)
@@ -431,13 +496,18 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Subscribe to attachments by entity type
    */
-  subscribeToAttachmentsByEntityType(entityType, callback) {
+  subscribeToAttachmentsByEntityType(
+    entityType: EntityType,
+    callback: (attachments: Attachment[]) => void,
+  ): () => void {
     try {
-      const filterByEntityType = (attachments) => {
+      const filterByEntityType = (attachments: Attachment[]) => {
         const typeAttachments = attachments
           .filter((attachment) => attachment.entityType === entityType)
           .sort(
-            (a, b) => new Date(b.uploadedAt || b.createdAt) - new Date(a.uploadedAt || a.createdAt),
+            (a, b) =>
+              new Date(b.uploadedAt || b.createdAt).getTime() -
+              new Date(a.uploadedAt || a.createdAt).getTime(),
           )
 
         callback(typeAttachments)
@@ -455,7 +525,7 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Get file type from file name or mime type
    */
-  getFileType(attachment) {
+  getFileType(attachment: Attachment): AttachmentFileType {
     if (attachment.fileType) return attachment.fileType
 
     if (attachment.mimeType) {
@@ -475,10 +545,10 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
     const videoExts = ['mp4', 'avi', 'mov', 'wmv', 'flv']
     const audioExts = ['mp3', 'wav', 'flac', 'aac']
 
-    if (imageExts.includes(extension)) return 'image'
-    if (docExts.includes(extension)) return 'document'
-    if (videoExts.includes(extension)) return 'video'
-    if (audioExts.includes(extension)) return 'audio'
+    if (extension && imageExts.includes(extension)) return 'image'
+    if (extension && docExts.includes(extension)) return 'document'
+    if (extension && videoExts.includes(extension)) return 'video'
+    if (extension && audioExts.includes(extension)) return 'audio'
 
     return 'file'
   }
@@ -486,7 +556,7 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Format file size for display
    */
-  formatFileSize(bytes) {
+  formatFileSize(bytes: number): string {
     if (!bytes) return '0 B'
 
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
@@ -498,7 +568,12 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Check if user can perform action on attachment
    */
-  canUserPerformAction(attachment, userId, userRole, action = 'view') {
+  canUserPerformAction(
+    attachment: Attachment,
+    userId: string,
+    userRole: string,
+    action: 'view' | 'download' | 'delete' = 'view',
+  ): boolean {
     if (!attachment.permissions) return true // Legacy attachments
 
     const permissions = attachment.permissions[action] || []
@@ -516,7 +591,10 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Generate attachment summary for entity
    */
-  async getEntityAttachmentSummary(entityType, entityId) {
+  async getEntityAttachmentSummary(
+    entityType: EntityType,
+    entityId: string,
+  ): Promise<AttachmentSummary> {
     try {
       const attachments = await this.getEntityAttachments(entityType, entityId)
 
@@ -530,7 +608,8 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           attachments.length > 0
             ? attachments.sort(
                 (a, b) =>
-                  new Date(b.uploadedAt || b.createdAt) - new Date(a.uploadedAt || a.createdAt),
+                  new Date(b.uploadedAt || b.createdAt).getTime() -
+                  new Date(a.uploadedAt || a.createdAt).getTime(),
               )[0].uploadedAt
             : null,
         needsVirusScan: attachments.filter((a) => a.virusScanStatus === 'pending').length,
@@ -544,7 +623,7 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Validate attachment-specific data
    */
-  validateAttachmentData(attachmentData) {
+  validateAttachmentData(attachmentData: Partial<Attachment>): ValidationResult {
     const validation = super.validateData(attachmentData, ['name', 'fileSize'])
 
     // File size validation
@@ -561,7 +640,7 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
     }
 
     // Entity type validation
-    const validEntityTypes = [
+    const validEntityTypes: EntityType[] = [
       'project',
       'task',
       'document',
@@ -569,7 +648,7 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       'user',
       'rfi',
       'submittal',
-      'changeOrder',
+      'change-order',
     ]
     if (attachmentData.entityType && !validEntityTypes.includes(attachmentData.entityType)) {
       validation.errors.entityType = `Invalid entity type. Must be one of: ${validEntityTypes.join(', ')}`
