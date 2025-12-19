@@ -354,7 +354,7 @@ import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import Message from 'primevue/message';
 import EntityAttachments from '@/components/widgets/EntityAttachments.vue';
-import UserRepository from '@/services/firebase/Repositories/UserRepository';
+import { getAllUsers } from '@/services/api/usersApi';
 import TaskRepository from '@/services/firebase/Repositories/TaskRepository';
 import {
   wouldCreateCircularDependency,
@@ -532,10 +532,10 @@ const getPriorityColorClass = (priority) => {
   return colorMap[priority] || 'text-gray-600';
 };
 
-// Load users from Firebase
+// Load users from API
 const loadUsers = async () => {
   try {
-    const allUsers = await UserRepository.getAllUsers();
+    const allUsers = await getAllUsers();
     users.value = allUsers;
   } catch (err) {
     console.error('Error loading users:', err);

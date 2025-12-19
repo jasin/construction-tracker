@@ -76,7 +76,14 @@ class BaseRepositoryClass implements BaseRepositoryInterface {
       };
     }
 
-    return await (this as any).create(validation.cleanData, this.schema);
+    return await (
+      this as unknown as {
+        create(
+          data: Record<string, unknown>,
+          schema: Record<string, unknown> | null
+        ): Promise<Record<string, unknown>>;
+      }
+    ).create(validation.cleanData, this.schema);
   }
 
   /**
@@ -98,7 +105,15 @@ class BaseRepositoryClass implements BaseRepositoryInterface {
       };
     }
 
-    return await (this as any).update(entityId, validation.cleanData, this.schema);
+    return await (
+      this as unknown as {
+        update(
+          entityId: string,
+          data: Record<string, unknown>,
+          schema: Record<string, unknown> | null
+        ): Promise<Record<string, unknown>>;
+      }
+    ).update(entityId, validation.cleanData, this.schema);
   }
 
   /**
@@ -108,11 +123,15 @@ class BaseRepositoryClass implements BaseRepositoryInterface {
     const result = await handleAsync(
       async () => {
         const promises = entityIds.map(async (id) => {
-          const result = await (this as any).update(id, updates, this.schema);
-          if (!result.success) {
-            throw new Error(result.error);
-          }
-          return result.data;
+          return await (
+            this as unknown as {
+              update(
+                entityId: string,
+                data: Record<string, unknown>,
+                schema: Record<string, unknown> | null
+              ): Promise<Record<string, unknown>>;
+            }
+          ).update(id, updates, this.schema);
         });
         return await Promise.all(promises);
       },
@@ -125,11 +144,11 @@ class BaseRepositoryClass implements BaseRepositoryInterface {
     const result = await handleAsync(
       async () => {
         const promises = entityIds.map(async (id) => {
-          const result = await (this as any).delete(id);
-          if (!result.success) {
-            throw new Error(result.error);
-          }
-          return result.data;
+          return await (
+            this as unknown as {
+              delete(entityId: string): Promise<{ success: boolean; id: string }>;
+            }
+          ).delete(id);
         });
         return await Promise.all(promises);
       },
@@ -144,11 +163,10 @@ class BaseRepositoryClass implements BaseRepositoryInterface {
   async getCount(): Promise<number> {
     const result = await handleAsync(
       async () => {
-        const result = await (this as any).getAll();
-        if (!result.success) {
-          throw new Error(result.error);
-        }
-        return result.data.length;
+        const data = await (
+          this as unknown as { getAll(): Promise<Record<string, unknown>[]> }
+        ).getAll();
+        return data.length;
       },
       { context: `Get count of ${this.entityName}` }
     );
@@ -161,14 +179,10 @@ class BaseRepositoryClass implements BaseRepositoryInterface {
   async exists(entityId: string): Promise<boolean> {
     const result = await handleAsync(
       async () => {
-        const result = await (this as any).getById(entityId);
-        if (!result.success) {
-          if (result.error === 'Document not found') {
-            return false;
-          }
-          throw new Error(result.error);
-        }
-        return true;
+        const data = await (
+          this as unknown as { getById(entityId: string): Promise<Record<string, unknown> | null> }
+        ).getById(entityId);
+        return data !== null;
       },
       { context: `Check existence of ${this.entityName}` }
     );

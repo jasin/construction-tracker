@@ -518,31 +518,26 @@ const showContextMenu = (event) => {
 
 // Lifecycle Hooks
 onBeforeMount(async () => {
-  console.log('App: Starting early initAuth');
+  console.log('App: Starting auth initialization');
   await authStore.initAuth();
-  console.log(
-    'App: Early init done, isAuth:',
-    authStore.isAuthenticated,
-    'loading:',
-    authStore.loading
-  );
+  console.log('App: Auth initialized, isAuth:', authStore.isAuthenticated);
 });
 
 onMounted(async () => {
-  await authStore.initAuth();
-  console.log('App: Auth initialized, isAuth:', authStore.isAuthenticated);
-
+  // Auth already initialized in onBeforeMount
   if (authStore.isAuthenticated) {
     projectStore.initializeProjectsSubscription();
     loadSettings(); // Load user settings
   }
 
   // Set up Hammer.js for long-press context menu on touch devices
-  const hammer = new Hammer(mainDiv.value);
-  hammer.on('press', (event) => {
-    event.srcEvent.preventDefault();
-    showContextMenu(event.srcEvent);
-  });
+  if (mainDiv.value) {
+    const hammer = new Hammer(mainDiv.value);
+    hammer.on('press', (event) => {
+      event.srcEvent.preventDefault();
+      showContextMenu(event.srcEvent);
+    });
+  }
 });
 </script>
 

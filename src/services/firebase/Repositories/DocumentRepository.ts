@@ -119,7 +119,7 @@ class DocumentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getDocumentsByCategory(category, projectId = null) {
     try {
-      let documents = projectId ? await this.getDocumentsByProject(projectId) : await this.getAll()
+      const documents = projectId ? await this.getDocumentsByProject(projectId) : await this.getAll()
 
       return documents.filter((doc) => doc.category === category)
     } catch (error) {
@@ -133,7 +133,7 @@ class DocumentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getDocumentsByStatus(status, projectId = null) {
     try {
-      let documents = projectId ? await this.getDocumentsByProject(projectId) : await this.getAll()
+      const documents = projectId ? await this.getDocumentsByProject(projectId) : await this.getAll()
 
       return documents.filter((doc) => doc.status === status)
     } catch (error) {
@@ -159,7 +159,7 @@ class DocumentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async searchDocuments(searchTerm, projectId = null) {
     try {
-      let documents = projectId ? await this.getDocumentsByProject(projectId) : await this.getAll()
+      const documents = projectId ? await this.getDocumentsByProject(projectId) : await this.getAll()
 
       const term = searchTerm.toLowerCase().trim()
 

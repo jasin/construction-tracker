@@ -313,12 +313,22 @@ class ActivityService {
 
   /**
    * Subscribe to activities by category
+   * TEMP: Stubbed out - migrating to Python backend
    */
   subscribeToActivitiesByCategory(
     category: string,
     options: ActivityQueryOptions,
     callback: (activities: ActivityData[]) => void
   ): () => void {
+    console.warn(
+      'ActivityService.subscribeToActivitiesByCategory() - DISABLED (migrating to Python backend)'
+    );
+    // Return empty array for now
+    callback([]);
+    // Return no-op unsubscribe function
+    return () => {};
+
+    /* ORIGINAL FIREBASE CODE - uncomment to re-enable:
     const { limit = 100 } = options;
     const activityRef = dbRef(this.database, this.collectionName);
     const q = query(activityRef, orderByChild('category'), equalTo(category));
@@ -348,6 +358,7 @@ class ActivityService {
     );
 
     return () => off(q, 'value', listener);
+    */
   }
 
   /**

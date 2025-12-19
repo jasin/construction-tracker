@@ -1,5 +1,3 @@
-# File outline for construction-tracker\src\services\firebase\mixins\CrudMixin.ts (file too large to show full content)
-
 // src/services/firebase/mixins/CrudMixin.ts
 import {
   ref,
@@ -19,7 +17,7 @@ import { sanitizeForFirebase, sanitizeWithSchema } from '@/utils/index';
 /**
  * Type for the base class constructor
  */
-type Constructor<T = {}> = new (...args: unknown[]) => T;
+type Constructor<T = object> = new (...args: unknown[]) => T;
 
 /**
  * Base repository interface that mixins can extend
@@ -123,7 +121,7 @@ export function CrudMixin<T extends Constructor<BaseRepositoryInterface>>(Base: 
 
         return Object.entries(snapshot.val()).map(([id, data]) => ({
           id,
-          ...(data as Record<string, any>),
+          ...(data as Record<string, unknown>),
         }));
       } catch (error) {
         const wrappedError = firebaseCore.createError('getAll', this.entityName, error as Error);
@@ -137,9 +135,9 @@ export function CrudMixin<T extends Constructor<BaseRepositoryInterface>>(Base: 
      */
     async update(
       entityId: string,
-      updates: Record<string, any>,
-      schema: Record<string, any> | null = null
-    ): Promise<any> {
+      updates: Record<string, unknown>,
+      schema: Record<string, unknown> | null = null
+    ): Promise<Record<string, unknown>> {
       try {
         const entityRef = ref(firebaseCore.database, `${this.collectionName}/${entityId}`);
 
@@ -194,7 +192,7 @@ export function CrudMixin<T extends Constructor<BaseRepositoryInterface>>(Base: 
 
         return Object.entries(snapshot.val()).map(([id, data]) => ({
           id,
-          ...(data as Record<string, any>),
+          ...(data as Record<string, unknown>),
         }));
       } catch (error) {
         const wrappedError = firebaseCore.createError(

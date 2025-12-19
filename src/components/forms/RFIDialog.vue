@@ -138,7 +138,7 @@ import { useToast } from 'primevue/usetoast';
 import { useProjectStore } from '@/stores/project';
 import { storeToRefs } from 'pinia';
 import RFIRepository from '@/services/firebase/Repositories/RFIRepository';
-import UserRepository from '@/services/firebase/Repositories/UserRepository';
+import { getActiveUsers } from '@/services/api/usersApi';
 import { RFI_STATUS_OPTIONS } from '@/constants/rfiConstants';
 
 import Dialog from 'primevue/dialog';
@@ -226,8 +226,7 @@ const form = ref({
 // Load users
 async function loadUsers() {
   try {
-    const allUsers = await UserRepository.getAll();
-    users.value = allUsers.filter((user) => user.active !== false);
+    users.value = await getActiveUsers();
   } catch (error) {
     console.error('Error loading users:', error);
   }

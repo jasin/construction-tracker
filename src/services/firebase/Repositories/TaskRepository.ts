@@ -18,8 +18,8 @@ import {
 import { TASK_SCHEMA } from '../schemas';
 import {
   canTransitionToStatus,
-  getDependentTasks,
-  calculateDependencyStatus,
+  getDependentTasks as _getDependentTasks,
+  calculateDependencyStatus as _calculateDependencyStatus,
 } from '@/utils/taskDependencies';
 
 /**
@@ -163,7 +163,7 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getOverdueTasks(projectId = null) {
     try {
-      let tasks = projectId ? await this.getTasksByProject(projectId) : await this.getAll();
+      const tasks = projectId ? await this.getTasksByProject(projectId) : await this.getAll();
 
       const now = new Date();
 
@@ -188,7 +188,7 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getTasksDueSoon(days = 7, projectId = null) {
     try {
-      let tasks = projectId ? await this.getTasksByProject(projectId) : await this.getAll();
+      const tasks = projectId ? await this.getTasksByProject(projectId) : await this.getAll();
 
       const now = new Date();
       const futureDate = new Date();
@@ -347,7 +347,7 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async searchTasks(searchTerm, projectId = null) {
     try {
-      let tasks = projectId ? await this.getTasksByProject(projectId) : await this.getAll();
+      const tasks = projectId ? await this.getTasksByProject(projectId) : await this.getAll();
 
       const term = searchTerm.toLowerCase().trim();
 
@@ -370,7 +370,7 @@ class TaskRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getTaskStatistics(projectId = null) {
     try {
-      let tasks = projectId ? await this.getTasksByProject(projectId) : await this.getAll();
+      const tasks = projectId ? await this.getTasksByProject(projectId) : await this.getAll();
 
       const now = new Date();
 

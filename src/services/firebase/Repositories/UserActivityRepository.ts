@@ -1,9 +1,9 @@
 // src/services/firebase/Repositories/UserActivityRepository.js
-import BaseRepository from '@/services/firebase/core/BaseRepository'
-import { CrudMixin } from '../mixins/CrudMixin'
-import { RealtimeMixin } from '../mixins/RealtimeMixin'
-import firebaseCore from '@/services/firebase/core/FirebaseCore'
-import { ref, get, set, update } from 'firebase/database'
+import BaseRepository from '@/services/firebase/core/BaseRepository';
+import { CrudMixin as _CrudMixin } from '../mixins/CrudMixin';
+import { RealtimeMixin as _RealtimeMixin } from '../mixins/RealtimeMixin';
+import firebaseCore from '@/services/firebase/core/FirebaseCore';
+import { ref, get, set, update } from 'firebase/database';
 
 /**
  * UserActivity Repository - Tracks user interactions with entities for notification badges
@@ -13,14 +13,14 @@ import { ref, get, set, update } from 'firebase/database'
  */
 class UserActivityRepository extends BaseRepository {
   constructor() {
-    super('userActivity')
+    super('userActivity');
   }
 
   /**
    * Get the current user's ID
    */
   getCurrentUserId() {
-    return firebaseCore.getCurrentUserId()
+    return firebaseCore.getCurrentUserId();
   }
 
   /**
@@ -30,22 +30,22 @@ class UserActivityRepository extends BaseRepository {
    */
   async updateSectionVisit(projectId, section) {
     try {
-      const userId = this.getCurrentUserId()
+      const userId = this.getCurrentUserId();
       if (!userId) {
-        console.warn('No user ID available for updating section visit')
-        return
+        console.warn('No user ID available for updating section visit');
+        return;
       }
 
-      const timestamp = new Date().toISOString()
-      const path = `${this.collectionName}/${userId}/projectViews/${projectId}/lastVisited${this.capitalize(section)}`
-      const sectionRef = ref(firebaseCore.database, path)
+      const timestamp = new Date().toISOString();
+      const path = `${this.collectionName}/${userId}/projectViews/${projectId}/lastVisited${this.capitalize(section)}`;
+      const sectionRef = ref(firebaseCore.database, path);
 
-      await set(sectionRef, timestamp)
+      await set(sectionRef, timestamp);
 
-      return { success: true, timestamp }
+      return { success: true, timestamp };
     } catch (error) {
-      console.error(`Error updating section visit for ${section}:`, error)
-      throw error
+      console.error(`Error updating section visit for ${section}:`, error);
+      throw error;
     }
   }
 
@@ -57,17 +57,17 @@ class UserActivityRepository extends BaseRepository {
    */
   async getLastSectionVisit(projectId, section) {
     try {
-      const userId = this.getCurrentUserId()
-      if (!userId) return null
+      const userId = this.getCurrentUserId();
+      if (!userId) return null;
 
-      const path = `${this.collectionName}/${userId}/projectViews/${projectId}/lastVisited${this.capitalize(section)}`
-      const sectionRef = ref(firebaseCore.database, path)
-      const snapshot = await get(sectionRef)
+      const path = `${this.collectionName}/${userId}/projectViews/${projectId}/lastVisited${this.capitalize(section)}`;
+      const sectionRef = ref(firebaseCore.database, path);
+      const snapshot = await get(sectionRef);
 
-      return snapshot.exists() ? snapshot.val() : null
+      return snapshot.exists() ? snapshot.val() : null;
     } catch (error) {
-      console.error(`Error getting last section visit for ${section}:`, error)
-      return null
+      console.error(`Error getting last section visit for ${section}:`, error);
+      return null;
     }
   }
 
@@ -79,25 +79,25 @@ class UserActivityRepository extends BaseRepository {
    */
   async markItemAsRead(projectId, entityType, entityId) {
     try {
-      const userId = this.getCurrentUserId()
+      const userId = this.getCurrentUserId();
       if (!userId) {
-        console.warn('No user ID available for marking item as read')
-        return
+        console.warn('No user ID available for marking item as read');
+        return;
       }
 
-      const timestamp = new Date().toISOString()
-      const path = `${this.collectionName}/${userId}/readItems/${projectId}/${entityType}_${entityId}`
-      const itemRef = ref(firebaseCore.database, path)
+      const timestamp = new Date().toISOString();
+      const path = `${this.collectionName}/${userId}/readItems/${projectId}/${entityType}_${entityId}`;
+      const itemRef = ref(firebaseCore.database, path);
 
       await set(itemRef, {
         readAt: timestamp,
         expandedCount: 1, // Track how many times user has expanded this item
-      })
+      });
 
-      return { success: true, timestamp }
+      return { success: true, timestamp };
     } catch (error) {
-      console.error(`Error marking item as read:`, error)
-      throw error
+      console.error(`Error marking item as read:`, error);
+      throw error;
     }
   }
 
@@ -109,24 +109,24 @@ class UserActivityRepository extends BaseRepository {
    */
   async incrementExpandedCount(projectId, entityType, entityId) {
     try {
-      const userId = this.getCurrentUserId()
-      if (!userId) return
+      const userId = this.getCurrentUserId();
+      if (!userId) return;
 
-      const path = `${this.collectionName}/${userId}/readItems/${projectId}/${entityType}_${entityId}`
-      const itemRef = ref(firebaseCore.database, path)
-      const snapshot = await get(itemRef)
+      const path = `${this.collectionName}/${userId}/readItems/${projectId}/${entityType}_${entityId}`;
+      const itemRef = ref(firebaseCore.database, path);
+      const snapshot = await get(itemRef);
 
       if (snapshot.exists()) {
-        const data = snapshot.val()
+        const data = snapshot.val();
         await update(itemRef, {
           readAt: new Date().toISOString(),
           expandedCount: (data.expandedCount || 0) + 1,
-        })
+        });
       } else {
-        await this.markItemAsRead(projectId, entityType, entityId)
+        await this.markItemAsRead(projectId, entityType, entityId);
       }
     } catch (error) {
-      console.error(`Error incrementing expanded count:`, error)
+      console.error(`Error incrementing expanded count:`, error);
     }
   }
 
@@ -139,17 +139,17 @@ class UserActivityRepository extends BaseRepository {
    */
   async isItemRead(projectId, entityType, entityId) {
     try {
-      const userId = this.getCurrentUserId()
-      if (!userId) return null
+      const userId = this.getCurrentUserId();
+      if (!userId) return null;
 
-      const path = `${this.collectionName}/${userId}/readItems/${projectId}/${entityType}_${entityId}`
-      const itemRef = ref(firebaseCore.database, path)
-      const snapshot = await get(itemRef)
+      const path = `${this.collectionName}/${userId}/readItems/${projectId}/${entityType}_${entityId}`;
+      const itemRef = ref(firebaseCore.database, path);
+      const snapshot = await get(itemRef);
 
-      return snapshot.exists() ? snapshot.val() : null
+      return snapshot.exists() ? snapshot.val() : null;
     } catch (error) {
-      console.error(`Error checking if item is read:`, error)
-      return null
+      console.error(`Error checking if item is read:`, error);
+      return null;
     }
   }
 
@@ -160,17 +160,17 @@ class UserActivityRepository extends BaseRepository {
    */
   async getReadItems(projectId) {
     try {
-      const userId = this.getCurrentUserId()
-      if (!userId) return {}
+      const userId = this.getCurrentUserId();
+      if (!userId) return {};
 
-      const path = `${this.collectionName}/${userId}/readItems/${projectId}`
-      const itemsRef = ref(firebaseCore.database, path)
-      const snapshot = await get(itemsRef)
+      const path = `${this.collectionName}/${userId}/readItems/${projectId}`;
+      const itemsRef = ref(firebaseCore.database, path);
+      const snapshot = await get(itemsRef);
 
-      return snapshot.exists() ? snapshot.val() : {}
+      return snapshot.exists() ? snapshot.val() : {};
     } catch (error) {
-      console.error(`Error getting read items:`, error)
-      return {}
+      console.error(`Error getting read items:`, error);
+      return {};
     }
   }
 
@@ -188,25 +188,25 @@ class UserActivityRepository extends BaseRepository {
    * @returns {boolean} True if item is unread
    */
   isItemUnread(item, projectId, entityType, lastSectionVisit, readItems) {
-    if (!item || !item.id) return false
+    if (!item || !item.id) return false;
 
-    const itemKey = `${entityType}_${item.id}`
+    const itemKey = `${entityType}_${item.id}`;
 
     // Check if user has specifically read this item
-    const itemReadData = readItems[itemKey]
+    const itemReadData = readItems[itemKey];
     if (itemReadData) {
-      return false // Item has been read
+      return false; // Item has been read
     }
 
     // Check if item is newer than last section visit
     if (!lastSectionVisit) {
-      return true // No section visit recorded, all items are "new"
+      return true; // No section visit recorded, all items are "new"
     }
 
-    const lastVisitTime = new Date(lastSectionVisit).getTime()
-    const itemTime = new Date(item.updatedAt || item.createdAt).getTime()
+    const lastVisitTime = new Date(lastSectionVisit).getTime();
+    const itemTime = new Date(item.updatedAt || item.createdAt).getTime();
 
-    return itemTime > lastVisitTime
+    return itemTime > lastVisitTime;
   }
 
   /**
@@ -219,17 +219,17 @@ class UserActivityRepository extends BaseRepository {
    */
   async getUnreadCount(items, projectId, entityType, section) {
     try {
-      if (!items || items.length === 0) return 0
+      if (!items || items.length === 0) return 0;
 
-      const lastSectionVisit = await this.getLastSectionVisit(projectId, section)
-      const readItems = await this.getReadItems(projectId)
+      const lastSectionVisit = await this.getLastSectionVisit(projectId, section);
+      const readItems = await this.getReadItems(projectId);
 
-      return items.filter(item =>
+      return items.filter((item) =>
         this.isItemUnread(item, projectId, entityType, lastSectionVisit, readItems)
-      ).length
+      ).length;
     } catch (error) {
-      console.error(`Error getting unread count:`, error)
-      return 0
+      console.error(`Error getting unread count:`, error);
+      return 0;
     }
   }
 
@@ -239,17 +239,17 @@ class UserActivityRepository extends BaseRepository {
    */
   async clearReadItems(projectId) {
     try {
-      const userId = this.getCurrentUserId()
-      if (!userId) return
+      const userId = this.getCurrentUserId();
+      if (!userId) return;
 
-      const path = `${this.collectionName}/${userId}/readItems/${projectId}`
-      const itemsRef = ref(firebaseCore.database, path)
-      await set(itemsRef, null)
+      const path = `${this.collectionName}/${userId}/readItems/${projectId}`;
+      const itemsRef = ref(firebaseCore.database, path);
+      await set(itemsRef, null);
 
-      return { success: true }
+      return { success: true };
     } catch (error) {
-      console.error(`Error clearing read items:`, error)
-      throw error
+      console.error(`Error clearing read items:`, error);
+      throw error;
     }
   }
 
@@ -259,17 +259,17 @@ class UserActivityRepository extends BaseRepository {
    */
   async clearSectionVisits(projectId) {
     try {
-      const userId = this.getCurrentUserId()
-      if (!userId) return
+      const userId = this.getCurrentUserId();
+      if (!userId) return;
 
-      const path = `${this.collectionName}/${userId}/projectViews/${projectId}`
-      const viewsRef = ref(firebaseCore.database, path)
-      await set(viewsRef, null)
+      const path = `${this.collectionName}/${userId}/projectViews/${projectId}`;
+      const viewsRef = ref(firebaseCore.database, path);
+      await set(viewsRef, null);
 
-      return { success: true }
+      return { success: true };
     } catch (error) {
-      console.error(`Error clearing section visits:`, error)
-      throw error
+      console.error(`Error clearing section visits:`, error);
+      throw error;
     }
   }
 
@@ -277,8 +277,8 @@ class UserActivityRepository extends BaseRepository {
    * Helper to capitalize first letter
    */
   capitalize(str) {
-    return str.charAt(0).toUpperCase() + str.slice(1)
+    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 }
 
-export default new UserActivityRepository()
+export default new UserActivityRepository();

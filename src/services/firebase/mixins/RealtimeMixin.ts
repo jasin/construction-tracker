@@ -13,7 +13,7 @@ import { handleError } from '@/utils/errorHandler';
 /**
  * Type for the base class constructor
  */
-type Constructor<T = {}> = new (...args: unknown[]) => T;
+type Constructor<T = object> = new (...args: unknown[]) => T;
 
 /**
  * Base repository interface that mixins can extend
@@ -152,8 +152,8 @@ export function RealtimeMixin<T extends Constructor<BaseRepositoryInterface>>(Ba
      */
     subscribeToByField(
       fieldName: string,
-      value: any,
-      callback: DataCallback<any[]>,
+      value: unknown,
+      callback: DataCallback<unknown[]>,
       sortFn: SortFunction | null = null,
       errorCallback: ErrorCallback = () => {}
     ): () => void {
@@ -166,7 +166,7 @@ export function RealtimeMixin<T extends Constructor<BaseRepositoryInterface>>(Ba
       }
 
       const entitiesRef = ref(this.db, this.collectionName);
-      const fieldQuery = query(entitiesRef, orderByChild(fieldName), equalTo(value));
+      const fieldQuery = query(entitiesRef, orderByChild(fieldName), equalTo(value as string));
 
       const listener = (snapshot: DataSnapshot) => {
         try {

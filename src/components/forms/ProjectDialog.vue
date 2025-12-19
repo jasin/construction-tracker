@@ -217,7 +217,7 @@ import DatePicker from 'primevue/datepicker';
 import Button from 'primevue/button';
 
 import ClientRepository from '@/services/firebase/Repositories/ClientRepository';
-import UserRepository from '@/services/firebase/Repositories/UserRepository';
+import { getActiveUsers } from '@/services/api/usersApi';
 import ClientDialog from './ClientDialog.vue';
 
 // Props
@@ -342,7 +342,7 @@ const loadClients = async () => {
  */
 const loadUsers = async () => {
   try {
-    users.value = await UserRepository.getActiveUsers();
+    users.value = await getActiveUsers();
     console.log('Loaded users for project form:', users.value);
   } catch (err) {
     console.error('Error loading users:', err.message);

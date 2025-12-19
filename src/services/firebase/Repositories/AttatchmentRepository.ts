@@ -7,13 +7,13 @@ import type {
   AttachmentFileType,
   EntityType,
   ValidationResult,
-} from '@/types/models'
-import BaseRepository from '../core/BaseRepository'
-import { CrudMixin } from '../mixins/CrudMixin'
-import { RealtimeMixin } from '../mixins/RealtimeMixin'
-import ActivityService from '@/services/logging/ActivityService'
-import firebaseCore from '../core/FirebaseCore'
-import { ATTACHMENT_SCHEMA } from '../schemas'
+} from '@/types/models';
+import BaseRepository from '../core/BaseRepository';
+import { CrudMixin } from '../mixins/CrudMixin';
+import { RealtimeMixin } from '../mixins/RealtimeMixin';
+import ActivityService from '@/services/logging/ActivityService';
+import firebaseCore from '../core/FirebaseCore';
+import { ATTACHMENT_SCHEMA } from '../schemas';
 
 /**
  * Attachment Repository - handles all attachment-related Firebase operations
@@ -21,7 +21,7 @@ import { ATTACHMENT_SCHEMA } from '../schemas'
  */
 class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   constructor() {
-    super('attachments')
+    super('attachments');
   }
 
   /**
@@ -29,22 +29,22 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getEntityAttachments(entityType: EntityType, entityId: string): Promise<Attachment[]> {
     try {
-      const allAttachments = await this.getAll()
+      const allAttachments = await this.getAll();
 
       const entityAttachments = allAttachments.filter(
         (attachment: Attachment) =>
-          attachment.entityType === entityType && attachment.entityId === entityId,
-      )
+          attachment.entityType === entityType && attachment.entityId === entityId
+      );
 
       // Sort by upload date (newest first)
       return entityAttachments.sort(
         (a, b) =>
           new Date(b.uploadedAt || b.createdAt).getTime() -
-          new Date(a.uploadedAt || a.createdAt).getTime(),
-      )
+          new Date(a.uploadedAt || a.createdAt).getTime()
+      );
     } catch (error) {
-      console.error('Error getting entity attachments:', error)
-      throw error
+      console.error('Error getting entity attachments:', error);
+      throw error;
     }
   }
 
@@ -55,12 +55,12 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
     entityType: EntityType,
     entityId: string,
     attachmentData: Partial<Attachment>,
-    projectId: string | null = null,
+    projectId: string | null = null
   ): Promise<Attachment> {
     try {
-      const validation = this.validateData(attachmentData, ['name', 'fileSize'])
+      const validation = this.validateData(attachmentData, ['name', 'fileSize']);
       if (!validation.isValid) {
-        throw new Error(`Validation failed: ${Object.values(validation.errors).join(', ')}`)
+        throw new Error(`Validation failed: ${Object.values(validation.errors).join(', ')}`);
       }
 
       // Add attachment-specific data
@@ -81,9 +81,9 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           download: ['team', 'pm', 'admin'],
           delete: ['pm', 'admin', 'uploader'],
         },
-      }
+      };
 
-      const newAttachment = await this.create(attachmentWithDefaults, ATTACHMENT_SCHEMA)
+      const newAttachment = await this.create(attachmentWithDefaults, ATTACHMENT_SCHEMA);
 
       // Log activity (use projectId if provided, otherwise null)
       await ActivityService.logActivity(
@@ -96,13 +96,13 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           attachmentId: newAttachment.id,
           fileName: newAttachment.name,
           fileSize: newAttachment.fileSize,
-        },
-      )
+        }
+      );
 
-      return newAttachment
+      return newAttachment;
     } catch (error) {
-      console.error('Error adding entity attachment:', error)
-      throw error
+      console.error('Error adding entity attachment:', error);
+      throw error;
     }
   }
 
@@ -111,15 +111,15 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async removeEntityAttachment(
     attachmentId: string,
-    projectId: string | null = null,
+    projectId: string | null = null
   ): Promise<{ success: boolean; id: string }> {
     try {
-      const attachment = await this.getById(attachmentId)
+      const attachment = await this.getById(attachmentId);
       if (!attachment) {
-        throw new Error('Attachment not found')
+        throw new Error('Attachment not found');
       }
 
-      await this.delete(attachmentId)
+      await this.delete(attachmentId);
 
       // Log activity
       await ActivityService.logActivity(
@@ -131,13 +131,13 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         {
           attachmentId,
           fileName: attachment.name,
-        },
-      )
+        }
+      );
 
-      return { success: true, id: attachmentId }
+      return { success: true, id: attachmentId };
     } catch (error) {
-      console.error('Error removing entity attachment:', error)
-      throw error
+      console.error('Error removing entity attachment:', error);
+      throw error;
     }
   }
 
@@ -146,18 +146,18 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getAttachmentsByEntityType(entityType: EntityType): Promise<Attachment[]> {
     try {
-      const allAttachments = await this.getAll()
+      const allAttachments = await this.getAll();
 
       return allAttachments
         .filter((attachment: Attachment) => attachment.entityType === entityType)
         .sort(
           (a, b) =>
             new Date(b.uploadedAt || b.createdAt).getTime() -
-            new Date(a.uploadedAt || a.createdAt).getTime(),
-        )
+            new Date(a.uploadedAt || a.createdAt).getTime()
+        );
     } catch (error) {
-      console.error('Error getting attachments by entity type:', error)
-      throw error
+      console.error('Error getting attachments by entity type:', error);
+      throw error;
     }
   }
 
@@ -167,38 +167,38 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   async getAttachmentsByFileType(
     fileType: string,
     entityType: EntityType | null = null,
-    entityId: string | null = null,
+    entityId: string | null = null
   ): Promise<Attachment[]> {
     try {
-      let attachments = await this.getAll()
+      let attachments = await this.getAll();
 
       // Filter by file type
       attachments = attachments.filter(
         (attachment: Attachment) =>
-          attachment.fileType === fileType || attachment.mimeType?.includes(fileType),
-      )
+          attachment.fileType === fileType || attachment.mimeType?.includes(fileType)
+      );
 
       // Additional filters if provided
       if (entityType) {
         attachments = attachments.filter(
-          (attachment: Attachment) => attachment.entityType === entityType,
-        )
+          (attachment: Attachment) => attachment.entityType === entityType
+        );
       }
 
       if (entityId) {
         attachments = attachments.filter(
-          (attachment: Attachment) => attachment.entityId === entityId,
-        )
+          (attachment: Attachment) => attachment.entityId === entityId
+        );
       }
 
       return attachments.sort(
         (a, b) =>
           new Date(b.uploadedAt || b.createdAt).getTime() -
-          new Date(a.uploadedAt || a.createdAt).getTime(),
-      )
+          new Date(a.uploadedAt || a.createdAt).getTime()
+      );
     } catch (error) {
-      console.error('Error getting attachments by file type:', error)
-      throw error
+      console.error('Error getting attachments by file type:', error);
+      throw error;
     }
   }
 
@@ -207,11 +207,11 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async searchAttachments(
     searchTerm: string,
-    filters: AttachmentFilters = {},
+    filters: AttachmentFilters = {}
   ): Promise<Attachment[]> {
     try {
-      let attachments = await this.getAll()
-      const term = searchTerm.toLowerCase().trim()
+      let attachments = await this.getAll();
+      const term = searchTerm.toLowerCase().trim();
 
       // Text search
       attachments = attachments.filter((attachment: Attachment) => {
@@ -221,48 +221,48 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           attachment.description?.toLowerCase().includes(term) ||
           attachment.tags?.some((tag) => tag.toLowerCase().includes(term)) ||
           attachment.extractedText?.toLowerCase().includes(term)
-        )
-      })
+        );
+      });
 
       // Apply filters
       if (filters.entityType) {
-        attachments = attachments.filter((a: Attachment) => a.entityType === filters.entityType)
+        attachments = attachments.filter((a: Attachment) => a.entityType === filters.entityType);
       }
 
       if (filters.entityId) {
-        attachments = attachments.filter((a: Attachment) => a.entityId === filters.entityId)
+        attachments = attachments.filter((a: Attachment) => a.entityId === filters.entityId);
       }
 
       if (filters.fileType) {
         attachments = attachments.filter(
           (a: Attachment) =>
-            a.fileType === filters.fileType || a.mimeType?.includes(filters.fileType),
-        )
+            a.fileType === filters.fileType || a.mimeType?.includes(filters.fileType)
+        );
       }
 
       if (filters.uploadedBy) {
-        attachments = attachments.filter((a: Attachment) => a.uploadedBy === filters.uploadedBy)
+        attachments = attachments.filter((a: Attachment) => a.uploadedBy === filters.uploadedBy);
       }
 
       if (filters.uploadedAfter) {
         attachments = attachments.filter(
           (a: Attachment) =>
-            a.uploadedAt && new Date(a.uploadedAt) >= new Date(filters.uploadedAfter!),
-        )
+            a.uploadedAt && new Date(a.uploadedAt) >= new Date(filters.uploadedAfter!)
+        );
       }
 
       if (filters.isPublic !== undefined) {
-        attachments = attachments.filter((a: Attachment) => a.isPublic === filters.isPublic)
+        attachments = attachments.filter((a: Attachment) => a.isPublic === filters.isPublic);
       }
 
       return attachments.sort(
         (a, b) =>
           new Date(b.uploadedAt || b.createdAt).getTime() -
-          new Date(a.uploadedAt || a.createdAt).getTime(),
-      )
+          new Date(a.uploadedAt || a.createdAt).getTime()
+      );
     } catch (error) {
-      console.error('Error searching attachments:', error)
-      throw error
+      console.error('Error searching attachments:', error);
+      throw error;
     }
   }
 
@@ -272,23 +272,23 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   async updateAttachment(
     attachmentId: string,
     updates: Partial<Attachment>,
-    projectId: string | null = null,
+    projectId: string | null = null
   ): Promise<Attachment> {
     try {
-      const originalAttachment = await this.getById(attachmentId)
+      const originalAttachment = await this.getById(attachmentId);
       if (!originalAttachment) {
-        throw new Error('Attachment not found')
+        throw new Error('Attachment not found');
       }
 
-      const result = await this.update(attachmentId, updates, ATTACHMENT_SCHEMA)
+      const result = await this.update(attachmentId, updates, ATTACHMENT_SCHEMA);
 
       // Log significant updates
-      const significantFields = ['name', 'description', 'isPublic', 'permissions']
+      const significantFields = ['name', 'description', 'isPublic', 'permissions'];
       const significantChanges = Object.keys(updates).filter(
         (key) =>
           significantFields.includes(key) &&
-          updates[key as keyof Attachment] !== originalAttachment[key as keyof Attachment],
-      )
+          updates[key as keyof Attachment] !== originalAttachment[key as keyof Attachment]
+      );
 
       if (significantChanges.length > 0) {
         await ActivityService.logActivity(
@@ -300,16 +300,16 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           {
             attachmentId,
             changes: Object.fromEntries(
-              significantChanges.map((key) => [key, updates[key as keyof Attachment]]),
+              significantChanges.map((key) => [key, updates[key as keyof Attachment]])
             ),
-          },
-        )
+          }
+        );
       }
 
-      return result
+      return result;
     } catch (error) {
-      console.error('Error updating attachment:', error)
-      throw error
+      console.error('Error updating attachment:', error);
+      throw error;
     }
   }
 
@@ -321,17 +321,17 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   async bulkDeleteEntityAttachments(
     entityType: EntityType,
     entityId: string,
-    projectId: string | null = null,
+    projectId: string | null = null
   ): Promise<{ deleted: number; attachments: Attachment[] }> {
     try {
-      const entityAttachments = await this.getEntityAttachments(entityType, entityId)
-      const attachmentIds = entityAttachments.map((a) => a.id)
+      const entityAttachments = await this.getEntityAttachments(entityType, entityId);
+      const attachmentIds = entityAttachments.map((a) => a.id);
 
       if (attachmentIds.length === 0) {
-        return { deleted: 0, attachments: [] }
+        return { deleted: 0, attachments: [] };
       }
 
-      await this.bulkDelete(attachmentIds)
+      await this.bulkDelete(attachmentIds);
 
       // Log bulk activity
       await ActivityService.logActivity(
@@ -340,13 +340,13 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         entityType,
         entityId,
         `Bulk deleted ${attachmentIds.length} attachments from ${entityType}`,
-        { deletedCount: attachmentIds.length },
-      )
+        { deletedCount: attachmentIds.length }
+      );
 
-      return { deleted: attachmentIds.length, attachments: entityAttachments }
+      return { deleted: attachmentIds.length, attachments: entityAttachments };
     } catch (error) {
-      console.error('Error bulk deleting entity attachments:', error)
-      throw error
+      console.error('Error bulk deleting entity attachments:', error);
+      throw error;
     }
   }
 
@@ -356,24 +356,24 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   async bulkUpdateAttachmentPermissions(
     attachmentIds: string[],
     permissions: Attachment['permissions'],
-    projectId: string | null = null,
+    _projectId: string | null = null
   ): Promise<any> {
     try {
-      const updates = { permissions }
-      const results = await this.bulkUpdate(attachmentIds, updates)
+      const updates = { permissions };
+      const results = await this.bulkUpdate(attachmentIds, updates);
 
       await ActivityService.logBulkActivity(
         'bulk_updated_attachment_permissions',
         'attachment',
         attachmentIds,
         `Bulk updated permissions for ${attachmentIds.length} attachments`,
-        { permissions },
-      )
+        { permissions }
+      );
 
-      return results
+      return results;
     } catch (error) {
-      console.error('Error bulk updating attachment permissions:', error)
-      throw error
+      console.error('Error bulk updating attachment permissions:', error);
+      throw error;
     }
   }
 
@@ -384,13 +384,13 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getAttachmentStatistics(
     entityType: EntityType | null = null,
-    entityId: string | null = null,
+    entityId: string | null = null
   ): Promise<AttachmentStatistics> {
     try {
-      let attachments: Attachment[] =
+      const attachments: Attachment[] =
         entityType && entityId
           ? await this.getEntityAttachments(entityType, entityId)
-          : await this.getAll()
+          : await this.getAll();
 
       const stats: AttachmentStatistics = {
         total: attachments.length,
@@ -406,57 +406,57 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         oldAttachments: 0, // Older than 1 year
         largeFiles: 0, // > 10MB
         withThumbnails: attachments.filter((a) => a.thumbnail).length,
-      }
+      };
 
       // Calculate averages
       if (attachments.length > 0) {
-        stats.averageSize = stats.totalSize / attachments.length
+        stats.averageSize = stats.totalSize / attachments.length;
       }
 
       // File type distribution
       attachments.forEach((attachment) => {
-        const fileType = attachment.fileType || 'unknown'
-        stats.byFileType[fileType] = (stats.byFileType[fileType] || 0) + 1
-      })
+        const fileType = attachment.fileType || 'unknown';
+        stats.byFileType[fileType] = (stats.byFileType[fileType] || 0) + 1;
+      });
 
       // Entity type distribution (if not filtering by specific entity)
       if (!entityType) {
         attachments.forEach((attachment) => {
-          const entType = attachment.entityType || 'unknown'
-          stats.byEntityType[entType] = (stats.byEntityType[entType] || 0) + 1
-        })
+          const entType = attachment.entityType || 'unknown';
+          stats.byEntityType[entType] = (stats.byEntityType[entType] || 0) + 1;
+        });
       }
 
       // Uploader distribution
       attachments.forEach((attachment) => {
-        const uploader = attachment.uploadedByName || 'Unknown'
-        stats.byUploader[uploader] = (stats.byUploader[uploader] || 0) + 1
-      })
+        const uploader = attachment.uploadedByName || 'Unknown';
+        stats.byUploader[uploader] = (stats.byUploader[uploader] || 0) + 1;
+      });
 
       // Virus scan status
       attachments.forEach((attachment) => {
-        const status = attachment.virusScanStatus || 'unknown'
-        stats.byVirusScanStatus[status] = (stats.byVirusScanStatus[status] || 0) + 1
-      })
+        const status = attachment.virusScanStatus || 'unknown';
+        stats.byVirusScanStatus[status] = (stats.byVirusScanStatus[status] || 0) + 1;
+      });
 
       // Time-based stats
-      const now = new Date()
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
-      const tenMB = 10 * 1024 * 1024
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+      const tenMB = 10 * 1024 * 1024;
 
       attachments.forEach((attachment) => {
-        const uploadDate = new Date(attachment.uploadedAt || attachment.createdAt)
+        const uploadDate = new Date(attachment.uploadedAt || attachment.createdAt);
 
-        if (uploadDate > sevenDaysAgo) stats.recentUploads++
-        if (uploadDate < oneYearAgo) stats.oldAttachments++
-        if ((attachment.fileSize || 0) > tenMB) stats.largeFiles++
-      })
+        if (uploadDate > sevenDaysAgo) stats.recentUploads++;
+        if (uploadDate < oneYearAgo) stats.oldAttachments++;
+        if ((attachment.fileSize || 0) > tenMB) stats.largeFiles++;
+      });
 
-      return stats
+      return stats;
     } catch (error) {
-      console.error('Error getting attachment statistics:', error)
-      throw error
+      console.error('Error getting attachment statistics:', error);
+      throw error;
     }
   }
 
@@ -468,28 +468,27 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   subscribeToEntityAttachments(
     entityType: EntityType,
     entityId: string,
-    callback: (attachments: Attachment[]) => void,
+    callback: (attachments: Attachment[]) => void
   ): () => void {
     try {
       const filterEntityAttachments = (attachments: Attachment[]) => {
         const entityAttachments = attachments
           .filter(
-            (attachment) =>
-              attachment.entityType === entityType && attachment.entityId === entityId,
+            (attachment) => attachment.entityType === entityType && attachment.entityId === entityId
           )
           .sort(
             (a, b) =>
               new Date(b.uploadedAt || b.createdAt).getTime() -
-              new Date(a.uploadedAt || a.createdAt).getTime(),
-          )
+              new Date(a.uploadedAt || a.createdAt).getTime()
+          );
 
-        callback(entityAttachments)
-      }
+        callback(entityAttachments);
+      };
 
-      return this.subscribeToAll(filterEntityAttachments)
+      return this.subscribeToAll(filterEntityAttachments);
     } catch (error) {
-      console.error('Error subscribing to entity attachments:', error)
-      throw error
+      console.error('Error subscribing to entity attachments:', error);
+      throw error;
     }
   }
 
@@ -498,7 +497,7 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   subscribeToAttachmentsByEntityType(
     entityType: EntityType,
-    callback: (attachments: Attachment[]) => void,
+    callback: (attachments: Attachment[]) => void
   ): () => void {
     try {
       const filterByEntityType = (attachments: Attachment[]) => {
@@ -507,16 +506,16 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           .sort(
             (a, b) =>
               new Date(b.uploadedAt || b.createdAt).getTime() -
-              new Date(a.uploadedAt || a.createdAt).getTime(),
-          )
+              new Date(a.uploadedAt || a.createdAt).getTime()
+          );
 
-        callback(typeAttachments)
-      }
+        callback(typeAttachments);
+      };
 
-      return this.subscribeToAll(filterByEntityType)
+      return this.subscribeToAll(filterByEntityType);
     } catch (error) {
-      console.error('Error subscribing to attachments by entity type:', error)
-      throw error
+      console.error('Error subscribing to attachments by entity type:', error);
+      throw error;
     }
   }
 
@@ -526,43 +525,43 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    * Get file type from file name or mime type
    */
   getFileType(attachment: Attachment): AttachmentFileType {
-    if (attachment.fileType) return attachment.fileType
+    if (attachment.fileType) return attachment.fileType;
 
     if (attachment.mimeType) {
-      if (attachment.mimeType.includes('image')) return 'image'
-      if (attachment.mimeType.includes('pdf')) return 'pdf'
-      if (attachment.mimeType.includes('video')) return 'video'
-      if (attachment.mimeType.includes('audio')) return 'audio'
-      if (attachment.mimeType.includes('text')) return 'document'
+      if (attachment.mimeType.includes('image')) return 'image';
+      if (attachment.mimeType.includes('pdf')) return 'pdf';
+      if (attachment.mimeType.includes('video')) return 'video';
+      if (attachment.mimeType.includes('audio')) return 'audio';
+      if (attachment.mimeType.includes('text')) return 'document';
     }
 
     // Fallback to file extension
-    const fileName = attachment.name || attachment.originalName || ''
-    const extension = fileName.split('.').pop()?.toLowerCase()
+    const fileName = attachment.name || attachment.originalName || '';
+    const extension = fileName.split('.').pop()?.toLowerCase();
 
-    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg']
-    const docExts = ['pdf', 'doc', 'docx', 'txt', 'rtf']
-    const videoExts = ['mp4', 'avi', 'mov', 'wmv', 'flv']
-    const audioExts = ['mp3', 'wav', 'flac', 'aac']
+    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+    const docExts = ['pdf', 'doc', 'docx', 'txt', 'rtf'];
+    const videoExts = ['mp4', 'avi', 'mov', 'wmv', 'flv'];
+    const audioExts = ['mp3', 'wav', 'flac', 'aac'];
 
-    if (extension && imageExts.includes(extension)) return 'image'
-    if (extension && docExts.includes(extension)) return 'document'
-    if (extension && videoExts.includes(extension)) return 'video'
-    if (extension && audioExts.includes(extension)) return 'audio'
+    if (extension && imageExts.includes(extension)) return 'image';
+    if (extension && docExts.includes(extension)) return 'document';
+    if (extension && videoExts.includes(extension)) return 'video';
+    if (extension && audioExts.includes(extension)) return 'audio';
 
-    return 'file'
+    return 'file';
   }
 
   /**
    * Format file size for display
    */
   formatFileSize(bytes: number): string {
-    if (!bytes) return '0 B'
+    if (!bytes) return '0 B';
 
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-    const i = Math.floor(Math.log(bytes) / Math.log(1024))
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
 
-    return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i]
+    return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i];
   }
 
   /**
@@ -572,20 +571,20 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
     attachment: Attachment,
     userId: string,
     userRole: string,
-    action: 'view' | 'download' | 'delete' = 'view',
+    action: 'view' | 'download' | 'delete' = 'view'
   ): boolean {
-    if (!attachment.permissions) return true // Legacy attachments
+    if (!attachment.permissions) return true; // Legacy attachments
 
-    const permissions = attachment.permissions[action] || []
+    const permissions = attachment.permissions[action] || [];
 
     // Check role-based permissions
-    if (permissions.includes(userRole)) return true
-    if (permissions.includes('all')) return true
+    if (permissions.includes(userRole)) return true;
+    if (permissions.includes('all')) return true;
 
     // Check if user is uploader
-    if (permissions.includes('uploader') && attachment.uploadedBy === userId) return true
+    if (permissions.includes('uploader') && attachment.uploadedBy === userId) return true;
 
-    return false
+    return false;
   }
 
   /**
@@ -593,10 +592,10 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getEntityAttachmentSummary(
     entityType: EntityType,
-    entityId: string,
+    entityId: string
   ): Promise<AttachmentSummary> {
     try {
-      const attachments = await this.getEntityAttachments(entityType, entityId)
+      const attachments = await this.getEntityAttachments(entityType, entityId);
 
       return {
         count: attachments.length,
@@ -609,14 +608,14 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
             ? attachments.sort(
                 (a, b) =>
                   new Date(b.uploadedAt || b.createdAt).getTime() -
-                  new Date(a.uploadedAt || a.createdAt).getTime(),
+                  new Date(a.uploadedAt || a.createdAt).getTime()
               )[0].uploadedAt
             : null,
         needsVirusScan: attachments.filter((a) => a.virusScanStatus === 'pending').length,
-      }
+      };
     } catch (error) {
-      console.error('Error getting entity attachment summary:', error)
-      throw error
+      console.error('Error getting entity attachment summary:', error);
+      throw error;
     }
   }
 
@@ -624,19 +623,19 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    * Validate attachment-specific data
    */
   validateAttachmentData(attachmentData: Partial<Attachment>): ValidationResult {
-    const validation = super.validateData(attachmentData, ['name', 'fileSize'])
+    const validation = super.validateData(attachmentData, ['name', 'fileSize']);
 
     // File size validation
     if (attachmentData.fileSize && attachmentData.fileSize < 0) {
-      validation.errors.fileSize = 'File size cannot be negative'
-      validation.isValid = false
+      validation.errors.fileSize = 'File size cannot be negative';
+      validation.isValid = false;
     }
 
     // Max file size (100MB default)
-    const maxSize = 100 * 1024 * 1024
+    const maxSize = 100 * 1024 * 1024;
     if (attachmentData.fileSize && attachmentData.fileSize > maxSize) {
-      validation.errors.fileSize = `File size cannot exceed ${this.formatFileSize(maxSize)}`
-      validation.isValid = false
+      validation.errors.fileSize = `File size cannot exceed ${this.formatFileSize(maxSize)}`;
+      validation.isValid = false;
     }
 
     // Entity type validation
@@ -649,14 +648,14 @@ class AttachmentRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       'rfi',
       'submittal',
       'change-order',
-    ]
+    ];
     if (attachmentData.entityType && !validEntityTypes.includes(attachmentData.entityType)) {
-      validation.errors.entityType = `Invalid entity type. Must be one of: ${validEntityTypes.join(', ')}`
-      validation.isValid = false
+      validation.errors.entityType = `Invalid entity type. Must be one of: ${validEntityTypes.join(', ')}`;
+      validation.isValid = false;
     }
 
-    return validation
+    return validation;
   }
 }
 
-export default new AttachmentRepository()
+export default new AttachmentRepository();

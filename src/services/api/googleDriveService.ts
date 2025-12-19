@@ -108,9 +108,9 @@ class GoogleDriveService {
   private loadScript(src: string, globalName: string): Promise<unknown> {
     return new Promise((resolve, reject) => {
       // Check if already loaded
-      if ((window as Window & Record<string, unknown>)[globalName]) {
+      if ((window as Window & typeof globalThis)[globalName]) {
         console.log(`${globalName} already loaded`);
-        resolve((window as Window & Record<string, unknown>)[globalName]);
+        resolve((window as Window & typeof globalThis)[globalName]);
         return;
       }
 
@@ -122,7 +122,7 @@ class GoogleDriveService {
 
       script.onload = () => {
         console.log(`${globalName} loaded successfully`);
-        resolve((window as Window & Record<string, unknown>)[globalName]);
+        resolve((window as Window & typeof globalThis)[globalName]);
       };
 
       script.onerror = (error: Event | string) => {

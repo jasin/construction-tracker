@@ -129,7 +129,7 @@ class SubmittalRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getSubmittalsByStatus(status, projectId = null) {
     try {
-      let submittals = projectId
+      const submittals = projectId
         ? await this.getSubmittalsByProject(projectId)
         : await this.getAll()
       return submittals.filter((submittal) => submittal.status === status)
@@ -144,7 +144,7 @@ class SubmittalRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getSubmittalsNeedingReview(projectId = null) {
     try {
-      let submittals = projectId
+      const submittals = projectId
         ? await this.getSubmittalsByProject(projectId)
         : await this.getAll()
       return submittals.filter((submittal) =>
@@ -161,7 +161,7 @@ class SubmittalRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getOverdueSubmittals(projectId = null) {
     try {
-      let submittals = projectId
+      const submittals = projectId
         ? await this.getSubmittalsByProject(projectId)
         : await this.getAll()
       const now = new Date()
@@ -186,7 +186,7 @@ class SubmittalRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getSubmittalsBySpecSection(specSection, projectId = null) {
     try {
-      let submittals = projectId
+      const submittals = projectId
         ? await this.getSubmittalsByProject(projectId)
         : await this.getAll()
       return submittals.filter(
@@ -203,7 +203,7 @@ class SubmittalRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async searchSubmittals(searchTerm, projectId = null) {
     try {
-      let submittals = projectId
+      const submittals = projectId
         ? await this.getSubmittalsByProject(projectId)
         : await this.getAll()
       const term = searchTerm.toLowerCase().trim()
@@ -457,7 +457,7 @@ class SubmittalRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getSubmittalStatistics(projectId = null) {
     try {
-      let submittals = projectId
+      const submittals = projectId
         ? await this.getSubmittalsByProject(projectId)
         : await this.getAll()
 

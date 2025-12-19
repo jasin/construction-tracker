@@ -6,7 +6,13 @@ import ActivityService from '@/services/logging/ActivityService';
 import firebaseCore from '@/services/firebase/core/FirebaseCore';
 import { ref, query, orderByChild, equalTo, onValue } from 'firebase/database';
 import { CHANGE_ORDER_SCHEMA } from '../schemas';
-import type { ChangeOrder, ValidationResult } from '@/types/models';
+import type {
+  ChangeOrder,
+  ChangeOrderStatus,
+  ChangeOrderType,
+  ValidationResult,
+} from '@/types/models';
+import type { RepositoryInterface } from '../types/repository';
 
 interface ChangeOrderFilters {
   status?: string[];
@@ -62,7 +68,11 @@ interface ImpactSummary {
  * Change Order Repository - handles all change order-related Firebase operations
  * Includes change order management, approval workflows, and cost/time impact tracking
  */
-class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
+const MixedBase = CrudMixin(RealtimeMixin(BaseRepository)) as unknown as new (
+  collectionName: string
+) => RepositoryInterface<ChangeOrder>;
+
+class ChangeOrderRepository extends MixedBase {
   constructor() {
     super('changeOrders');
   }
@@ -77,22 +87,26 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         throw new Error(`Validation failed: ${Object.values(validation.errors).join(', ')}`);
       }
 
-      // Add change order-specific defaults
-      const coDataWithDefaults = {
-        ...validation.cleanData,
-        status: validation.cleanData.status || 'proposed',
-        type: validation.cleanData.type || 'addition',
-        costImpact: validation.cleanData.costImpact || 0,
-        timeImpact: validation.cleanData.timeImpact || 0,
-        billable: validation.cleanData.billable !== false,
+      // Add change order-specific defaults with proper typing
+      const cleanData = validation.cleanData as Partial<ChangeOrder>;
+      const coDataWithDefaults: Partial<ChangeOrder> = {
+        ...cleanData,
+        status: (cleanData.status as ChangeOrderStatus) || 'proposed',
+        type: (cleanData.type as ChangeOrderType) || 'addition',
+        costImpact: cleanData.costImpact || 0,
+        timeImpact: cleanData.timeImpact || 0,
+        billable: cleanData.billable !== false,
         requestedBy: firebaseCore.getCurrentUserId(),
         requestedByName: firebaseCore.getCurrentUserName(),
         requestedAt: new Date().toISOString(),
-        attachments: validation.cleanData.attachments || [],
-        attachmentCount: validation.cleanData.attachmentCount || 0,
+        attachments: cleanData.attachments || [],
+        attachmentCount: cleanData.attachmentCount || 0,
       };
 
-      const newCO = (await this.create(coDataWithDefaults, CHANGE_ORDER_SCHEMA)) as ChangeOrder;
+      const newCO = (await this.create(
+        coDataWithDefaults as Record<string, unknown>,
+        CHANGE_ORDER_SCHEMA as Record<string, string>
+      )) as ChangeOrder & { id: string };
 
       // Log activity
       await ActivityService.logEntityCreated(newCO.projectId, 'changeOrder', newCO.id, newCO.title);
@@ -112,58 +126,56 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
     filters: ChangeOrderFilters = {}
   ): Promise<ChangeOrder[]> {
     try {
-      let changeOrders = (await this.getByField('projectId', projectId)) as ChangeOrder[];
+      const changeOrders = (await this.getByField('projectId', projectId)) as Array<
+        ChangeOrder & { id: string }
+      >;
 
       // Apply filters
+      let filtered = changeOrders;
+
       if (filters.status && filters.status.length > 0) {
-        changeOrders = changeOrders.filter((co) => filters.status!.includes(co.status));
+        filtered = filtered.filter((co) => filters.status!.includes(co.status));
       }
 
       if (filters.type && filters.type.length > 0) {
-        changeOrders = changeOrders.filter((co) => filters.type!.includes((co as any).type));
+        filtered = filtered.filter((co) => filters.type!.includes(co.type));
       }
 
       if (filters.requestedBy) {
-        changeOrders = changeOrders.filter((co) => co.requestedBy === filters.requestedBy);
+        filtered = filtered.filter((co) => co.requestedBy === filters.requestedBy);
       }
 
       if (filters.billable !== undefined) {
-        changeOrders = changeOrders.filter((co) => (co as any).billable === filters.billable);
+        filtered = filtered.filter((co) => co.billable === filters.billable);
       }
 
       if (filters.minCostImpact !== undefined) {
-        changeOrders = changeOrders.filter(
-          (co) => ((co as any).costImpact || 0) >= filters.minCostImpact!
-        );
+        filtered = filtered.filter((co) => (co.costImpact || 0) >= filters.minCostImpact!);
       }
 
       if (filters.maxCostImpact !== undefined) {
-        changeOrders = changeOrders.filter(
-          (co) => ((co as any).costImpact || 0) <= filters.maxCostImpact!
-        );
+        filtered = filtered.filter((co) => (co.costImpact || 0) <= filters.maxCostImpact!);
       }
 
       if (filters.requestedAfter) {
-        changeOrders = changeOrders.filter(
-          (co) =>
-            (co as any).requestedAt &&
-            new Date((co as any).requestedAt) >= new Date(filters.requestedAfter!)
+        filtered = filtered.filter(
+          (co) => co.requestedAt && new Date(co.requestedAt) >= new Date(filters.requestedAfter!)
         );
       }
 
       // Apply sorting
-      changeOrders = this.sortChangeOrders(
-        changeOrders,
+      let sorted = this.sortChangeOrders(
+        filtered,
         filters.sortBy || 'requestedAt',
         filters.sortDirection || 'desc'
       );
 
       // Apply limit if specified
       if (filters.limit && filters.limit > 0) {
-        changeOrders = changeOrders.slice(0, filters.limit);
+        sorted = sorted.slice(0, filters.limit);
       }
 
-      return changeOrders;
+      return sorted;
     } catch (error) {
       console.error('Error getting change orders by project:', error);
       throw error;
@@ -178,9 +190,9 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
     projectId: string | null = null
   ): Promise<ChangeOrder[]> {
     try {
-      let changeOrders = projectId
+      const changeOrders = projectId
         ? await this.getChangeOrdersByProject(projectId)
-        : ((await this.getAll()) as ChangeOrder[]);
+        : ((await this.getAll()) as unknown as ChangeOrder[]);
       return changeOrders.filter((co) => co.status === status);
     } catch (error) {
       console.error('Error getting change orders by status:', error);
@@ -220,17 +232,17 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
     projectId: string | null = null
   ): Promise<ChangeOrder[]> {
     try {
-      let changeOrders = projectId
+      const changeOrders = projectId
         ? await this.getChangeOrdersByProject(projectId)
-        : ((await this.getAll()) as ChangeOrder[]);
+        : ((await this.getAll()) as unknown as ChangeOrder[]);
       const term = searchTerm.toLowerCase().trim();
 
-      return changeOrders.filter((co) => {
+      return changeOrders.filter((co: ChangeOrder) => {
         return (
           co.title?.toLowerCase().includes(term) ||
           co.description?.toLowerCase().includes(term) ||
-          (co as any).number?.toLowerCase().includes(term) ||
-          (co as any).reason?.toLowerCase().includes(term) ||
+          co.number?.toLowerCase().includes(term) ||
+          co.reason?.toLowerCase().includes(term) ||
           co.requestedByName?.toLowerCase().includes(term)
         );
       });
@@ -241,16 +253,38 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   }
 
   /**
+   * Get change order by ID
+   */
+  async getChangeOrderById(changeOrderId: string): Promise<ChangeOrder | null> {
+    try {
+      const changeOrder = (await this.getById(changeOrderId)) as unknown as ChangeOrder | null;
+      return changeOrder;
+    } catch (error) {
+      console.error('Error getting change order by ID:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Update change order with validation and activity logging
    */
-  async updateChangeOrder(changeOrderId: string, updates: Partial<ChangeOrder>): Promise<any> {
+  async updateChangeOrder(
+    changeOrderId: string,
+    updates: Partial<ChangeOrder>
+  ): Promise<ChangeOrder & { id: string }> {
     try {
-      const originalCO = (await this.getById(changeOrderId)) as ChangeOrder;
+      const originalCO = (await this.getById(changeOrderId)) as
+        | (ChangeOrder & { id: string })
+        | null;
       if (!originalCO) {
         throw new Error('Change order not found');
       }
 
-      const result = await this.update(changeOrderId, updates, CHANGE_ORDER_SCHEMA);
+      const result = (await this.update(
+        changeOrderId,
+        updates,
+        CHANGE_ORDER_SCHEMA
+      )) as ChangeOrder & { id: string };
 
       // Log significant updates
       if (updates.status && updates.status !== originalCO.status) {
@@ -264,36 +298,30 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         );
       }
 
-      if (
-        (updates as any).costImpact !== undefined &&
-        (updates as any).costImpact !== (originalCO as any).costImpact
-      ) {
+      if (updates.costImpact !== undefined && updates.costImpact !== originalCO.costImpact) {
         await ActivityService.logActivity(
           originalCO.projectId,
           'updated_change_order_cost',
           'changeOrder',
           changeOrderId,
-          `Updated change order "${originalCO.title}" cost impact from ${(originalCO as any).costImpact || 0} to ${(updates as any).costImpact}`,
+          `Updated change order "${originalCO.title}" cost impact from ${originalCO.costImpact || 0} to ${updates.costImpact}`,
           {
-            oldCostImpact: (originalCO as any).costImpact || 0,
-            newCostImpact: (updates as any).costImpact,
+            oldCostImpact: originalCO.costImpact || 0,
+            newCostImpact: updates.costImpact,
           }
         );
       }
 
-      if (
-        (updates as any).timeImpact !== undefined &&
-        (updates as any).timeImpact !== (originalCO as any).timeImpact
-      ) {
+      if (updates.timeImpact !== undefined && updates.timeImpact !== originalCO.timeImpact) {
         await ActivityService.logActivity(
           originalCO.projectId,
           'updated_change_order_time',
           'changeOrder',
           changeOrderId,
-          `Updated change order "${originalCO.title}" time impact from ${(originalCO as any).timeImpact || 0} days to ${(updates as any).timeImpact} days`,
+          `Updated change order "${originalCO.title}" time impact from ${originalCO.timeImpact || 0} days to ${updates.timeImpact} days`,
           {
-            oldTimeImpact: (originalCO as any).timeImpact || 0,
-            newTimeImpact: (updates as any).timeImpact,
+            oldTimeImpact: originalCO.timeImpact || 0,
+            newTimeImpact: updates.timeImpact,
           }
         );
       }
@@ -312,9 +340,9 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
     changeOrderId: string,
     approvedBy: string | null = null,
     approvalNotes: string = ''
-  ): Promise<any> {
+  ): Promise<ChangeOrder & { id: string }> {
     try {
-      const updates = {
+      const updates: Partial<ChangeOrder> = {
         status: 'approved',
         approvedAt: new Date().toISOString(),
         approvedBy: approvedBy || firebaseCore.getCurrentUserId(),
@@ -322,10 +350,14 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         approvalNotes: approvalNotes,
       };
 
-      const result = await this.update(changeOrderId, updates, CHANGE_ORDER_SCHEMA);
+      const result = (await this.update(
+        changeOrderId,
+        updates,
+        CHANGE_ORDER_SCHEMA
+      )) as ChangeOrder & { id: string };
 
       // Log approval activity
-      const co = (await this.getById(changeOrderId)) as ChangeOrder;
+      const co = (await this.getById(changeOrderId)) as (ChangeOrder & { id: string }) | null;
       if (co && co.projectId) {
         await ActivityService.logActivity(
           co.projectId,
@@ -335,8 +367,8 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           `Approved change order: ${co.title}`,
           {
             approvedBy: updates.approvedByName,
-            costImpact: (co as any).costImpact,
-            timeImpact: (co as any).timeImpact,
+            costImpact: co.costImpact,
+            timeImpact: co.timeImpact,
             approvalNotes,
           }
         );
@@ -356,9 +388,9 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
     changeOrderId: string,
     rejectedBy: string | null = null,
     rejectionReason: string = ''
-  ): Promise<any> {
+  ): Promise<ChangeOrder & { id: string }> {
     try {
-      const updates = {
+      const updates: Partial<ChangeOrder> = {
         status: 'rejected',
         rejectedAt: new Date().toISOString(),
         rejectedBy: rejectedBy || firebaseCore.getCurrentUserId(),
@@ -366,10 +398,14 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         rejectionReason: rejectionReason,
       };
 
-      const result = await this.update(changeOrderId, updates, CHANGE_ORDER_SCHEMA);
+      const result = (await this.update(
+        changeOrderId,
+        updates,
+        CHANGE_ORDER_SCHEMA
+      )) as ChangeOrder & { id: string };
 
       // Log rejection activity
-      const co = (await this.getById(changeOrderId)) as ChangeOrder;
+      const co = (await this.getById(changeOrderId)) as (ChangeOrder & { id: string }) | null;
       if (co && co.projectId) {
         await ActivityService.logActivity(
           co.projectId,
@@ -398,9 +434,9 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
     changeOrderId: string,
     executedBy: string | null = null,
     executionNotes: string = ''
-  ): Promise<any> {
+  ): Promise<ChangeOrder & { id: string }> {
     try {
-      const updates = {
+      const updates: Partial<ChangeOrder> = {
         status: 'executed',
         executedAt: new Date().toISOString(),
         executedBy: executedBy || firebaseCore.getCurrentUserId(),
@@ -408,10 +444,14 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         executionNotes: executionNotes,
       };
 
-      const result = await this.update(changeOrderId, updates, CHANGE_ORDER_SCHEMA);
+      const result = (await this.update(
+        changeOrderId,
+        updates,
+        CHANGE_ORDER_SCHEMA
+      )) as ChangeOrder & { id: string };
 
       // Log execution activity
-      const co = (await this.getById(changeOrderId)) as ChangeOrder;
+      const co = (await this.getById(changeOrderId)) as (ChangeOrder & { id: string }) | null;
       if (co && co.projectId) {
         await ActivityService.logActivity(
           co.projectId,
@@ -438,7 +478,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async deleteChangeOrder(changeOrderId: string): Promise<{ success: boolean; id: string }> {
     try {
-      const co = (await this.getById(changeOrderId)) as ChangeOrder;
+      const co = (await this.getById(changeOrderId)) as unknown as ChangeOrder;
       if (!co) {
         throw new Error('Change order not found');
       }
@@ -486,15 +526,15 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         changeOrderCount: allEffectiveCOs.length,
       };
 
-      allEffectiveCOs.forEach((co) => {
-        const costImpact = (co as any).costImpact || 0;
-        const timeImpact = (co as any).timeImpact || 0;
+      allEffectiveCOs.forEach((co: ChangeOrder) => {
+        const costImpact = co.costImpact || 0;
+        const timeImpact = co.timeImpact || 0;
 
         impact.totalCostImpact += costImpact;
         impact.totalTimeImpact += timeImpact;
 
         // Track by type
-        switch ((co as any).type) {
+        switch (co.type) {
           case 'addition':
             impact.additionsCost += costImpact;
             break;
@@ -510,7 +550,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         }
 
         // Track billable vs non-billable
-        if ((co as any).billable) {
+        if (co.billable) {
           impact.billableAmount += costImpact;
         } else {
           impact.nonBillableAmount += costImpact;
@@ -531,9 +571,9 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getChangeOrderStatistics(projectId: string | null = null): Promise<ChangeOrderStatistics> {
     try {
-      let changeOrders = projectId
+      const changeOrders = projectId
         ? await this.getChangeOrdersByProject(projectId)
-        : ((await this.getAll()) as ChangeOrder[]);
+        : ((await this.getAll()) as unknown as ChangeOrder[]);
 
       const stats: ChangeOrderStatistics = {
         total: changeOrders.length,
@@ -546,13 +586,19 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
           executed: changeOrders.filter((co) => co.status === 'executed').length,
         },
         byType: {
-          addition: changeOrders.filter((co) => (co as any).type === 'addition').length,
-          deletion: changeOrders.filter((co) => (co as any).type === 'deletion').length,
-          modification: changeOrders.filter((co) => (co as any).type === 'modification').length,
-          credit: changeOrders.filter((co) => (co as any).type === 'credit').length,
+          addition: changeOrders.filter((co: ChangeOrder) => co.type === 'addition').length,
+          deletion: changeOrders.filter((co: ChangeOrder) => co.type === 'deletion').length,
+          modification: changeOrders.filter((co: ChangeOrder) => co.type === 'modification').length,
+          credit: changeOrders.filter((co: ChangeOrder) => co.type === 'credit').length,
         },
-        totalCostImpact: changeOrders.reduce((sum, co) => sum + ((co as any).costImpact || 0), 0),
-        totalTimeImpact: changeOrders.reduce((sum, co) => sum + ((co as any).timeImpact || 0), 0),
+        totalCostImpact: changeOrders.reduce(
+          (sum, co: ChangeOrder) => sum + (co.costImpact || 0),
+          0
+        ),
+        totalTimeImpact: changeOrders.reduce(
+          (sum, co: ChangeOrder) => sum + (co.timeImpact || 0),
+          0
+        ),
         averageCostImpact: 0,
         averageTimeImpact: 0,
         billableAmount: 0,
@@ -570,22 +616,20 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       }
 
       // Calculate billable amounts
-      changeOrders.forEach((co) => {
-        if ((co as any).billable) {
-          stats.billableAmount += (co as any).costImpact || 0;
+      changeOrders.forEach((co: ChangeOrder) => {
+        if (co.billable) {
+          stats.billableAmount += co.costImpact || 0;
         } else {
-          stats.nonBillableAmount += (co as any).costImpact || 0;
+          stats.nonBillableAmount += co.costImpact || 0;
         }
       });
 
       // Calculate approval times
-      const approvedCOs = changeOrders.filter(
-        (co) => (co as any).approvedAt && (co as any).submittedAt
-      );
+      const approvedCOs = changeOrders.filter((co: ChangeOrder) => co.approvedAt && co.submittedAt);
       if (approvedCOs.length > 0) {
-        const totalApprovalTime = approvedCOs.reduce((sum, co) => {
-          const submitted = new Date((co as any).submittedAt);
-          const approved = new Date((co as any).approvedAt);
+        const totalApprovalTime = approvedCOs.reduce((sum, co: ChangeOrder) => {
+          const submitted = new Date(co.submittedAt!);
+          const approved = new Date(co.approvedAt!);
           return sum + (approved.getTime() - submitted.getTime());
         }, 0);
         stats.averageApprovalTime = totalApprovalTime / approvedCOs.length / (1000 * 60 * 60 * 24); // Days
@@ -617,7 +661,10 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   /**
    * Bulk update change order status
    */
-  async bulkUpdateChangeOrderStatus(changeOrderIds: string[], status: string): Promise<any[]> {
+  async bulkUpdateChangeOrderStatus(
+    changeOrderIds: string[],
+    status: string
+  ): Promise<Array<ChangeOrder & { id: string }>> {
     try {
       const updates: Record<string, unknown> = {
         status,
@@ -633,7 +680,9 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         }),
       };
 
-      const results = await this.bulkUpdate(changeOrderIds, updates);
+      const results = (await this.bulkUpdate(changeOrderIds, updates)) as Array<
+        ChangeOrder & { id: string }
+      >;
 
       // Log bulk activity
       await ActivityService.logBulkActivity(
@@ -656,8 +705,8 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async bulkApproveChangeOrders(
     changeOrderIds: string[],
-    approvalNotes: string = ''
-  ): Promise<any[]> {
+    _approvalNotes: string = ''
+  ): Promise<Array<ChangeOrder & { id: string }>> {
     try {
       return await this.bulkUpdateChangeOrderStatus(changeOrderIds, 'approved');
     } catch (error) {
@@ -679,9 +728,12 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       const changeOrdersRef = ref(firebaseCore.database, this.collectionName);
       const projectCOsQuery = query(changeOrdersRef, orderByChild('projectId'), equalTo(projectId));
 
-      onValue(projectCOsQuery, (snapshot) => {
+      const unsubscribe = onValue(projectCOsQuery, (snapshot) => {
         const changeOrders: ChangeOrder[] = snapshot.exists()
-          ? Object.entries(snapshot.val()).map(([id, data]: [string, any]) => ({ id, ...data }))
+          ? Object.entries(snapshot.val()).map(
+              ([id, data]: [string, Record<string, unknown>]) =>
+                ({ id, ...data }) as ChangeOrder & { id: string }
+            )
           : [];
 
         // Sort by requested date (newest first)
@@ -689,7 +741,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
         callback(sortedCOs);
       });
 
-      return projectCOsQuery;
+      return unsubscribe;
     } catch (error) {
       console.error('Error subscribing to change orders by project:', error);
       throw error;
@@ -701,9 +753,8 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   subscribeToChangeOrders(callback: (changeOrders: ChangeOrder[]) => void): () => void {
     const sortByStatusAndDate = (a: ChangeOrder, b: ChangeOrder) => {
-      // First sort by status priority (pending items first)
+      // Sort by status order (submitted first, then approved, executed, rejected)
       const statusOrder: Record<string, number> = {
-        proposed: 0,
         submitted: 1,
         under_review: 2,
         approved: 3,
@@ -718,8 +769,8 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
       }
 
       // Then by requested date (newest first)
-      const aDate = new Date((a as any).requestedAt || a.createdAt || 0);
-      const bDate = new Date((b as any).requestedAt || b.createdAt || 0);
+      const aDate = new Date(a.requestedAt || a.createdAt || 0);
+      const bDate = new Date(b.requestedAt || b.createdAt || 0);
       return bDate.getTime() - aDate.getTime();
     };
 
@@ -752,13 +803,18 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
     direction: 'asc' | 'desc' = 'desc'
   ): ChangeOrder[] {
     return changeOrders.sort((a, b) => {
-      let aVal: any, bVal: any;
+      let aVal: string | number | Date;
+      let bVal: string | number | Date;
 
       switch (sortBy) {
         case 'title':
+          aVal = (a.title || '').toLowerCase();
+          bVal = (b.title || '').toLowerCase();
+          break;
+
         case 'number':
-          aVal = ((a as any)[sortBy] || '').toLowerCase();
-          bVal = ((b as any)[sortBy] || '').toLowerCase();
+          aVal = (a.number || '').toLowerCase();
+          bVal = (b.number || '').toLowerCase();
           break;
 
         case 'status': {
@@ -782,35 +838,69 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
             deletion: 2,
             credit: 3,
           };
-          aVal = typeOrder[(a as any).type] ?? 1;
-          bVal = typeOrder[(b as any).type] ?? 1;
+          aVal = typeOrder[a.type] ?? 1;
+          bVal = typeOrder[b.type] ?? 1;
           break;
         }
 
         case 'costImpact':
+          aVal = a.costImpact || 0;
+          bVal = b.costImpact || 0;
+          break;
+
         case 'timeImpact':
-          aVal = (a as any)[sortBy] || 0;
-          bVal = (b as any)[sortBy] || 0;
+          aVal = a.timeImpact || 0;
+          bVal = b.timeImpact || 0;
           break;
 
         case 'requestedAt':
+          aVal = a.requestedAt ? new Date(a.requestedAt) : new Date(0);
+          bVal = b.requestedAt ? new Date(b.requestedAt) : new Date(0);
+          break;
+
         case 'approvedAt':
+          aVal = a.approvedAt ? new Date(a.approvedAt) : new Date(0);
+          bVal = b.approvedAt ? new Date(b.approvedAt) : new Date(0);
+          break;
+
         case 'rejectedAt':
+          aVal = a.rejectedAt ? new Date(a.rejectedAt) : new Date(0);
+          bVal = b.rejectedAt ? new Date(b.rejectedAt) : new Date(0);
+          break;
+
         case 'executedAt':
+          aVal = a.executedAt ? new Date(a.executedAt) : new Date(0);
+          bVal = b.executedAt ? new Date(b.executedAt) : new Date(0);
+          break;
+
         case 'createdAt':
-          aVal = (a as any)[sortBy] ? new Date((a as any)[sortBy]) : new Date(0);
-          bVal = (b as any)[sortBy] ? new Date((b as any)[sortBy]) : new Date(0);
+          aVal = a.createdAt ? new Date(a.createdAt) : new Date(0);
+          bVal = b.createdAt ? new Date(b.createdAt) : new Date(0);
           break;
 
         default:
-          aVal = (a as any)[sortBy] || '';
-          bVal = (b as any)[sortBy] || '';
+          aVal = a.createdAt ? new Date(a.createdAt) : new Date(0);
+          bVal = b.createdAt ? new Date(b.createdAt) : new Date(0);
       }
 
-      if (direction === 'desc') {
-        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+      // Type-safe comparison
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        if (direction === 'desc') {
+          return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+        }
+        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+      } else if (typeof aVal === 'number' && typeof bVal === 'number') {
+        if (direction === 'desc') {
+          return bVal - aVal;
+        }
+        return aVal - bVal;
+      } else if (aVal instanceof Date && bVal instanceof Date) {
+        if (direction === 'desc') {
+          return bVal.getTime() - aVal.getTime();
+        }
+        return aVal.getTime() - bVal.getTime();
       }
-      return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+      return 0;
     });
   }
 
@@ -818,21 +908,21 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    * Validate change order-specific data
    */
   validateChangeOrderData(changeOrderData: Record<string, unknown>): ValidationResult {
-    const validation = super.validateData(changeOrderData, ['title', 'projectId']);
+    const validation = this.validateData(changeOrderData, ['title', 'projectId']);
 
     // Add change order-specific validations
     if (
       changeOrderData.type &&
-      !['addition', 'deletion', 'modification', 'credit'].includes(changeOrderData.type)
+      !['addition', 'deletion', 'modification', 'credit'].includes(changeOrderData.type as string)
     ) {
-      validation.errors.type = 'Invalid type. Must be: addition, deletion, modification, or credit';
+      validation.errors.type = `Invalid type. Must be: addition, deletion, modification, or credit`;
       validation.isValid = false;
     }
 
     if (
       changeOrderData.status &&
       !['proposed', 'submitted', 'under_review', 'approved', 'rejected', 'executed'].includes(
-        changeOrderData.status
+        changeOrderData.status as string
       )
     ) {
       validation.errors.status =
@@ -879,7 +969,7 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
   needsApproval(changeOrder: ChangeOrder, approvalThreshold: number = 1000): boolean {
     return (
       changeOrder.status === 'submitted' &&
-      Math.abs((changeOrder as any).costImpact || 0) >= approvalThreshold
+      Math.abs(changeOrder.costImpact || 0) >= approvalThreshold
     );
   }
 
@@ -888,12 +978,12 @@ class ChangeOrderRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   getImpactSummary(changeOrder: ChangeOrder): ImpactSummary {
     return {
-      costImpact: (changeOrder as any).costImpact || 0,
-      timeImpact: (changeOrder as any).timeImpact || 0,
-      type: (changeOrder as any).type || 'modification',
-      billable: (changeOrder as any).billable !== false,
-      hasFinancialImpact: Math.abs((changeOrder as any).costImpact || 0) > 0,
-      hasScheduleImpact: Math.abs((changeOrder as any).timeImpact || 0) > 0,
+      costImpact: changeOrder.costImpact || 0,
+      timeImpact: changeOrder.timeImpact || 0,
+      type: changeOrder.type || 'modification',
+      billable: changeOrder.billable !== false,
+      hasFinancialImpact: Math.abs(changeOrder.costImpact || 0) > 0,
+      hasScheduleImpact: Math.abs(changeOrder.timeImpact || 0) > 0,
     };
   }
 }

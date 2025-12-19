@@ -102,7 +102,7 @@ class RFIRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getRFIsByStatus(status, projectId = null) {
     try {
-      let rfis = projectId ? await this.getRFIsByProject(projectId) : await this.getAll()
+      const rfis = projectId ? await this.getRFIsByProject(projectId) : await this.getAll()
       return rfis.filter((rfi) => rfi.status === status)
     } catch (error) {
       console.error('Error getting RFIs by status:', error)
@@ -115,7 +115,7 @@ class RFIRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getOverdueRFIs(projectId = null) {
     try {
-      let rfis = projectId ? await this.getRFIsByProject(projectId) : await this.getAll()
+      const rfis = projectId ? await this.getRFIsByProject(projectId) : await this.getAll()
       const now = new Date()
 
       return rfis
@@ -138,7 +138,7 @@ class RFIRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getRFIsNeedingResponse(projectId = null) {
     try {
-      let rfis = projectId ? await this.getRFIsByProject(projectId) : await this.getAll()
+      const rfis = projectId ? await this.getRFIsByProject(projectId) : await this.getAll()
       return rfis.filter((rfi) => rfi.status === 'submitted' && rfi.responseRequired)
     } catch (error) {
       console.error('Error getting RFIs needing response:', error)
@@ -151,7 +151,7 @@ class RFIRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async searchRFIs(searchTerm, projectId = null) {
     try {
-      let rfis = projectId ? await this.getRFIsByProject(projectId) : await this.getAll()
+      const rfis = projectId ? await this.getRFIsByProject(projectId) : await this.getAll()
       const term = searchTerm.toLowerCase().trim()
 
       return rfis.filter((rfi) => {
@@ -329,7 +329,7 @@ class RFIRepository extends CrudMixin(RealtimeMixin(BaseRepository)) {
    */
   async getRFIStatistics(projectId = null) {
     try {
-      let rfis = projectId ? await this.getRFIsByProject(projectId) : await this.getAll()
+      const rfis = projectId ? await this.getRFIsByProject(projectId) : await this.getAll()
 
       const now = new Date()
 

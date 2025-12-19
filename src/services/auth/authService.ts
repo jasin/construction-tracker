@@ -1,4 +1,73 @@
 // src/services/auth/authService.ts
+// TEMP: Disabled Firebase Auth - migrating to Python backend with JWT
+console.log('⚠️ authService.ts DISABLED - using Python backend JWT auth');
+
+/**
+ * Result type for authentication operations
+ */
+export interface AuthResult {
+  success: boolean;
+  user?: any;
+  error?: string;
+}
+
+/**
+ * STUB: Signs in with email and password.
+ * Now handled by src/stores/auth.js using JWT
+ */
+export async function signIn(email: string, password: string): Promise<AuthResult> {
+  console.warn('authService.signIn() called but disabled - use auth store instead');
+  return { success: false, error: 'Firebase auth disabled' };
+}
+
+/**
+ * STUB: Signs in with Google using popup.
+ * Now handled by src/stores/auth.js using JWT
+ */
+export async function googleSignIn(): Promise<AuthResult> {
+  console.warn('authService.googleSignIn() called but disabled - use auth store instead');
+  return { success: false, error: 'Firebase auth disabled' };
+}
+
+/**
+ * STUB: Signs out the current user.
+ * Now handled by src/stores/auth.js
+ */
+export async function logout(): Promise<AuthResult> {
+  console.warn('authService.logout() called but disabled - use auth store instead');
+  return { success: true };
+}
+
+/**
+ * STUB: Gets the current user's ID (UID) from Firebase Auth.
+ * Now handled by src/stores/auth.js
+ */
+export function getCurrentUserId(): string | null {
+  console.warn('authService.getCurrentUserId() called but disabled - use auth store instead');
+  return null;
+}
+
+/**
+ * STUB: Gets the current user's name from Firebase Auth.
+ * Now handled by src/stores/auth.js
+ */
+export function getCurrentUserName(): string | null {
+  console.warn('authService.getCurrentUserName() called but disabled - use auth store instead');
+  return null;
+}
+
+/**
+ * STUB: Get the Firebase Auth instance.
+ * Returns null since Firebase is disabled
+ */
+export function getAuthInstance(): any {
+  console.warn('authService.getAuthInstance() called but disabled');
+  return null;
+}
+
+/*
+UNCOMMENT BELOW TO RE-ENABLE FIREBASE AUTH:
+
 import {
   getAuth,
   signInWithEmailAndPassword,
@@ -13,24 +82,6 @@ import { app } from '@/configs/firebase';
 
 const auth: Auth = getAuth(app);
 
-/**
- * Result type for authentication operations
- */
-export interface AuthResult {
-  success: boolean;
-  user?: User;
-  error?: string;
-}
-
-/**
- * Service for handling Firebase Authentication operations.
- * Provides methods for sign-in (email/password and Google), and sign-out.
- * Does not handle RTDB user syncing—that is managed in the auth store.
- */
-
-/**
- * Signs in with email and password.
- */
 export async function signIn(email: string, password: string): Promise<AuthResult> {
   try {
     const userCredential: UserCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -41,9 +92,6 @@ export async function signIn(email: string, password: string): Promise<AuthResul
   }
 }
 
-/**
- * Signs in with Google using popup.
- */
 export async function googleSignIn(): Promise<AuthResult> {
   try {
     const provider = new GoogleAuthProvider();
@@ -55,9 +103,6 @@ export async function googleSignIn(): Promise<AuthResult> {
   }
 }
 
-/**
- * Signs out the current user.
- */
 export async function logout(): Promise<AuthResult> {
   try {
     await signOut(auth);
@@ -68,9 +113,6 @@ export async function logout(): Promise<AuthResult> {
   }
 }
 
-/**
- * Gets the current user's ID (UID) from Firebase Auth.
- */
 export function getCurrentUserId(): string | null {
   try {
     const user = auth.currentUser;
@@ -81,9 +123,6 @@ export function getCurrentUserId(): string | null {
   }
 }
 
-/**
- * Gets the current user's name from Firebase Auth (displayName or fallback to email username part).
- */
 export function getCurrentUserName(): string | null {
   try {
     const user = auth.currentUser;
@@ -95,9 +134,7 @@ export function getCurrentUserName(): string | null {
   }
 }
 
-/**
- * Get the Firebase Auth instance (for store/composable use)
- */
 export function getAuthInstance(): Auth {
   return auth;
 }
+*/

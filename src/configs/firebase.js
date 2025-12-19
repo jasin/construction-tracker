@@ -1,11 +1,11 @@
-import { initializeApp } from 'firebase/app'
-import { getDatabase, connectDatabaseEmulator } from 'firebase/database'
-import { getAuth, connectAuthEmulator } from 'firebase/auth'
+import { initializeApp } from 'firebase/app';
+import { getDatabase, connectDatabaseEmulator } from 'firebase/database';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
 
 // Determine if we're in production based on hostname
-const isDevelopment = import.meta.env.MODE === 'development'
+const isDevelopment = import.meta.env.MODE === 'development';
 
-let firebaseConfig
+let firebaseConfig;
 
 if (!isDevelopment) {
   firebaseConfig = {
@@ -16,28 +16,38 @@ if (!isDevelopment) {
     storageBucket: import.meta.env.VITE_STORAGE_BUCKET,
     messagingSenderId: import.meta.env.VITE_MESSAGING_SENDER_ID,
     appId: import.meta.env.VITE_APP_ID,
-  }
+  };
 } else {
   firebaseConfig = {
     apiKey: 'fake-key',
     databaseURL: 'http://127.0.0.1:9000?ns=construction-tracker-fbdb-default-rtdb',
     projectId: 'construction-tracker-fbdb',
-  }
+  };
 }
 
-// Check environment before displaying private information to the public
+// TEMP: Disable Firebase initialization - migrating to Python backend
+// This file is kept for backwards compatibility but doesn't initialize Firebase
+
+console.log('⚠️ Firebase initialization DISABLED - using Python backend');
+
+// Export stub objects to prevent import errors
+let app = null;
+let database = null;
+let auth = null;
+
+// Uncomment below to re-enable Firebase:
+/*
 console.log('Initializing Firebase with config:', !isDevelopment ? {} : firebaseConfig)
 console.log('Environment:', !isDevelopment ? 'production' : 'development')
 
-let app // Added: Variable to hold the app instance for export
 try {
   app = initializeApp(firebaseConfig)
 } catch (error) {
-  console.error('Firebase initialization error:', error) // Standardized error logging
-  throw new Error(`Failed to initialize Firebase app: ${error.message}`) // Rethrow descriptive error
+  console.error('Firebase initialization error:', error)
+  throw new Error(`Failed to initialize Firebase app: ${error.message}`)
 }
-const database = getDatabase(app)
-const auth = getAuth(app)
+database = getDatabase(app)
+auth = getAuth(app)
 
 // Only connect to emulators in development
 if (isDevelopment) {
@@ -45,5 +55,6 @@ if (isDevelopment) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099')
   console.log('Connected to Database and Auth Emulators')
 }
+*/
 
-export { app, database, auth }
+export { app, database, auth };

@@ -1,11 +1,18 @@
 // stores/task.js
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import TaskRepository from '@/services/firebase/Repositories/TaskRepository';
+import {
+  getAllTasks,
+  getTaskById,
+  getTasksByProject,
+  getTasksByAssignee,
+  createTask as createTaskApi,
+  updateTask as updateTaskApi,
+  deleteTask as deleteTaskApi,
+} from '@/services/api/tasksApi';
 import { handleError } from '../utils/errorHandler';
-import firebaseCore from '@/services/firebase/core/FirebaseCore';
-import ActivityService from '@/services/logging/ActivityService.js';
-import { ref as dbRef, query, orderByChild, equalTo, onValue } from 'firebase/database';
+import { supabase } from '@/configs/supabase';
+import { useAuthStore } from './auth';
 
 export const useTaskStore = defineStore('task', () => {
   // State - User Tasks (for dashboard)
@@ -24,8 +31,6 @@ export const useTaskStore = defineStore('task', () => {
   const error = ref(null);
 
   // Subscription management
-  let userTasksUnsubscribe = null;
-  let projectTasksUnsubscribe = null;
   const subscriptions = ref([]);
 
   // Getters - User Tasks
@@ -100,14 +105,11 @@ export const useTaskStore = defineStore('task', () => {
    * Initializes real-time subscription to current user's tasks
    * Subscribes to all tasks assigned to the current user across all projects
    */
-  function initializeUserTasksSubscription() {
-    if (userTasksUnsubscribe) {
-      console.log('⚠️ User tasks subscription already active');
-      return;
-    }
+  async function initializeUserTasksSubscription() {
+    const authStore = useAuthStore();
+    const currentUserId = authStore.user?.id;
 
-    const currentUserId = firebaseCore.getCurrentUserId();
-    if (!currentUserId || currentUserId === 'system') {
+    if (!currentUserId) {
       console.warn('Task Store: No authenticated user, skipping user tasks subscription');
       userTasksLoading.value = false;
       return;
@@ -115,37 +117,63 @@ export const useTaskStore = defineStore('task', () => {
 
     console.log('🔥 Initializing user tasks subscription for user:', currentUserId);
 
-    const tasksRef = dbRef(firebaseCore.database, 'tasks');
-    const userTasksQuery = query(tasksRef, orderByChild('assignedTo'), equalTo(currentUserId));
-
-    const unsubscribe = onValue(userTasksQuery, (snapshot) => {
-      const tasks = snapshot.exists()
-        ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
-        : [];
-
-      console.log('📦 Store received user tasks update:', tasks.length, 'tasks');
-
-      userTasks.value = tasks;
+    try {
+      // Initial load from API
+      userTasksLoading.value = true;
+      const tasksData = await getTasksByAssignee(currentUserId);
+      userTasks.value = tasksData || [];
+      console.log('📦 Initial user tasks loaded:', userTasks.value.length, 'tasks');
       userTasksLoading.value = false;
       userTasksInitialized.value = true;
-    });
 
-    userTasksUnsubscribe = unsubscribe;
-    console.log('✅ User tasks subscription started');
+      // Subscribe to real-time changes via Supabase
+      const channel = supabase
+        .channel('user-tasks-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'tasks',
+            filter: `assigned_to=eq.${currentUserId}`,
+          },
+          (payload) => {
+            console.log('📡 Supabase real-time event on user tasks:', payload);
+
+            if (payload.eventType === 'INSERT') {
+              userTasks.value.push(payload.new);
+            } else if (payload.eventType === 'UPDATE') {
+              const index = userTasks.value.findIndex((t) => t.id === payload.new.id);
+              if (index !== -1) {
+                userTasks.value[index] = payload.new;
+              } else {
+                // Task was reassigned to current user
+                userTasks.value.push(payload.new);
+              }
+            } else if (payload.eventType === 'DELETE') {
+              userTasks.value = userTasks.value.filter((t) => t.id !== payload.old.id);
+            }
+          }
+        )
+        .subscribe();
+
+      subscriptions.value.push(() => supabase.removeChannel(channel));
+      console.log('✅ User tasks subscription started');
+    } catch (err) {
+      console.error('Error initializing user tasks subscription:', err);
+      userTasksLoading.value = false;
+      handleError(err, 'Initialize user tasks subscription');
+    }
   }
 
   /**
    * Cleans up user tasks subscription
    */
   function cleanupUserTasksSubscription() {
-    if (userTasksUnsubscribe) {
-      console.log('🧹 Cleaning up user tasks subscription');
-      userTasksUnsubscribe();
-      userTasksUnsubscribe = null;
-      userTasksInitialized.value = false;
-      userTasks.value = [];
-      userTasksLoading.value = true;
-    }
+    console.log('🧹 Cleaning up user tasks subscription');
+    userTasksInitialized.value = false;
+    userTasks.value = [];
+    userTasksLoading.value = true;
   }
 
   // Actions - Project Tasks Subscription (for project detail view)
@@ -154,20 +182,19 @@ export const useTaskStore = defineStore('task', () => {
    * Shows all tasks for the project regardless of assignee
    * @param {string} projectId - The project ID to subscribe to
    */
-  function initializeProjectTasksSubscription(projectId) {
+  async function initializeProjectTasksSubscription(projectId) {
     if (!projectId) {
       console.warn('Task Store: No projectId provided for project tasks subscription');
       return;
     }
 
     // Clean up existing subscription if switching projects
-    if (projectTasksUnsubscribe && currentProjectId.value !== projectId) {
+    if (currentProjectId.value && currentProjectId.value !== projectId) {
       console.log('🧹 Cleaning up previous project tasks subscription');
-      projectTasksUnsubscribe();
-      projectTasksUnsubscribe = null;
+      cleanupProjectTasksSubscription();
     }
 
-    if (currentProjectId.value === projectId && projectTasksUnsubscribe) {
+    if (currentProjectId.value === projectId) {
       console.log('✅ Project tasks subscription already active for:', projectId);
       return;
     }
@@ -176,40 +203,58 @@ export const useTaskStore = defineStore('task', () => {
     projectTasksLoading.value = true;
     currentProjectId.value = projectId;
 
-    const tasksRef = dbRef(firebaseCore.database, 'tasks');
-    const projectTasksQuery = query(tasksRef, orderByChild('projectId'), equalTo(projectId));
-
-    const unsubscribe = onValue(projectTasksQuery, (snapshot) => {
-      const tasks = snapshot.exists()
-        ? Object.entries(snapshot.val()).map(([id, data]) => ({ id, ...data }))
-        : [];
-
-      console.log(
-        '📦 Store received project tasks update:',
-        tasks.length,
-        'tasks for project',
-        projectId
-      );
-      projectTasks.value = tasks;
+    try {
+      // Initial load from API
+      const tasksData = await getTasksByProject(projectId);
+      projectTasks.value = tasksData || [];
+      console.log('📦 Initial project tasks loaded:', projectTasks.value.length, 'tasks');
       projectTasksLoading.value = false;
-    });
 
-    projectTasksUnsubscribe = unsubscribe;
-    console.log('✅ Project tasks subscription started for:', projectId);
+      // Subscribe to real-time changes via Supabase
+      const channel = supabase
+        .channel(`project-${projectId}-tasks`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'tasks',
+            filter: `project_id=eq.${projectId}`,
+          },
+          (payload) => {
+            console.log('📡 Supabase real-time event on project tasks:', payload);
+
+            if (payload.eventType === 'INSERT') {
+              projectTasks.value.push(payload.new);
+            } else if (payload.eventType === 'UPDATE') {
+              const index = projectTasks.value.findIndex((t) => t.id === payload.new.id);
+              if (index !== -1) {
+                projectTasks.value[index] = payload.new;
+              }
+            } else if (payload.eventType === 'DELETE') {
+              projectTasks.value = projectTasks.value.filter((t) => t.id !== payload.old.id);
+            }
+          }
+        )
+        .subscribe();
+
+      subscriptions.value.push(() => supabase.removeChannel(channel));
+      console.log('✅ Project tasks subscription started for:', projectId);
+    } catch (err) {
+      console.error('Error initializing project tasks subscription:', err);
+      projectTasksLoading.value = false;
+      handleError(err, `Initialize project tasks subscription for ${projectId}`);
+    }
   }
 
   /**
    * Cleans up project tasks subscription
    */
   function cleanupProjectTasksSubscription() {
-    if (projectTasksUnsubscribe) {
-      console.log('🧹 Cleaning up project tasks subscription');
-      projectTasksUnsubscribe();
-      projectTasksUnsubscribe = null;
-      currentProjectId.value = null;
-      projectTasks.value = [];
-      projectTasksLoading.value = false;
-    }
+    console.log('🧹 Cleaning up project tasks subscription');
+    currentProjectId.value = null;
+    projectTasks.value = [];
+    projectTasksLoading.value = false;
   }
 
   // Actions - Single Task Operations
@@ -223,8 +268,8 @@ export const useTaskStore = defineStore('task', () => {
     error.value = null;
 
     try {
-      const taskData = await TaskRepository.getById(taskId);
-      console.log('Repository getById result for task', taskId, ':', taskData);
+      const taskData = await getTaskById(taskId);
+      console.log('API getById result for task', taskId, ':', taskData);
 
       if (taskData) {
         currentTask.value = taskData;
@@ -254,7 +299,7 @@ export const useTaskStore = defineStore('task', () => {
     error.value = null;
 
     try {
-      const newTask = await TaskRepository.createTask(taskData);
+      const newTask = await createTaskApi(taskData);
 
       if (!newTask) {
         throw new Error('Task creation failed - no data returned');
@@ -262,7 +307,7 @@ export const useTaskStore = defineStore('task', () => {
 
       console.log('✅ Task created:', newTask.id);
 
-      // Note: Activity logging is handled in TaskRepository.createTask
+      // Note: Activity logging is handled by backend
       // User tasks subscription will auto-update if assigned to current user
       // Project tasks subscription will auto-update if for current project
 
@@ -293,7 +338,7 @@ export const useTaskStore = defineStore('task', () => {
     error.value = null;
 
     try {
-      const updatedTask = await TaskRepository.updateTask(taskId, updates);
+      const updatedTask = await updateTaskApi(taskId, updates);
 
       if (!updatedTask) {
         throw new Error('Task update failed - no data returned');
@@ -306,7 +351,7 @@ export const useTaskStore = defineStore('task', () => {
         currentTask.value = updatedTask;
       }
 
-      // Note: Activity logging is handled in TaskRepository.updateTask
+      // Note: Activity logging is handled by backend
       // Subscriptions will auto-update
 
       return updatedTask;
@@ -335,7 +380,7 @@ export const useTaskStore = defineStore('task', () => {
     error.value = null;
 
     try {
-      await TaskRepository.deleteTask(taskId);
+      await deleteTaskApi(taskId);
 
       console.log('✅ Task deleted:', taskId);
 
@@ -344,7 +389,7 @@ export const useTaskStore = defineStore('task', () => {
         currentTask.value = null;
       }
 
-      // Note: Activity logging is handled in TaskRepository.deleteTask
+      // Note: Activity logging is handled by backend
       // Subscriptions will auto-update
 
       return true;
@@ -442,15 +487,15 @@ export const useTaskStore = defineStore('task', () => {
 
     if (subscriptions.value && Array.isArray(subscriptions.value)) {
       console.log('🧹 Clearing', subscriptions.value.length, 'task subscriptions');
-      subscriptions.value
-        .filter((s) => typeof s === 'function')
-        .forEach((unsub) => {
-          try {
+      subscriptions.value.forEach((unsub) => {
+        try {
+          if (typeof unsub === 'function') {
             unsub();
-          } catch (err) {
-            console.warn('Task unsubscribe call failed:', err);
           }
-        });
+        } catch (err) {
+          console.warn('Task unsubscribe call failed:', err);
+        }
+      });
       subscriptions.value = [];
     }
   }
