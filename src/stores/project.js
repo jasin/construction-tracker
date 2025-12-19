@@ -3,14 +3,13 @@ import { defineStore } from 'pinia';
 import { ref, computed, nextTick } from 'vue';
 import {
   getAllProjects,
-  getProjectById,
-  createProject,
-  updateProject,
-  deleteProject,
+  getProjectById as getProjectByIdApi,
+  createProject as createProjectApi,
+  updateProject as updateProjectApi,
+  deleteProject as deleteProjectApi,
 } from '@/services/api/projectsApi';
 import { handleError } from '../utils/errorHandler';
 import { supabase } from '@/configs/supabase';
-import ActivityService from '@/services/logging/ActivityService.js';
 import router from '@/router';
 import { useUIStore } from '@/stores/ui';
 
@@ -105,7 +104,7 @@ export const useProjectStore = defineStore('project', () => {
 
     let projectData;
     try {
-      projectData = await getProjectById(projectId);
+      projectData = await getProjectByIdApi(projectId);
       console.log('API getProjectById result for', projectId, ':', projectData);
       if (projectData) {
         currentProject.value = projectData;
@@ -306,17 +305,8 @@ export const useProjectStore = defineStore('project', () => {
         await router.push(targetPath);
       }
 
-      // Log the selection event via ActivityService.logActivity (direct call, non-blocking)
-      const description = `Selected project: ${active.name}`;
-      await ActivityService.logActivity(
-        active.id, // projectId
-        'project_selected', // action
-        'project', // entityType
-        active.id, // entityId
-        description, // description
-        { projectName: active.name } // additionalData
-      );
-      console.log('📋 Logged project selection:', active.name);
+      // Activity logging is now handled by backend automatically
+      console.log('📋 Project selected:', active.name);
 
       return true; // Success
     } catch (err) {
@@ -369,15 +359,8 @@ export const useProjectStore = defineStore('project', () => {
         await router.push('/');
       }
 
-      // Log the deselection
-      await ActivityService.logActivity(
-        null,
-        'project_deselected',
-        'project',
-        null,
-        'Returned to dashboard',
-        {}
-      );
+      // Activity logging is now handled by backend automatically
+      console.log('📋 Project deselected - returned to dashboard');
 
       // Clear justReset flag after a short delay to allow router to process
       setTimeout(() => {
@@ -489,10 +472,10 @@ export const useProjectStore = defineStore('project', () => {
 
   async function createAndLogProject(projectData) {
     try {
-      const result = await createProject(projectData);
+      const result = await createProjectApi(projectData);
       if (result && result.id) {
-        await ActivityService.logEntityCreated(result.id, 'project', result.id, result.name);
-        console.log('Project created and logged:', result.id);
+        // Backend automatically logs entity creation
+        console.log('Project created:', result.id);
 
         // Real-time subscription will automatically add the new project
         // No need for manual refresh
@@ -520,7 +503,7 @@ export const useProjectStore = defineStore('project', () => {
     }
 
     try {
-      const updatedProject = await updateProject(id, updates);
+      const updatedProject = await updateProjectApi(id, updates);
       if (!updatedProject) {
         console.warn('Update succeeded but project not retrievable');
         return null;
@@ -529,16 +512,8 @@ export const useProjectStore = defineStore('project', () => {
       const changeKeys = Object.keys(updates);
       const changes = changeKeys.length > 0 ? changeKeys.join(', ') : 'General update';
 
-      await ActivityService.logEntityUpdated(
-        id,
-        'project',
-        id,
-        updatedProject.name,
-        { changedFields: changes },
-        { oldValues: {} }
-      );
-
-      console.log('Project updated and logged:', id, 'Changes:', changes);
+      // Backend automatically logs entity updates
+      console.log('Project updated:', id, 'Changes:', changes);
 
       // Real-time subscription will automatically update the project
       if (!projectsInitialized.value) {

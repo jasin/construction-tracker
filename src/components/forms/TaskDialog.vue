@@ -355,7 +355,8 @@ import Tag from 'primevue/tag';
 import Message from 'primevue/message';
 import EntityAttachments from '@/components/widgets/EntityAttachments.vue';
 import { getAllUsers } from '@/services/api/usersApi';
-import TaskRepository from '@/services/firebase/Repositories/TaskRepository';
+import { createTask, updateTask } from '@/services/api/tasksApi';
+import { handleError } from '@/utils/errorHandler';
 import {
   wouldCreateCircularDependency,
   validateDependencies,
@@ -718,11 +719,10 @@ const handleSubmit = async () => {
         updatedAt: new Date().toISOString(),
       };
 
-      await TaskRepository.updateTask(props.task.id, updates);
+      taskSaved = await updateTask(props.task.id, updates);
       success.value = 'Task updated successfully!';
-      taskSaved = { ...props.task, ...updates };
     } else {
-      taskSaved = await TaskRepository.createTask(taskData);
+      taskSaved = await createTask(taskData);
       success.value = 'Task created successfully!';
     }
 
@@ -734,6 +734,7 @@ const handleSubmit = async () => {
   } catch (err) {
     console.error('Error saving task:', err);
     error.value = err.message || `Failed to ${props.task?.id ? 'update' : 'create'} task`;
+    handleError(err, 'Save task');
   } finally {
     loading.value = false;
   }

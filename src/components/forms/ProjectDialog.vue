@@ -216,8 +216,9 @@ import Checkbox from 'primevue/checkbox';
 import DatePicker from 'primevue/datepicker';
 import Button from 'primevue/button';
 
-import ClientRepository from '@/services/firebase/Repositories/ClientRepository';
+import { getAllClients } from '@/services/api/clientsApi';
 import { getActiveUsers } from '@/services/api/usersApi';
+import { handleError } from '@/utils/errorHandler';
 import ClientDialog from './ClientDialog.vue';
 
 // Props
@@ -328,10 +329,11 @@ const phaseOptions = [
  */
 const loadClients = async () => {
   try {
-    clients.value = await ClientRepository.getAllClients();
+    clients.value = await getAllClients();
     console.log('Loaded clients for project form:', clients.value);
   } catch (err) {
     console.error('Error loading clients:', err.message);
+    handleError(err, 'Load clients');
     throw new Error(`Clients load failed: ${err.message}`);
   }
 };

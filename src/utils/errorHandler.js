@@ -5,7 +5,6 @@
  * @module errorHandler
  */
 
-import Logger from '@/services/logging/Logger';
 import AppError from './AppError.js';
 import { getCurrentInstance } from 'vue';
 import { useToast } from 'primevue/usetoast';
@@ -24,7 +23,7 @@ export async function handleAsync(asyncFn, options = {}) {
   } catch (err) {
     console.log(`Caught in handleAsync (${context}):`, err);
     let errorMessage = err.message || 'An unexpected error occurred';
-    Logger.error({ message: errorMessage, context, stack: err.stack });
+    console.error(`[handleAsync] ${context}:`, errorMessage, err.stack);
 
     let firebaseCode = null;
     let statusCode = 500;
@@ -67,12 +66,11 @@ export async function handleAsync(asyncFn, options = {}) {
     }
 
     const appError = new AppError(errorMessage, statusCode, firebaseCode);
-    Logger.error({
+    console.error(`[AppError] ${context}:`, {
       message: errorMessage,
-      context,
       code: firebaseCode,
-      stack: err.stack,
       status: statusCode,
+      stack: err.stack,
     });
 
     const instance = getCurrentInstance();
@@ -161,12 +159,11 @@ export function createSafeFetcher(asyncFn, options = {}) {
           }
 
           const appError = new AppError(errorMessage, statusCode, firebaseCode);
-          Logger.error({
+          console.error(`[createSafeFetcher] ${context}:`, {
             message: errorMessage,
-            context,
             code: firebaseCode,
-            stack: lastError.stack,
             status: statusCode,
+            stack: lastError.stack,
           });
 
           const instance = getCurrentInstance();
@@ -215,12 +212,11 @@ export function handleError(err, context = '', options = {}) {
   const appError = new AppError(errorMessage, statusCode, firebaseCode);
   const stack = err instanceof Error ? err.stack : undefined;
 
-  Logger.error({
+  console.error(`[handleError] ${context}:`, {
     message: errorMessage,
-    context,
     code: firebaseCode,
-    stack,
     status: statusCode,
+    stack,
   });
 
   if (!silent) {

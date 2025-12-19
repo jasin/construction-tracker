@@ -1,17 +1,53 @@
 // src/composables/useUserActivity.js
-import { ref, computed } from 'vue'
-import UserActivityRepository from '@/services/firebase/Repositories/UserActivityRepository'
+import { ref } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+
+const SECTION_VISITS_KEY = 'user_section_visits';
+const READ_ITEMS_KEY = 'user_read_items';
 
 /**
  * Composable for tracking user activity and managing unread badges
- * Implements hybrid approach:
+ * Implements hybrid approach using localStorage:
  * - Section visits (when user views a section)
  * - Item reads (when user clicks/expands specific items)
  */
 export function useUserActivity() {
-  const lastSectionVisits = ref({})
-  const readItems = ref({})
-  const loading = ref(false)
+  const lastSectionVisits = ref({});
+  const readItems = ref({});
+  const loading = ref(false);
+
+  /**
+   * Get user-specific storage key
+   */
+  const getUserKey = (baseKey) => {
+    const authStore = useAuthStore();
+    const userId = authStore.user?.id;
+    return userId ? `${baseKey}_${userId}` : baseKey;
+  };
+
+  /**
+   * Load data from localStorage
+   */
+  const loadFromStorage = (key) => {
+    try {
+      const data = localStorage.getItem(getUserKey(key));
+      return data ? JSON.parse(data) : {};
+    } catch (error) {
+      console.error('Error loading from localStorage:', error);
+      return {};
+    }
+  };
+
+  /**
+   * Save data to localStorage
+   */
+  const saveToStorage = (key, data) => {
+    try {
+      localStorage.setItem(getUserKey(key), JSON.stringify(data));
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
+    }
+  };
 
   /**
    * Update section visit timestamp
@@ -21,19 +57,22 @@ export function useUserActivity() {
    */
   const updateSectionVisit = async (projectId, section) => {
     try {
-      const result = await UserActivityRepository.updateSectionVisit(projectId, section)
+      const timestamp = new Date().toISOString();
 
       // Update local state
       if (!lastSectionVisits.value[projectId]) {
-        lastSectionVisits.value[projectId] = {}
+        lastSectionVisits.value[projectId] = {};
       }
-      lastSectionVisits.value[projectId][section] = result.timestamp
+      lastSectionVisits.value[projectId][section] = timestamp;
 
-      return result
+      // Save to localStorage
+      saveToStorage(SECTION_VISITS_KEY, lastSectionVisits.value);
+
+      return { timestamp };
     } catch (error) {
-      console.error('Error updating section visit:', error)
+      console.error('Error updating section visit:', error);
     }
-  }
+  };
 
   /**
    * Mark an item as read
@@ -44,47 +83,48 @@ export function useUserActivity() {
    */
   const markItemAsRead = async (projectId, entityType, entityId) => {
     try {
-      const result = await UserActivityRepository.markItemAsRead(projectId, entityType, entityId)
+      const timestamp = new Date().toISOString();
 
       // Update local state
       if (!readItems.value[projectId]) {
-        readItems.value[projectId] = {}
+        readItems.value[projectId] = {};
       }
-      const itemKey = `${entityType}_${entityId}`
+      const itemKey = `${entityType}_${entityId}`;
       readItems.value[projectId][itemKey] = {
-        readAt: result.timestamp,
+        readAt: timestamp,
         expandedCount: 1,
-      }
+      };
 
-      return result
+      // Save to localStorage
+      saveToStorage(READ_ITEMS_KEY, readItems.value);
+
+      return { timestamp };
     } catch (error) {
-      console.error('Error marking item as read:', error)
+      console.error('Error marking item as read:', error);
     }
-  }
+  };
 
   /**
    * Load section visit data for a project
    * @param {string} projectId - Project ID
    * @param {Array} sections - Array of section names to load
    */
-  const loadSectionVisits = async (projectId, sections = ['rfis', 'submittals', 'changeOrders', 'tasks', 'documents']) => {
+  const loadSectionVisits = async (
+    projectId,
+    sections = ['rfis', 'submittals', 'changeOrders', 'tasks', 'documents']
+  ) => {
     try {
-      loading.value = true
+      loading.value = true;
 
-      if (!lastSectionVisits.value[projectId]) {
-        lastSectionVisits.value[projectId] = {}
-      }
-
-      for (const section of sections) {
-        const timestamp = await UserActivityRepository.getLastSectionVisit(projectId, section)
-        lastSectionVisits.value[projectId][section] = timestamp
-      }
+      // Load from localStorage
+      const storedData = loadFromStorage(SECTION_VISITS_KEY);
+      lastSectionVisits.value = storedData;
     } catch (error) {
-      console.error('Error loading section visits:', error)
+      console.error('Error loading section visits:', error);
     } finally {
-      loading.value = false
+      loading.value = false;
     }
-  }
+  };
 
   /**
    * Load read items for a project
@@ -92,15 +132,17 @@ export function useUserActivity() {
    */
   const loadReadItems = async (projectId) => {
     try {
-      loading.value = true
-      const items = await UserActivityRepository.getReadItems(projectId)
-      readItems.value[projectId] = items
+      loading.value = true;
+
+      // Load from localStorage
+      const storedData = loadFromStorage(READ_ITEMS_KEY);
+      readItems.value = storedData;
     } catch (error) {
-      console.error('Error loading read items:', error)
+      console.error('Error loading read items:', error);
     } finally {
-      loading.value = false
+      loading.value = false;
     }
-  }
+  };
 
   /**
    * Load all activity data for a project
@@ -108,11 +150,8 @@ export function useUserActivity() {
    * @param {Array} sections - Array of section names to load
    */
   const loadProjectActivity = async (projectId, sections) => {
-    await Promise.all([
-      loadSectionVisits(projectId, sections),
-      loadReadItems(projectId)
-    ])
-  }
+    await Promise.all([loadSectionVisits(projectId, sections), loadReadItems(projectId)]);
+  };
 
   /**
    * Check if an item is unread
@@ -123,17 +162,25 @@ export function useUserActivity() {
    * @returns {boolean} True if unread
    */
   const isItemUnread = (item, projectId, entityType, section) => {
-    const lastVisit = lastSectionVisits.value[projectId]?.[section]
-    const projectReadItems = readItems.value[projectId] || {}
+    if (!item) return false;
 
-    return UserActivityRepository.isItemUnread(
-      item,
-      projectId,
-      entityType,
-      lastVisit,
-      projectReadItems
-    )
-  }
+    const lastVisit = lastSectionVisits.value[projectId]?.[section];
+    const projectReadItems = readItems.value[projectId] || {};
+    const itemKey = `${entityType}_${item.id}`;
+
+    // Check if item was explicitly marked as read
+    if (projectReadItems[itemKey]) {
+      return false;
+    }
+
+    // Check if item is newer than last section visit
+    if (lastVisit && item.createdAt) {
+      return new Date(item.createdAt) > new Date(lastVisit);
+    }
+
+    // If no last visit recorded, consider all items as read (avoid overwhelming user)
+    return false;
+  };
 
   /**
    * Get unread count for a list of items
@@ -144,21 +191,10 @@ export function useUserActivity() {
    * @returns {number} Unread count
    */
   const getUnreadCount = (items, projectId, entityType, section) => {
-    if (!items || items.length === 0) return 0
+    if (!items || items.length === 0) return 0;
 
-    const lastVisit = lastSectionVisits.value[projectId]?.[section]
-    const projectReadItems = readItems.value[projectId] || {}
-
-    return items.filter(item =>
-      UserActivityRepository.isItemUnread(
-        item,
-        projectId,
-        entityType,
-        lastVisit,
-        projectReadItems
-      )
-    ).length
-  }
+    return items.filter((item) => isItemUnread(item, projectId, entityType, section)).length;
+  };
 
   /**
    * Clear read items for a project (useful for testing)
@@ -166,14 +202,14 @@ export function useUserActivity() {
    */
   const clearReadItems = async (projectId) => {
     try {
-      await UserActivityRepository.clearReadItems(projectId)
       if (readItems.value[projectId]) {
-        readItems.value[projectId] = {}
+        readItems.value[projectId] = {};
       }
+      saveToStorage(READ_ITEMS_KEY, readItems.value);
     } catch (error) {
-      console.error('Error clearing read items:', error)
+      console.error('Error clearing read items:', error);
     }
-  }
+  };
 
   /**
    * Clear section visits for a project
@@ -181,14 +217,14 @@ export function useUserActivity() {
    */
   const clearSectionVisits = async (projectId) => {
     try {
-      await UserActivityRepository.clearSectionVisits(projectId)
       if (lastSectionVisits.value[projectId]) {
-        lastSectionVisits.value[projectId] = {}
+        lastSectionVisits.value[projectId] = {};
       }
+      saveToStorage(SECTION_VISITS_KEY, lastSectionVisits.value);
     } catch (error) {
-      console.error('Error clearing section visits:', error)
+      console.error('Error clearing section visits:', error);
     }
-  }
+  };
 
   return {
     // State
@@ -206,5 +242,5 @@ export function useUserActivity() {
     getUnreadCount,
     clearReadItems,
     clearSectionVisits,
-  }
+  };
 }

@@ -9,9 +9,11 @@
         </div>
         <button
           @click="showCreateUser = true"
-          class="bg-emerald-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-emerald-700 transition-colors"
+          disabled
+          class="bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium cursor-not-allowed transition-colors"
+          title="Users must register through the signup process"
         >
-          Add New User
+          Add New User (via Signup)
         </button>
       </div>
     </div>
@@ -283,22 +285,23 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import UserRepository from '@/services/firebase/Repositories/UserRepository'
+import { ref, computed, onMounted } from 'vue';
+import { getAllUsers, updateUser, activateUser, deactivateUser } from '@/services/api/usersApi';
+import { handleError } from '@/utils/errorHandler';
 
 // Reactive state
-const users = ref([])
-const searchQuery = ref('')
-const roleFilter = ref('')
-const statusFilter = ref('')
-const loading = ref(false)
-const error = ref('')
-const success = ref('')
+const users = ref([]);
+const searchQuery = ref('');
+const roleFilter = ref('');
+const statusFilter = ref('');
+const loading = ref(false);
+const error = ref('');
+const success = ref('');
 
 // Modal state
-const showCreateUser = ref(false)
-const showEditUser = ref(false)
-const editingUser = ref(null)
+const showCreateUser = ref(false);
+const showEditUser = ref(false);
+const editingUser = ref(null);
 
 // Form state
 const userForm = ref({
@@ -307,57 +310,58 @@ const userForm = ref({
   role: '',
   phone: '',
   active: true,
-})
+});
 
 // Computed properties
 const filteredUsers = computed(() => {
-  let filtered = users.value
+  let filtered = users.value;
 
   // Search filter
   if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
+    const query = searchQuery.value.toLowerCase();
     filtered = filtered.filter(
       (user) =>
-        user.name?.toLowerCase().includes(query) || user.email?.toLowerCase().includes(query),
-    )
+        user.name?.toLowerCase().includes(query) || user.email?.toLowerCase().includes(query)
+    );
   }
 
   // Role filter
   if (roleFilter.value) {
-    filtered = filtered.filter((user) => user.role === roleFilter.value)
+    filtered = filtered.filter((user) => user.role === roleFilter.value);
   }
 
   // Status filter
   if (statusFilter.value) {
-    const isActive = statusFilter.value === 'active'
-    filtered = filtered.filter((user) => user.active === isActive)
+    const isActive = statusFilter.value === 'active';
+    filtered = filtered.filter((user) => user.active === isActive);
   }
 
-  return filtered
-})
+  return filtered;
+});
 
 // Methods
 const loadUsers = async () => {
   try {
-    loading.value = true
-    users.value = await UserRepository.getAllUsers()
+    loading.value = true;
+    users.value = await getAllUsers();
   } catch (err) {
-    console.error('Error loading users:', err)
-    error.value = 'Failed to load users'
+    console.error('Error loading users:', err);
+    error.value = 'Failed to load users';
+    handleError(err, 'Load users');
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const getInitials = (name) => {
-  if (!name) return '??'
+  if (!name) return '??';
   return name
     .split(' ')
     .map((n) => n[0])
     .join('')
     .toUpperCase()
-    .slice(0, 2)
-}
+    .slice(0, 2);
+};
 
 const getRoleBadgeClass = (role) => {
   const classes = {
@@ -366,9 +370,9 @@ const getRoleBadgeClass = (role) => {
     superintendent: 'bg-indigo-100 text-indigo-800',
     foreman: 'bg-yellow-100 text-yellow-800',
     user: 'bg-gray-100 text-gray-800',
-  }
-  return classes[role] || 'bg-gray-100 text-gray-800'
-}
+  };
+  return classes[role] || 'bg-gray-100 text-gray-800';
+};
 
 const formatRole = (role) => {
   const roles = {
@@ -377,84 +381,81 @@ const formatRole = (role) => {
     foreman: 'Foreman',
     admin: 'Admin',
     user: 'User',
-  }
-  return roles[role] || role
-}
+  };
+  return roles[role] || role;
+};
 
 const getProjectCount = (user) => {
-  if (!user.projects) return '0 projects'
-  const count = Object.keys(user.projects).length
-  return `${count} project${count !== 1 ? 's' : ''}`
-}
+  if (!user.projects) return '0 projects';
+  const count = Object.keys(user.projects).length;
+  return `${count} project${count !== 1 ? 's' : ''}`;
+};
 
 const formatDate = (dateString) => {
-  if (!dateString) return 'Not set'
+  if (!dateString) return 'Not set';
   return new Date(dateString).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-  })
-}
+  });
+};
 
 const editUser = (user) => {
-  editingUser.value = user
+  editingUser.value = user;
   userForm.value = {
     name: user.name || '',
     email: user.email || '',
     role: user.role || '',
     phone: user.phone || '',
     active: user.active !== undefined ? user.active : true,
-  }
-  showEditUser.value = true
-  error.value = ''
-  success.value = ''
-}
+  };
+  showEditUser.value = true;
+  error.value = '';
+  success.value = '';
+};
 
 const toggleUserStatus = async (user) => {
   try {
-    const newStatus = !user.active
-    await UserRepository.updateUser(user.id, { active: newStatus })
-    user.active = newStatus
-    success.value = `User ${newStatus ? 'activated' : 'deactivated'} successfully`
+    const newStatus = !user.active;
+
+    // Use specific activate/deactivate endpoints
+    if (newStatus) {
+      await activateUser(user.id);
+    } else {
+      await deactivateUser(user.id);
+    }
+
+    user.active = newStatus;
+    success.value = `User ${newStatus ? 'activated' : 'deactivated'} successfully`;
     setTimeout(() => {
-      success.value = ''
-    }, 3000)
+      success.value = '';
+    }, 3000);
   } catch (err) {
-    console.error('Error updating user status:', err)
-    error.value = 'Failed to update user status'
+    console.error('Error updating user status:', err);
+    error.value = 'Failed to update user status';
+    handleError(err, 'Toggle user status');
     setTimeout(() => {
-      error.value = ''
-    }, 3000)
+      error.value = '';
+    }, 3000);
   }
-}
+};
 
 const handleSubmit = async () => {
   if (!userForm.value.name || !userForm.value.email || !userForm.value.role) {
-    error.value = 'Please fill in all required fields'
-    return
+    error.value = 'Please fill in all required fields';
+    return;
   }
 
-  loading.value = true
-  error.value = ''
-  success.value = ''
+  loading.value = true;
+  error.value = '';
+  success.value = '';
 
   try {
     if (showCreateUser.value) {
-      // Create new user
-      const userData = {
-        name: userForm.value.name.trim(),
-        email: userForm.value.email.trim().toLowerCase(),
-        role: userForm.value.role,
-        phone: userForm.value.phone?.trim() || '',
-        active: true,
-        createdAt: new Date().toISOString(),
-        createdBy: 'system', // TODO: Replace with current user ID when auth is ready
-      }
-
-      await UserRepository.createUser(userData)
-      success.value = 'User created successfully!'
-      await loadUsers()
-      closeModal()
+      // User creation is handled through the signup/registration process
+      error.value =
+        'User creation is handled through the registration process. Please use the signup flow.';
+      return;
     } else if (showEditUser.value) {
       // Update existing user
       const updates = {
@@ -462,43 +463,44 @@ const handleSubmit = async () => {
         role: userForm.value.role,
         phone: userForm.value.phone?.trim() || '',
         active: userForm.value.active,
-      }
+      };
 
-      await UserRepository.updateUser(editingUser.value.id, updates)
+      const updatedUser = await updateUser(editingUser.value.id, updates);
 
       // Update local user object
-      Object.assign(editingUser.value, updates)
+      Object.assign(editingUser.value, updatedUser);
 
-      success.value = 'User updated successfully!'
-      closeModal()
+      success.value = 'User updated successfully!';
+      closeModal();
     }
   } catch (err) {
-    console.error('Error saving user:', err)
-    error.value = err.message || 'Failed to save user'
+    console.error('Error saving user:', err);
+    error.value = err.message || 'Failed to save user';
+    handleError(err, 'Save user');
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const closeModal = () => {
-  showCreateUser.value = false
-  showEditUser.value = false
-  editingUser.value = null
+  showCreateUser.value = false;
+  showEditUser.value = false;
+  editingUser.value = null;
   userForm.value = {
     name: '',
     email: '',
     role: '',
     phone: '',
     active: true,
-  }
-  error.value = ''
-  success.value = ''
-}
+  };
+  error.value = '';
+  success.value = '';
+};
 
 // Lifecycle
 onMounted(() => {
-  loadUsers()
-})
+  loadUsers();
+});
 </script>
 
 <style scoped>

@@ -187,7 +187,8 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { Dialog, Button, InputText, ProgressSpinner } from 'primevue';
 import { DOCUMENT_CATEGORIES, getDocumentIcon } from '@/constants/documentCategories';
 import DocumentStatusBadge from '@/components/features/documents/DocumentStatusBadge.vue';
-import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository';
+import { getDocumentsByProject } from '@/services/api/documentsApi';
+import { handleError } from '@/utils/errorHandler';
 import { formatFileSize, formatTimeAgo } from '@/utils/index';
 
 // Props
@@ -245,7 +246,7 @@ const isVisible = computed({
 
 const availableDocuments = computed(() => {
   return allDocuments.value.filter(
-    (doc) => !props.excludedDocumentIds.includes(doc.id) && !doc.isAttachment // Don't include documents that are already attachments
+    (doc) => !props.excludedDocumentIds.includes(doc.id) && !doc.linkedEntityId // Don't include documents that are already linked to entities
   );
 });
 
@@ -303,13 +304,11 @@ const loadAvailableDocuments = async () => {
     loading.value = true;
     error.value = '';
 
-    const documents = await DocumentRepository.getDocumentsByProject(props.projectId, {
-      attachmentsOnly: false, // Only get non-attachment documents
-    });
+    const documents = await getDocumentsByProject(props.projectId);
 
     allDocuments.value = documents;
   } catch (err) {
-    console.error('Error loading available documents:', err);
+    handleError(err, 'Failed to load documents');
     error.value = err.message || 'Failed to load documents';
   } finally {
     loading.value = false;

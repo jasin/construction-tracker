@@ -175,7 +175,8 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import { useProjectStore } from '@/stores/project';
 import { storeToRefs } from 'pinia';
-import ChangeOrderRepository from '@/services/firebase/Repositories/ChangeOrderRepository';
+import { createChangeOrder, updateChangeOrder } from '@/services/api/changeOrdersApi';
+import { handleError } from '@/utils/errorHandler';
 import {
   CHANGE_ORDER_STATUS_OPTIONS,
   CHANGE_ORDER_TYPE_OPTIONS,
@@ -344,7 +345,7 @@ async function handleSubmit() {
     let result;
     if (props.changeOrder?.id) {
       // Update existing change order
-      result = await ChangeOrderRepository.updateChangeOrder(props.changeOrder.id, changeOrderData);
+      result = await updateChangeOrder(props.changeOrder.id, changeOrderData);
       toast.add({
         severity: 'success',
         summary: 'Success',
@@ -353,7 +354,7 @@ async function handleSubmit() {
       });
     } else {
       // Create new change order
-      result = await ChangeOrderRepository.createChangeOrder(changeOrderData);
+      result = await createChangeOrder(changeOrderData);
       toast.add({
         severity: 'success',
         summary: 'Success',
@@ -366,6 +367,7 @@ async function handleSubmit() {
     closeModal();
   } catch (error) {
     console.error('Error saving change order:', error);
+    handleError(error, 'Save change order');
     toast.add({
       severity: 'error',
       summary: 'Error',

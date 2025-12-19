@@ -271,11 +271,12 @@ import Select from 'primevue/select';
 import MultiSelect from 'primevue/multiselect';
 import DatePicker from 'primevue/datepicker';
 import ProgressSpinner from 'primevue/progressspinner';
-import { getCurrentUserId } from '@/services/auth/authService';
 import TaskDialog from '@/components/forms/TaskDialog.vue';
-import TaskRepository from '@/services/firebase/Repositories/TaskRepository';
+import { getAllTasks } from '@/services/api/tasksApi';
 import { getActiveUsers } from '@/services/api/usersApi';
-import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository';
+import { getAllProjects } from '@/services/api/projectsApi';
+import { useAuthStore } from '@/stores/auth';
+import { handleError } from '@/utils/errorHandler';
 
 // Reactive state
 const loading = ref(true);
@@ -347,7 +348,8 @@ const filteredTasks = computed(() => {
 
   // Apply view filter first
   if (currentView.value === 'my-tasks') {
-    const currentUserId = getCurrentUserId();
+    const authStore = useAuthStore();
+    const currentUserId = authStore.user?.id;
     tasks = allTasks.value.filter((task) => task.assignedTo === currentUserId);
   } else if (currentView.value === 'overdue') {
     const now = new Date().toISOString();
@@ -417,7 +419,8 @@ const filteredTasks = computed(() => {
 
 // Task counts for badges
 const myTasksCount = computed(() => {
-  const currentUserId = getCurrentUserId();
+  const authStore = useAuthStore();
+  const currentUserId = authStore.user?.id;
   return allTasks.value.filter(
     (task) => task.assignedTo === currentUserId && task.status !== 'complete'
   ).length;
@@ -532,8 +535,8 @@ const loadData = async () => {
     loading.value = true;
 
     const [tasksData, projectsData, usersData] = await Promise.all([
-      TaskRepository.getAllTasks(),
-      ProjectRepository.getAllProjects(),
+      getAllTasks(),
+      getAllProjects(),
       getActiveUsers(),
     ]);
 
@@ -542,6 +545,7 @@ const loadData = async () => {
     users.value = usersData;
   } catch (error) {
     console.error('Error loading tasks data:', error);
+    handleError(error, 'Load tasks data');
   } finally {
     loading.value = false;
   }

@@ -1,78 +1,91 @@
 // stores/changeOrder.js
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import ChangeOrderRepository from '@/services/firebase/Repositories/ChangeOrderRepository'
-import firebaseCore from '@/services/firebase/core/FirebaseCore'
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import {
+  getAllChangeOrders,
+  getChangeOrderById as getChangeOrderByIdApi,
+  getChangeOrdersByProject,
+  createChangeOrder as createChangeOrderApi,
+  updateChangeOrder as updateChangeOrderApi,
+  deleteChangeOrder as deleteChangeOrderApi,
+} from '@/services/api/changeOrdersApi';
+import { supabase } from '@/configs/supabase';
+import { useAuthStore } from './auth';
 
 export const useChangeOrderStore = defineStore('changeOrder', () => {
   // State - User Change Orders (for dashboard - requested by or approved by user)
-  const userChangeOrders = ref([])
-  const userChangeOrdersLoading = ref(true)
-  const userChangeOrdersInitialized = ref(false)
+  const userChangeOrders = ref([]);
+  const userChangeOrdersLoading = ref(true);
+  const userChangeOrdersInitialized = ref(false);
 
   // State - Project Change Orders (for project detail views)
-  const projectChangeOrders = ref([])
-  const projectChangeOrdersLoading = ref(false)
-  const currentProjectId = ref(null)
+  const projectChangeOrders = ref([]);
+  const projectChangeOrdersLoading = ref(false);
+  const currentProjectId = ref(null);
 
   // State - Single Change Order (for detail view/editing)
-  const currentChangeOrder = ref(null)
-  const loading = ref(false)
-  const error = ref(null)
+  const currentChangeOrder = ref(null);
+  const loading = ref(false);
+  const error = ref(null);
 
   // Subscription management
-  let userChangeOrdersUnsubscribe = null
-  let projectChangeOrdersUnsubscribe = null
+  let userChangeOrdersUnsubscribe = null;
+  let projectChangeOrdersUnsubscribe = null;
 
   // Getters - User Change Orders
-  const userChangeOrderCount = computed(() => userChangeOrders.value.length)
+  const userChangeOrderCount = computed(() => userChangeOrders.value.length);
 
   const userActiveChangeOrders = computed(() =>
     userChangeOrders.value.filter((co) => !['approved', 'rejected', 'executed'].includes(co.status))
-  )
+  );
 
   const userPendingChangeOrders = computed(() =>
-    userChangeOrders.value.filter((co) => ['proposed', 'submitted', 'under_review'].includes(co.status))
-  )
+    userChangeOrders.value.filter((co) =>
+      ['proposed', 'submitted', 'under_review'].includes(co.status)
+    )
+  );
 
   const userChangeOrdersByStatus = computed(() => {
-    const grouped = {}
+    const grouped = {};
     userChangeOrders.value.forEach((changeOrder) => {
-      const status = changeOrder.status || 'proposed'
-      if (!grouped[status]) grouped[status] = []
-      grouped[status].push(changeOrder)
-    })
-    return grouped
-  })
+      const status = changeOrder.status || 'proposed';
+      if (!grouped[status]) grouped[status] = [];
+      grouped[status].push(changeOrder);
+    });
+    return grouped;
+  });
 
   const userChangeOrdersNeedingApproval = computed(() =>
     userChangeOrders.value.filter((co) => co.status === 'submitted')
-  )
+  );
 
   const userTotalCostImpact = computed(() =>
     userChangeOrders.value
       .filter((co) => ['approved', 'executed'].includes(co.status))
       .reduce((sum, co) => sum + (co.costImpact || 0), 0)
-  )
+  );
 
   const userTotalTimeImpact = computed(() =>
     userChangeOrders.value
       .filter((co) => ['approved', 'executed'].includes(co.status))
       .reduce((sum, co) => sum + (co.timeImpact || 0), 0)
-  )
+  );
 
   // Getters - Project Change Orders
-  const projectChangeOrderCount = computed(() => projectChangeOrders.value.length)
+  const projectChangeOrderCount = computed(() => projectChangeOrders.value.length);
 
   const projectActiveChangeOrdersCount = computed(
-    () => projectChangeOrders.value.filter((co) => !['approved', 'rejected', 'executed'].includes(co.status)).length
-  )
+    () =>
+      projectChangeOrders.value.filter(
+        (co) => !['approved', 'rejected', 'executed'].includes(co.status)
+      ).length
+  );
 
   const projectTotalCostImpact = computed(() =>
     projectChangeOrders.value
       .filter((co) => ['approved', 'executed'].includes(co.status))
       .reduce((sum, co) => sum + (co.costImpact || 0), 0)
-  )
+  );
 
   // Actions - User Change Orders Subscription (for dashboard)
   /**
@@ -81,34 +94,99 @@ export const useChangeOrderStore = defineStore('changeOrder', () => {
    */
   async function initializeUserChangeOrdersSubscription() {
     if (userChangeOrdersInitialized.value) {
-      console.log('ChangeOrder Store: User change orders subscription already initialized')
-      return
+      console.log('ChangeOrder Store: User change orders subscription already initialized');
+      return;
     }
 
-    const userId = firebaseCore.getCurrentUserId()
+    const authStore = useAuthStore();
+    const userId = authStore.user?.id;
     if (!userId) {
-      console.warn('ChangeOrder Store: Cannot initialize user change orders subscription - no user ID')
-      userChangeOrdersLoading.value = false
-      return
+      console.warn(
+        'ChangeOrder Store: Cannot initialize user change orders subscription - no user ID'
+      );
+      userChangeOrdersLoading.value = false;
+      return;
     }
 
-    console.log('ChangeOrder Store: Initializing user change orders subscription for user:', userId)
-    userChangeOrdersLoading.value = true
+    console.log(
+      'ChangeOrder Store: Initializing user change orders subscription for user:',
+      userId
+    );
+    userChangeOrdersLoading.value = true;
 
     try {
-      // Subscribe to all change orders and filter for user's change orders
-      userChangeOrdersUnsubscribe = ChangeOrderRepository.subscribeToChangeOrders((changeOrders) => {
-        // Filter change orders requested by or approved by current user
-        userChangeOrders.value = changeOrders.filter((co) =>
-          co.requestedBy === userId || co.approvedBy === userId || co.reviewedBy === userId
+      // Cleanup existing subscription before creating a new one
+      cleanupUserChangeOrdersSubscription();
+
+      // Load initial data from API
+      const allChangeOrders = await getAllChangeOrders();
+      userChangeOrders.value = allChangeOrders.filter(
+        (co) => co.requestedBy === userId || co.approvedBy === userId || co.reviewedBy === userId
+      );
+
+      console.log(
+        'ChangeOrder Store: User change orders loaded, count:',
+        userChangeOrders.value.length
+      );
+
+      // Subscribe to real-time updates with Supabase
+      const channel = supabase
+        .channel('user-change-orders')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'change_orders',
+          },
+          (payload) => {
+            handleUserChangeOrderUpdate(payload);
+          }
         )
-        userChangeOrdersLoading.value = false
-        userChangeOrdersInitialized.value = true
-        console.log('ChangeOrder Store: User change orders updated, count:', userChangeOrders.value.length)
-      })
+        .subscribe();
+
+      userChangeOrdersUnsubscribe = () => supabase.removeChannel(channel);
+      userChangeOrdersInitialized.value = true;
+      userChangeOrdersLoading.value = false;
     } catch (error) {
-      console.error('ChangeOrder Store: Error initializing user change orders subscription:', error)
-      userChangeOrdersLoading.value = false
+      console.error(
+        'ChangeOrder Store: Error initializing user change orders subscription:',
+        error
+      );
+      userChangeOrdersLoading.value = false;
+    }
+  }
+
+  /**
+   * Handle real-time updates for user change orders
+   */
+  function handleUserChangeOrderUpdate(payload) {
+    const authStore = useAuthStore();
+    const userId = authStore.user?.id;
+    if (!userId) return;
+
+    const changeOrder = payload.new || payload.old;
+
+    // Only process if this change order is relevant to the user
+    const isRelevant =
+      changeOrder.requestedBy === userId ||
+      changeOrder.approvedBy === userId ||
+      changeOrder.reviewedBy === userId;
+
+    if (!isRelevant) return;
+
+    if (payload.eventType === 'INSERT') {
+      userChangeOrders.value.push(payload.new);
+    } else if (payload.eventType === 'UPDATE') {
+      const index = userChangeOrders.value.findIndex((co) => co.id === payload.new.id);
+      if (index !== -1) {
+        userChangeOrders.value[index] = payload.new;
+      } else if (isRelevant) {
+        // Change order became relevant to user (e.g., assigned as reviewer)
+        userChangeOrders.value.push(payload.new);
+      }
+    } else if (payload.eventType === 'DELETE') {
+      userChangeOrders.value = userChangeOrders.value.filter((co) => co.id !== payload.old.id);
     }
   }
 
@@ -117,13 +195,13 @@ export const useChangeOrderStore = defineStore('changeOrder', () => {
    */
   function cleanupUserChangeOrdersSubscription() {
     if (userChangeOrdersUnsubscribe) {
-      console.log('ChangeOrder Store: Cleaning up user change orders subscription')
-      userChangeOrdersUnsubscribe()
-      userChangeOrdersUnsubscribe = null
+      console.log('ChangeOrder Store: Cleaning up user change orders subscription');
+      userChangeOrdersUnsubscribe();
+      userChangeOrdersUnsubscribe = null;
     }
-    userChangeOrders.value = []
-    userChangeOrdersInitialized.value = false
-    userChangeOrdersLoading.value = true
+    userChangeOrders.value = [];
+    userChangeOrdersInitialized.value = false;
+    userChangeOrdersLoading.value = true;
   }
 
   // Actions - Project Change Orders Subscription (for project detail)
@@ -132,32 +210,76 @@ export const useChangeOrderStore = defineStore('changeOrder', () => {
    */
   async function initializeProjectChangeOrdersSubscription(projectId) {
     if (!projectId) {
-      console.warn('ChangeOrder Store: Cannot initialize project change orders - no project ID')
-      return
+      console.warn('ChangeOrder Store: Cannot initialize project change orders - no project ID');
+      return;
     }
 
     // If already subscribed to this project, do nothing
     if (currentProjectId.value === projectId && projectChangeOrdersUnsubscribe) {
-      console.log('ChangeOrder Store: Already subscribed to project change orders:', projectId)
-      return
+      console.log('ChangeOrder Store: Already subscribed to project change orders:', projectId);
+      return;
     }
 
     // Cleanup existing subscription
-    cleanupProjectChangeOrdersSubscription()
+    cleanupProjectChangeOrdersSubscription();
 
-    console.log('ChangeOrder Store: Initializing project change orders subscription for:', projectId)
-    currentProjectId.value = projectId
-    projectChangeOrdersLoading.value = true
+    console.log(
+      'ChangeOrder Store: Initializing project change orders subscription for:',
+      projectId
+    );
+    currentProjectId.value = projectId;
+    projectChangeOrdersLoading.value = true;
 
     try {
-      projectChangeOrdersUnsubscribe = ChangeOrderRepository.subscribeToChangeOrdersByProject(projectId, (changeOrders) => {
-        projectChangeOrders.value = changeOrders
-        projectChangeOrdersLoading.value = false
-        console.log('ChangeOrder Store: Project change orders updated, count:', changeOrders.length)
-      })
+      // Load initial data from API
+      projectChangeOrders.value = await getChangeOrdersByProject(projectId);
+
+      console.log(
+        'ChangeOrder Store: Project change orders loaded, count:',
+        projectChangeOrders.value.length
+      );
+
+      // Subscribe to real-time updates with Supabase
+      const channel = supabase
+        .channel(`project-${projectId}-change-orders`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'change_orders',
+            filter: `project_id=eq.${projectId}`,
+          },
+          (payload) => {
+            handleProjectChangeOrderUpdate(payload);
+          }
+        )
+        .subscribe();
+
+      projectChangeOrdersUnsubscribe = () => supabase.removeChannel(channel);
+      projectChangeOrdersLoading.value = false;
     } catch (error) {
-      console.error('ChangeOrder Store: Error initializing project change orders subscription:', error)
-      projectChangeOrdersLoading.value = false
+      console.error(
+        'ChangeOrder Store: Error initializing project change orders subscription:',
+        error
+      );
+      projectChangeOrdersLoading.value = false;
+    }
+  }
+
+  /**
+   * Handle real-time updates for project change orders
+   */
+  function handleProjectChangeOrderUpdate(payload) {
+    if (payload.eventType === 'INSERT') {
+      projectChangeOrders.value.push(payload.new);
+    } else if (payload.eventType === 'UPDATE') {
+      const index = projectChangeOrders.value.findIndex((co) => co.id === payload.new.id);
+      if (index !== -1) projectChangeOrders.value[index] = payload.new;
+    } else if (payload.eventType === 'DELETE') {
+      projectChangeOrders.value = projectChangeOrders.value.filter(
+        (co) => co.id !== payload.old.id
+      );
     }
   }
 
@@ -166,13 +288,13 @@ export const useChangeOrderStore = defineStore('changeOrder', () => {
    */
   function cleanupProjectChangeOrdersSubscription() {
     if (projectChangeOrdersUnsubscribe) {
-      console.log('ChangeOrder Store: Cleaning up project change orders subscription')
-      projectChangeOrdersUnsubscribe()
-      projectChangeOrdersUnsubscribe = null
+      console.log('ChangeOrder Store: Cleaning up project change orders subscription');
+      projectChangeOrdersUnsubscribe();
+      projectChangeOrdersUnsubscribe = null;
     }
-    projectChangeOrders.value = []
-    currentProjectId.value = null
-    projectChangeOrdersLoading.value = false
+    projectChangeOrders.value = [];
+    currentProjectId.value = null;
+    projectChangeOrdersLoading.value = false;
   }
 
   // Actions - CRUD Operations
@@ -180,19 +302,19 @@ export const useChangeOrderStore = defineStore('changeOrder', () => {
    * Create a new change order
    */
   async function createChangeOrder(changeOrderData) {
-    loading.value = true
-    error.value = null
+    loading.value = true;
+    error.value = null;
 
     try {
-      const newChangeOrder = await ChangeOrderRepository.createChangeOrder(changeOrderData)
-      console.log('ChangeOrder Store: Change order created successfully:', newChangeOrder.id)
-      return newChangeOrder
+      const newChangeOrder = await createChangeOrderApi(changeOrderData);
+      console.log('ChangeOrder Store: Change order created successfully:', newChangeOrder.id);
+      return newChangeOrder;
     } catch (err) {
-      console.error('ChangeOrder Store: Error creating change order:', err)
-      error.value = err.message
-      throw err
+      console.error('ChangeOrder Store: Error creating change order:', err);
+      error.value = err.message;
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
   }
 
@@ -200,19 +322,19 @@ export const useChangeOrderStore = defineStore('changeOrder', () => {
    * Update an existing change order
    */
   async function updateChangeOrder(changeOrderId, updates) {
-    loading.value = true
-    error.value = null
+    loading.value = true;
+    error.value = null;
 
     try {
-      const updatedChangeOrder = await ChangeOrderRepository.updateChangeOrder(changeOrderId, updates)
-      console.log('ChangeOrder Store: Change order updated successfully:', changeOrderId)
-      return updatedChangeOrder
+      const updatedChangeOrder = await updateChangeOrderApi(changeOrderId, updates);
+      console.log('ChangeOrder Store: Change order updated successfully:', changeOrderId);
+      return updatedChangeOrder;
     } catch (err) {
-      console.error('ChangeOrder Store: Error updating change order:', err)
-      error.value = err.message
-      throw err
+      console.error('ChangeOrder Store: Error updating change order:', err);
+      error.value = err.message;
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
   }
 
@@ -220,18 +342,18 @@ export const useChangeOrderStore = defineStore('changeOrder', () => {
    * Delete a change order
    */
   async function deleteChangeOrder(changeOrderId) {
-    loading.value = true
-    error.value = null
+    loading.value = true;
+    error.value = null;
 
     try {
-      await ChangeOrderRepository.deleteChangeOrder(changeOrderId)
-      console.log('ChangeOrder Store: Change order deleted successfully:', changeOrderId)
+      await deleteChangeOrderApi(changeOrderId);
+      console.log('ChangeOrder Store: Change order deleted successfully:', changeOrderId);
     } catch (err) {
-      console.error('ChangeOrder Store: Error deleting change order:', err)
-      error.value = err.message
-      throw err
+      console.error('ChangeOrder Store: Error deleting change order:', err);
+      error.value = err.message;
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
   }
 
@@ -239,19 +361,19 @@ export const useChangeOrderStore = defineStore('changeOrder', () => {
    * Get change order by ID
    */
   async function getChangeOrderById(changeOrderId) {
-    loading.value = true
-    error.value = null
+    loading.value = true;
+    error.value = null;
 
     try {
-      const changeOrder = await ChangeOrderRepository.getById(changeOrderId)
-      currentChangeOrder.value = changeOrder
-      return changeOrder
+      const changeOrder = await getChangeOrderByIdApi(changeOrderId);
+      currentChangeOrder.value = changeOrder;
+      return changeOrder;
     } catch (err) {
-      console.error('ChangeOrder Store: Error getting change order:', err)
-      error.value = err.message
-      throw err
+      console.error('ChangeOrder Store: Error getting change order:', err);
+      error.value = err.message;
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
   }
 
@@ -259,19 +381,22 @@ export const useChangeOrderStore = defineStore('changeOrder', () => {
    * Approve change order
    */
   async function approveChangeOrder(changeOrderId, approvalNotes = '') {
-    loading.value = true
-    error.value = null
+    loading.value = true;
+    error.value = null;
 
     try {
-      const updatedChangeOrder = await ChangeOrderRepository.approveChangeOrder(changeOrderId, null, approvalNotes)
-      console.log('ChangeOrder Store: Change order approved:', changeOrderId)
-      return updatedChangeOrder
+      const updatedChangeOrder = await updateChangeOrderApi(changeOrderId, {
+        status: 'approved',
+        ...(approvalNotes && { approvalNotes }),
+      });
+      console.log('ChangeOrder Store: Change order approved:', changeOrderId);
+      return updatedChangeOrder;
     } catch (err) {
-      console.error('ChangeOrder Store: Error approving change order:', err)
-      error.value = err.message
-      throw err
+      console.error('ChangeOrder Store: Error approving change order:', err);
+      error.value = err.message;
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
   }
 
@@ -279,19 +404,22 @@ export const useChangeOrderStore = defineStore('changeOrder', () => {
    * Reject change order
    */
   async function rejectChangeOrder(changeOrderId, rejectionReason = '') {
-    loading.value = true
-    error.value = null
+    loading.value = true;
+    error.value = null;
 
     try {
-      const updatedChangeOrder = await ChangeOrderRepository.rejectChangeOrder(changeOrderId, null, rejectionReason)
-      console.log('ChangeOrder Store: Change order rejected:', changeOrderId)
-      return updatedChangeOrder
+      const updatedChangeOrder = await updateChangeOrderApi(changeOrderId, {
+        status: 'rejected',
+        ...(rejectionReason && { rejectionReason }),
+      });
+      console.log('ChangeOrder Store: Change order rejected:', changeOrderId);
+      return updatedChangeOrder;
     } catch (err) {
-      console.error('ChangeOrder Store: Error rejecting change order:', err)
-      error.value = err.message
-      throw err
+      console.error('ChangeOrder Store: Error rejecting change order:', err);
+      error.value = err.message;
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
   }
 
@@ -338,5 +466,5 @@ export const useChangeOrderStore = defineStore('changeOrder', () => {
     getChangeOrderById,
     approveChangeOrder,
     rejectChangeOrder,
-  }
-})
+  };
+});

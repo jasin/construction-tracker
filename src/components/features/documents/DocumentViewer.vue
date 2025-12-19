@@ -310,7 +310,8 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { Dialog, Button, Textarea, Tag, ProgressSpinner } from 'primevue';
 import DocumentStatusBadge from './DocumentStatusBadge.vue';
 import DocumentUploader from './DocumentUploader.vue';
-import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository';
+import { updateDocument } from '@/services/api/documentsApi';
+import { handleError } from '@/utils/errorHandler';
 import { formatFileSize, formatTimeAgo, formatDate } from '@/utils/index';
 import { getDocumentIcon, DOCUMENT_CATEGORIES } from '@/constants/documentCategories';
 
@@ -413,7 +414,7 @@ const openInDrive = () => {
 };
 
 const editDocument = async () => {
-  console.log('Edit document:', document.id);
+  console.log('Edit document:', props.document.id);
 
   // Instead of calling Google Drive API directly,
   // just update the status in Firebase
@@ -423,15 +424,13 @@ const editDocument = async () => {
       updatedAt: new Date().toISOString(),
     };
 
-    await DocumentRepository.update(document.id, updates);
+    await updateDocument(props.document.id, updates);
     console.log('Document updated successfully');
 
     // Emit the update to parent component
-    emit('document-updated', { ...document, ...updates });
+    emit('document-updated', { ...props.document, ...updates });
   } catch (error) {
-    console.error('Error updating document:', error);
-    // Show user-friendly error message
-    alert('Failed to update document. Please try again.');
+    handleError(error, 'Failed to update document');
   }
 };
 
@@ -442,21 +441,23 @@ const uploadNewVersion = () => {
 const approveDocument = async () => {
   try {
     loading.value = true;
-    await DocumentRepository.updateDocumentStatus(
-      props.document.id,
-      'approved',
-      reviewComments.value
-    );
+    const updates = {
+      status: 'approved',
+      reviewComments: reviewComments.value,
+      approvedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await updateDocument(props.document.id, updates);
 
     emit('document-approved', {
       ...props.document,
-      status: 'approved',
-      reviewComments: reviewComments.value,
+      ...updates,
     });
 
     reviewComments.value = '';
   } catch (error) {
-    console.error('Error approving document:', error);
+    handleError(error, 'Failed to approve document');
   } finally {
     loading.value = false;
   }
@@ -470,21 +471,23 @@ const rejectDocument = async () => {
 
   try {
     loading.value = true;
-    await DocumentRepository.updateDocumentStatus(
-      props.document.id,
-      'rejected',
-      reviewComments.value
-    );
+    const updates = {
+      status: 'rejected',
+      reviewComments: reviewComments.value,
+      rejectedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await updateDocument(props.document.id, updates);
 
     emit('document-rejected', {
       ...props.document,
-      status: 'rejected',
-      reviewComments: reviewComments.value,
+      ...updates,
     });
 
     reviewComments.value = '';
   } catch (error) {
-    console.error('Error rejecting document:', error);
+    handleError(error, 'Failed to reject document');
   } finally {
     loading.value = false;
   }
@@ -512,10 +515,19 @@ const loadVersionHistory = async () => {
   if (!props.document?.id) return;
 
   try {
-    const history = await DocumentRepository.getDocumentVersionHistory(props.document.id);
-    versionHistory.value = history;
+    // Version history not currently supported by backend API
+    // Show current version only
+    versionHistory.value = [
+      {
+        version: props.document.version || 1,
+        uploadedAt: props.document.uploadedAt,
+        uploadedByName: props.document.uploadedByName,
+        isCurrent: true,
+        googleDriveFileId: props.document.googleDriveFileId,
+      },
+    ];
   } catch (error) {
-    console.error('Error loading version history:', error);
+    handleError(error, 'Failed to load version history');
     versionHistory.value = [];
   }
 };

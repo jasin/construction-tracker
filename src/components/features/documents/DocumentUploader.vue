@@ -259,9 +259,10 @@ import {
   ProgressBar,
   ProgressSpinner,
 } from 'primevue';
-import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository';
-import googleDriveService from '@/services/api/googleDriveService';
+import { uploadDocument, updateDocument } from '@/services/api/documentsApi';
+import googleDriveService from '@/services/api/googleDriveService.js';
 import { DOCUMENT_CATEGORIES } from '@/constants/documentCategories';
+import { handleError } from '@/utils/errorHandler';
 
 // Props
 const props = defineProps({
@@ -536,23 +537,18 @@ const uploadFiles = async () => {
 
         // Handle version updates
         if (isUpdate.value) {
-          const updatedDoc = await DocumentRepository.updateDocumentVersion(
-            props.existingDocument.id,
-            {
-              googleDriveFileId: driveFile.id,
-              googleDriveLink: googleDriveService.getShareableLink(driveFile.id),
-              fileSize: file.size,
-              mimeType: file.type,
-            },
-            {
-              description: description.value,
-              versionNotes: versionNotes.value,
-              tags: tags.value,
-            }
-          );
+          const updatedDoc = await updateDocument(props.existingDocument.id, {
+            googleDriveFileId: driveFile.id,
+            googleDriveLink: googleDriveService.getShareableLink(driveFile.id),
+            fileSize: file.size,
+            mimeType: file.type,
+            description: description.value,
+            versionNotes: versionNotes.value,
+            tags: tags.value,
+          });
           uploadedDocuments.push(updatedDoc);
         } else {
-          const newDoc = await DocumentRepository.createDocument(documentData);
+          const newDoc = await createDocument(documentData);
           uploadedDocuments.push(newDoc);
         }
 
@@ -560,6 +556,7 @@ const uploadFiles = async () => {
         uploadedCount.value++;
       } catch (fileError) {
         console.error(`Error uploading ${file.name}:`, fileError);
+        handleError(fileError, `Upload ${file.name}`);
         uploadProgress.value[i] = -1; // Error state
         throw new Error(`Failed to upload ${file.name}: ${fileError.message}`);
       }
@@ -581,6 +578,7 @@ const uploadFiles = async () => {
     }, 2000);
   } catch (err) {
     console.error('Upload error:', err);
+    handleError(err, 'Upload documents');
     error.value = err.message || 'Failed to upload documents';
   } finally {
     uploading.value = false;

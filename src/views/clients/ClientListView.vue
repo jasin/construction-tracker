@@ -222,7 +222,8 @@ import { ref, computed, onMounted } from 'vue';
 import Button from 'primevue/button';
 import InputText from 'primevue/inputtext';
 import ProgressSpinner from 'primevue/progressspinner';
-import ClientRepository from '@/services/firebase/Repositories/ClientRepository';
+import { getAllClients, deleteClient as deleteClientApi } from '@/services/api/clientsApi';
+import { handleError } from '@/utils/errorHandler';
 import ClientDialog from '@/components/forms/ClientDialog.vue';
 
 // ==================== REACTIVE STATE ====================
@@ -287,16 +288,16 @@ const modalClient = computed(() => {
 // ==================== METHODS ====================
 // These are functions that can be called from the template or other methods
 
-// Load all clients from Firebase
+// Load all clients from backend API
 const loadClients = async () => {
   try {
     loading.value = true;
     error.value = null;
 
-    console.log('Starting to load clients from Firebase...');
+    console.log('Starting to load clients from backend API...');
 
-    // Call ClientRepository to get all clients
-    const clientData = await ClientRepository.getAllClients();
+    // Call API to get all clients
+    const clientData = await getAllClients();
 
     console.log('Loaded client data:', clientData);
 
@@ -306,6 +307,7 @@ const loadClients = async () => {
   } catch (err) {
     console.error('Error loading clients:', err);
     error.value = err.message || 'Failed to load clients';
+    handleError(err, 'Load clients');
   } finally {
     // Always set loading to false, whether success or error
     loading.value = false;
@@ -402,7 +404,7 @@ const deleteClient = async (clientId) => {
   // TODO: Show confirmation dialog first
   if (confirm('Are you sure you want to delete this client?')) {
     try {
-      await ClientRepository.deleteClient(clientId);
+      await deleteClientApi(clientId);
 
       // Remove from local list
       clients.value = clients.value.filter((c) => c.id !== clientId);
@@ -410,7 +412,8 @@ const deleteClient = async (clientId) => {
       console.log('Client deleted successfully');
     } catch (err) {
       console.error('Error deleting client:', err);
-      alert('Failed to delete client');
+      error.value = 'Failed to delete client';
+      handleError(err, 'Delete client');
     }
   }
 };

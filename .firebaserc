@@ -1,8 +1,0 @@
-{
-  "projects": {
-    "default": "construction-tracker-fbdb",
-    "development": "construction-tracker-fbdb"
-  },
-  "targets": {},
-  "etags": {}
-}

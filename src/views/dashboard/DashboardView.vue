@@ -393,7 +393,7 @@ import { useWindowSize } from '@vueuse/core';
 import Card from 'primevue/card';
 import ProgressSpinner from 'primevue/progressspinner';
 
-import ActivityService from '@/services/logging/ActivityService';
+import { useActivityStore } from '@/stores/activity';
 import { ACTIVITY_CATEGORIES } from '@/constants/activityActions';
 
 import { useProjectStore } from '@/stores/project';
@@ -427,11 +427,11 @@ const rfiStore = useRFIStore();
 const submittalStore = useSubmittalStore();
 const changeOrderStore = useChangeOrderStore();
 const documentStore = useDocumentStore();
+const activityStore = useActivityStore();
 const uiStore = useUIStore();
 
 const loading = ref(true);
 const activities = ref([]);
-let activityUnsubscribe = null;
 
 // Task dialog state
 const taskDialogVisible = ref(false);
@@ -533,14 +533,12 @@ const loadData = () => {
 /**
  * Sets up realtime subscription to meaningful activity changes.
  */
-const setupActivitySubscription = () => {
-  activityUnsubscribe = ActivityService.subscribeToActivitiesByCategory(
-    ACTIVITY_CATEGORIES.CHANGE,
-    { limit: 200 },
-    (updatedActivities) => {
-      activities.value = updatedActivities;
-    }
-  );
+const setupActivitySubscription = async () => {
+  // Load recent activities from the activity store
+  await activityStore.loadRecentActivities(200);
+
+  // Use the activities from the store (it has real-time subscriptions built in)
+  activities.value = activityStore.activities;
 };
 
 /**
@@ -911,9 +909,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  if (activityUnsubscribe) {
-    activityUnsubscribe();
-  }
+  // Activity store manages its own subscriptions
   taskStore.cleanupUserTasksSubscription();
   rfiStore.cleanupUserRFIsSubscription();
   submittalStore.cleanupUserSubmittalsSubscription();

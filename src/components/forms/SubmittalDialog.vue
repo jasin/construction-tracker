@@ -174,8 +174,9 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import { useProjectStore } from '@/stores/project';
 import { storeToRefs } from 'pinia';
-import SubmittalRepository from '@/services/firebase/Repositories/SubmittalRepository';
+import { createSubmittal, updateSubmittal } from '@/services/api/submittalsApi';
 import { getActiveUsers } from '@/services/api/usersApi';
+import { handleError } from '@/utils/errorHandler';
 import { SUBMITTAL_STATUS_OPTIONS, SUBMITTAL_TYPE_OPTIONS } from '@/constants/submittalConstants';
 
 import Dialog from 'primevue/dialog';
@@ -350,7 +351,7 @@ async function handleSubmit() {
     let result;
     if (props.submittal?.id) {
       // Update existing submittal
-      result = await SubmittalRepository.updateSubmittal(props.submittal.id, submittalData);
+      result = await updateSubmittal(props.submittal.id, submittalData);
       toast.add({
         severity: 'success',
         summary: 'Success',
@@ -359,7 +360,7 @@ async function handleSubmit() {
       });
     } else {
       // Create new submittal
-      result = await SubmittalRepository.createSubmittal(submittalData);
+      result = await createSubmittal(submittalData);
       toast.add({
         severity: 'success',
         summary: 'Success',
@@ -372,6 +373,7 @@ async function handleSubmit() {
     closeModal();
   } catch (error) {
     console.error('Error saving submittal:', error);
+    handleError(error, 'Save submittal');
     toast.add({
       severity: 'error',
       summary: 'Error',

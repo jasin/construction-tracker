@@ -233,9 +233,10 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import { useProjectStore } from '@/stores/project';
 import { storeToRefs } from 'pinia';
-import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository';
-import googleDriveService from '@/services/api/googleDriveService';
+import { createDocument, updateDocument as updateDocumentApi } from '@/services/api/documentsApi';
+import googleDriveService from '@/services/api/googleDriveService.js';
 import { DOCUMENT_CATEGORIES } from '@/constants/documentCategories';
+import { handleError } from '@/utils/errorHandler';
 
 import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
@@ -566,7 +567,7 @@ async function uploadDocument() {
       status: selectedCategoryConfig.value?.requiresApproval ? 'pending' : 'approved',
     };
 
-    const result = await DocumentRepository.createDocument(documentData);
+    const result = await createDocument(documentData);
 
     uploadProgress.value = 100;
     uploadStatus.value = 'Upload complete!';
@@ -582,6 +583,7 @@ async function uploadDocument() {
     closeModal();
   } catch (error) {
     console.error('Error uploading document:', error);
+    handleError(error, 'Upload document');
     toast.add({
       severity: 'error',
       summary: 'Upload Failed',
@@ -614,7 +616,7 @@ async function updateDocument() {
       updates.reviewComments = form.value.reviewComments.trim();
     }
 
-    const result = await DocumentRepository.updateDocument(props.document.id, updates);
+    const result = await updateDocumentApi(props.document.id, updates);
 
     toast.add({
       severity: 'success',
@@ -627,6 +629,7 @@ async function updateDocument() {
     closeModal();
   } catch (error) {
     console.error('Error updating document:', error);
+    handleError(error, 'Update document');
     toast.add({
       severity: 'error',
       summary: 'Error',
