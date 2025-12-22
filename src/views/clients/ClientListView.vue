@@ -1,7 +1,7 @@
 <template>
   <div class="h-full flex flex-col bg-gray-50">
     <!-- Header -->
-    <div class="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
+    <div class="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
       <div class="flex justify-between items-center">
         <div>
           <h1 class="text-2xl font-bold text-gray-900">Clients</h1>
@@ -156,7 +156,7 @@
               >
                 <td class="px-6 py-4 whitespace-nowrap">
                   <div class="flex items-center">
-                    <div class="h-10 w-10 flex-shrink-0">
+                    <div class="h-10 w-10 shrink-0">
                       <div
                         class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center"
                       >

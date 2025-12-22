@@ -43,7 +43,7 @@ function transformToTreeNodes(projects) {
   function createProjectNode(project) {
     return {
       key: `project-${project.id}`,
-      label: `${project.jobNumber} - ${project.name}`,
+      label: `${project.job_number} - ${project.name}`,
       data: project,
       type: 'project',
       children: [],

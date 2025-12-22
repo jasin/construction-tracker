@@ -1,7 +1,7 @@
 // src/services/api/usersApi.js
-import { apiClient } from './apiClient'
+import { apiClient } from './apiClient';
 
-const USERS_BASE = '/api/users'
+const USERS_BASE = '/users';
 
 /**
  * Get all users with optional filters
@@ -12,8 +12,7 @@ const USERS_BASE = '/api/users'
  * @returns {Promise<Array>} List of users
  */
 export async function getAllUsers(params = {}) {
-  const response = await apiClient.get(USERS_BASE, { params })
-  return response.data
+  return await apiClient.get(USERS_BASE, { params });
 }
 
 /**
@@ -21,10 +20,9 @@ export async function getAllUsers(params = {}) {
  * @returns {Promise<Array>} List of active users
  */
 export async function getActiveUsers() {
-  const response = await apiClient.get(USERS_BASE, {
-    params: { active: true }
-  })
-  return response.data
+  return await apiClient.get(USERS_BASE, {
+    params: { active: true },
+  });
 }
 
 /**
@@ -33,10 +31,9 @@ export async function getActiveUsers() {
  * @returns {Promise<Array>} List of matching users
  */
 export async function searchUsers(query) {
-  const response = await apiClient.get(`${USERS_BASE}/search`, {
-    params: { q: query }
-  })
-  return response.data
+  return await apiClient.get(`${USERS_BASE}/search`, {
+    params: { q: query },
+  });
 }
 
 /**
@@ -45,8 +42,7 @@ export async function searchUsers(query) {
  * @returns {Promise<Object>} User data
  */
 export async function getUserById(userId) {
-  const response = await apiClient.get(`${USERS_BASE}/${userId}`)
-  return response.data
+  return await apiClient.get(`${USERS_BASE}/${userId}`);
 }
 
 /**
@@ -56,8 +52,7 @@ export async function getUserById(userId) {
  * @returns {Promise<Object>} Updated user data
  */
 export async function updateUser(userId, userData) {
-  const response = await apiClient.patch(`${USERS_BASE}/${userId}`, userData)
-  return response.data
+  return await apiClient.patch(`${USERS_BASE}/${userId}`, userData);
 }
 
 /**
@@ -66,8 +61,7 @@ export async function updateUser(userId, userData) {
  * @returns {Promise<Object>} Response message
  */
 export async function deactivateUser(userId) {
-  const response = await apiClient.post(`${USERS_BASE}/${userId}/deactivate`)
-  return response.data
+  return await apiClient.post(`${USERS_BASE}/${userId}/deactivate`);
 }
 
 /**
@@ -76,8 +70,7 @@ export async function deactivateUser(userId) {
  * @returns {Promise<Object>} Response message
  */
 export async function activateUser(userId) {
-  const response = await apiClient.post(`${USERS_BASE}/${userId}/activate`)
-  return response.data
+  return await apiClient.post(`${USERS_BASE}/${userId}/activate`);
 }
 
 /**
@@ -86,6 +79,5 @@ export async function activateUser(userId) {
  * @returns {Promise<Object>} Response message
  */
 export async function deleteUser(userId) {
-  const response = await apiClient.delete(`${USERS_BASE}/${userId}`)
-  return response.data
+  return await apiClient.delete(`${USERS_BASE}/${userId}`);
 }

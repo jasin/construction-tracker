@@ -8,7 +8,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
  * @returns {Promise<{id: number, email: string, name: string, role: string, token: string, token_type: string}>}
  */
 export async function login(email, password) {
-  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+  const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -34,7 +34,7 @@ export async function login(email, password) {
  * @returns {Promise<Object>}
  */
 export async function register(userData) {
-  const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+  const response = await fetch(`${API_BASE_URL}/auth/register`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -56,7 +56,7 @@ export async function register(userData) {
  * @returns {Promise<Object>}
  */
 export async function getCurrentUser(token) {
-  const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+  const response = await fetch(`${API_BASE_URL}/auth/me`, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -79,7 +79,7 @@ export async function getCurrentUser(token) {
  * @returns {Promise<Object>}
  */
 export async function changePassword(token, currentPassword, newPassword) {
-  const response = await fetch(`${API_BASE_URL}/api/auth/change-password`, {
+  const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

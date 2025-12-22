@@ -1,7 +1,7 @@
 // src/services/api/clientsApi.js
-import { apiClient } from './apiClient'
+import { apiClient } from './apiClient';
 
-const CLIENTS_BASE = '/api/clients'
+const CLIENTS_BASE = '/clients';
 
 /**
  * Get all clients with optional filters
@@ -9,8 +9,7 @@ const CLIENTS_BASE = '/api/clients'
  * @returns {Promise<Array>} List of clients
  */
 export async function getAllClients(params = {}) {
-  const response = await apiClient.get(CLIENTS_BASE, { params })
-  return response.data
+  return await apiClient.get(CLIENTS_BASE, { params });
 }
 
 /**
@@ -19,8 +18,7 @@ export async function getAllClients(params = {}) {
  * @returns {Promise<Object>} Client data
  */
 export async function getClientById(clientId) {
-  const response = await apiClient.get(`${CLIENTS_BASE}/${clientId}`)
-  return response.data
+  return await apiClient.get(`${CLIENTS_BASE}/${clientId}`);
 }
 
 /**
@@ -29,10 +27,9 @@ export async function getClientById(clientId) {
  * @returns {Promise<Array>} List of matching clients
  */
 export async function searchClients(query) {
-  const response = await apiClient.get(`${CLIENTS_BASE}/search`, {
-    params: { q: query }
-  })
-  return response.data
+  return await apiClient.get(`${CLIENTS_BASE}/search`, {
+    params: { q: query },
+  });
 }
 
 /**
@@ -41,8 +38,7 @@ export async function searchClients(query) {
  * @returns {Promise<Object>} Created client data
  */
 export async function createClient(clientData) {
-  const response = await apiClient.post(CLIENTS_BASE, clientData)
-  return response.data
+  return await apiClient.post(CLIENTS_BASE, clientData);
 }
 
 /**
@@ -52,8 +48,7 @@ export async function createClient(clientData) {
  * @returns {Promise<Object>} Updated client data
  */
 export async function updateClient(clientId, clientData) {
-  const response = await apiClient.patch(`${CLIENTS_BASE}/${clientId}`, clientData)
-  return response.data
+  return await apiClient.patch(`${CLIENTS_BASE}/${clientId}`, clientData);
 }
 
 /**
@@ -62,8 +57,7 @@ export async function updateClient(clientId, clientData) {
  * @returns {Promise<Object>} Response message
  */
 export async function deleteClient(clientId) {
-  const response = await apiClient.delete(`${CLIENTS_BASE}/${clientId}`)
-  return response.data
+  return await apiClient.delete(`${CLIENTS_BASE}/${clientId}`);
 }
 
 /**
@@ -72,6 +66,5 @@ export async function deleteClient(clientId) {
  * @returns {Promise<Array>} List of client projects
  */
 export async function getClientProjects(clientId) {
-  const response = await apiClient.get(`${CLIENTS_BASE}/${clientId}/projects`)
-  return response.data
+  return await apiClient.get(`${CLIENTS_BASE}/${clientId}/projects`);
 }

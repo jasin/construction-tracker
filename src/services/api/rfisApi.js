@@ -9,7 +9,7 @@ const RFIS_BASE = '/rfis'
  */
 export async function getAllRFIs(params = {}) {
   const response = await apiClient.get(RFIS_BASE, { params })
-  return response.data || []
+  return response;
 }
 
 /**
@@ -19,7 +19,7 @@ export async function getAllRFIs(params = {}) {
  */
 export async function getRFIById(rfiId) {
   const response = await apiClient.get(`${RFIS_BASE}/${rfiId}`)
-  return response.data
+  return response;
 }
 
 /**
@@ -31,7 +31,7 @@ export async function getRFIsByProject(projectId) {
   const response = await apiClient.get(RFIS_BASE, {
     params: { projectId }
   })
-  return response.data || []
+  return response;
 }
 
 /**
@@ -41,7 +41,7 @@ export async function getRFIsByProject(projectId) {
  */
 export async function createRFI(rfiData) {
   const response = await apiClient.post(RFIS_BASE, rfiData)
-  return response.data
+  return response;
 }
 
 /**
@@ -52,7 +52,7 @@ export async function createRFI(rfiData) {
  */
 export async function updateRFI(rfiId, rfiData) {
   const response = await apiClient.put(`${RFIS_BASE}/${rfiId}`, rfiData)
-  return response.data
+  return response;
 }
 
 /**

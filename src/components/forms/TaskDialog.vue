@@ -96,7 +96,7 @@
             <div>
               <label class="block text-sm font-semibold text-surface-900">Due Date</label>
               <DatePicker
-                v-model="form.dueDate"
+                v-model="form.due_date"
                 class="w-full"
                 placeholder="Select date"
                 date-format="mm/dd/yy"
@@ -127,15 +127,15 @@
               Project <span class="text-red-500">*</span>
             </label>
             <Select
-              v-model="form.projectId"
+              v-model="form.project_id"
               :options="projectOptions"
               option-label="label"
               option-value="value"
               placeholder="Select project"
               class="w-full"
-              :class="{ 'p-invalid': errors.projectId }"
+              :class="{ 'p-invalid': errors.project_id }"
             />
-            <small v-if="errors.projectId" class="p-error">{{ errors.projectId }}</small>
+            <small v-if="errors.project_id" class="p-error">{{ errors.project_id }}</small>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -183,7 +183,7 @@
             <div>
               <label class="block text-sm font-semibold text-surface-900">Assign To</label>
               <Select
-                v-model="form.assignedTo"
+                v-model="form.assigned_to"
                 :options="userOptions"
                 option-label="label"
                 option-value="value"
@@ -212,7 +212,7 @@
             <div>
               <label class="block text-sm font-semibold text-surface-900">Due Date</label>
               <DatePicker
-                v-model="form.dueDate"
+                v-model="form.due_date"
                 class="w-full"
                 placeholder="Select date"
                 date-format="mm/dd/yy"
@@ -303,7 +303,7 @@
           <EntityAttachments
             entity-type="task"
             :entity-id="props.task.id"
-            :project-id="form.projectId"
+            :project-id="form.project_id"
             :can-attach="true"
             view-mode="list"
             @attachments-changed="handleAttachmentsChanged"
@@ -373,7 +373,7 @@ const props = defineProps({
     type: Object,
     default: null,
   },
-  projectId: {
+  project_id: {
     type: String,
     required: false,
     default: null,
@@ -429,7 +429,7 @@ const dialogPosition = computed(() => {
 
 const projectOptions = computed(() => {
   return projectStore.projects.map((project) => ({
-    label: `${project.jobNumber || ''} ${project.name}`.trim(),
+    label: `${project.job_number || ''} ${project.name}`.trim(),
     value: project.id,
   }));
 });
@@ -475,11 +475,11 @@ const form = ref({
   description: '',
   priority: 'medium',
   status: 'todo',
-  assignedTo: '',
-  dueDate: null,
+  assigned_to: '',
+  due_date: null,
   estimatedHours: null,
   category: '',
-  projectId: null,
+  project_id: null,
   dependencies: [],
 });
 
@@ -547,27 +547,27 @@ const loadUsers = async () => {
 // Load task data into form (for editing)
 const loadTaskData = () => {
   if (props.task) {
-    // Determine task type based on whether it has a projectId
-    taskType.value = props.task.projectId ? 'project' : 'quick';
+    // Determine task type based on whether it has a.project_id
+    taskType.value = props.task.project_id ? 'project' : 'quick';
 
     form.value = {
       title: props.task.title || '',
       description: props.task.description || '',
       priority: props.task.priority || 'medium',
       status: props.task.status || 'todo',
-      assignedTo: props.task.assignedTo || '',
-      dueDate: props.task.dueDate ? new Date(props.task.dueDate) : null,
+      assigned_to: props.task.assigned_to || '',
+      due_date: props.task.due_date ? new Date(props.task.due_date) : null,
       estimatedHours: props.task.estimatedHours || null,
       category: props.task.category || '',
-      projectId: props.task.projectId || props.projectId || null,
+      project_id: props.task.project_id || props.project_id || null,
       dependencies: Array.isArray(props.task.dependencies) ? props.task.dependencies : [],
     };
   } else {
-    // For new tasks, default to quick if no projectId is provided
-    taskType.value = props.projectId ? 'project' : 'quick';
+    // For new tasks, default to quick if no.project_id is provided
+    taskType.value = props.project_id ? 'project' : 'quick';
     resetForm();
-    if (props.projectId) {
-      form.value.projectId = props.projectId;
+    if (props.project_id) {
+      form.value.project_id = props.project_id;
     }
   }
 };
@@ -605,8 +605,8 @@ const validateForm = () => {
     errors.value.title = 'Task title is required';
   }
 
-  if (taskType.value === 'project' && !form.value.projectId) {
-    errors.value.projectId = 'Project is required for project tasks';
+  if (taskType.value === 'project' && !form.value.project_id) {
+    errors.value.project_id = 'Project is required for project tasks';
   }
 
   // Validate dependencies
@@ -629,17 +629,17 @@ const handleTaskTypeChange = (newType) => {
   // When switching to quick task
   if (newType === 'quick') {
     // Clear project-specific fields
-    form.value.projectId = null;
+    form.value.project_id = null;
     form.value.estimatedHours = null;
     form.value.category = '';
     form.value.dependencies = [];
 
     // Auto-assign to current user
-    form.value.assignedTo = authStore.user?.uid || authStore.user?.id || '';
+    form.value.assigned_to = authStore.user?.uid || authStore.user?.id || '';
 
     // Clear project-related errors
-    if (errors.value.projectId) {
-      delete errors.value.projectId;
+    if (errors.value.project_id) {
+      delete errors.value.project_id;
     }
     dependencyErrors.value = [];
     dependencyWarnings.value = [];
@@ -647,12 +647,12 @@ const handleTaskTypeChange = (newType) => {
 
   // When switching to project task
   if (newType === 'project') {
-    // Set default projectId if available from props
-    if (props.projectId && !form.value.projectId) {
-      form.value.projectId = props.projectId;
+    // Set default.project_id if available from props
+    if (props.project_id && !form.value.project_id) {
+      form.value.project_id = props.project_id;
     }
 
-    // Keep the current assignedTo if it exists, otherwise clear it
+    // Keep the current.assigned_to if it exists, otherwise clear it
     // (project tasks can be unassigned)
   }
 };
@@ -678,19 +678,19 @@ const handleSubmit = async () => {
   success.value = '';
 
   try {
-    // Determine assignedTo and assignedToName
-    let assignedTo = form.value.assignedTo;
-    let assignedToName = null;
+    // Determine assigned_to and assigned_toName
+    let assigned_to = form.value.assigned_to;
+    let assigned_toName = null;
 
     if (taskType.value === 'quick') {
       // Quick tasks are always assigned to the current user
-      assignedTo = authStore.user?.uid || authStore.user?.id || null;
-      assignedToName =
+      assigned_to = authStore.user?.uid || authStore.user?.id || null;
+      assigned_toName =
         authStore.user?.name || authStore.user?.displayName || authStore.user?.email || null;
-    } else if (assignedTo) {
+    } else if (assigned_to) {
       // For project tasks, get the assigned user's name from the users list
-      const assignedUser = users.value.find((u) => u.id === assignedTo);
-      assignedToName = assignedUser?.name || assignedUser?.email || null;
+      const assignedUser = users.value.find((u) => u.id === assigned_to);
+      assigned_toName = assignedUser?.name || assignedUser?.email || null;
     }
 
     const taskData = {
@@ -698,10 +698,10 @@ const handleSubmit = async () => {
       description: form.value.description?.trim() || '',
       priority: form.value.priority,
       status: form.value.status,
-      assignedTo: assignedTo,
-      assignedToName: assignedToName,
-      dueDate: form.value.dueDate ? form.value.dueDate.toISOString() : null,
-      projectId: taskType.value === 'project' ? form.value.projectId : null,
+      assigned_to: assigned_to,
+      assigned_toName: assigned_toName,
+      due_date: form.value.due_date ? form.value.due_date.toISOString() : null,
+      project_id: taskType.value === 'project' ? form.value.project_id : null,
     };
 
     // Only include project-specific fields for project tasks
@@ -716,7 +716,7 @@ const handleSubmit = async () => {
     if (props.task?.id) {
       const updates = {
         ...taskData,
-        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
 
       taskSaved = await updateTask(props.task.id, updates);
@@ -755,17 +755,17 @@ const resetForm = () => {
     description: '',
     priority: 'medium',
     status: 'todo',
-    assignedTo: '',
-    dueDate: null,
+    assigned_to: '',
+    due_date: null,
     estimatedHours: null,
     category: '',
-    projectId: props.projectId || null,
+    project_id: props.project_id || null,
     dependencies: [],
   };
   errors.value = {};
   dependencyErrors.value = [];
   dependencyWarnings.value = [];
-  taskType.value = props.projectId ? 'project' : 'quick';
+  taskType.value = props.project_id ? 'project' : 'quick';
 };
 
 // Watch for visibility changes

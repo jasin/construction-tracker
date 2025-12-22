@@ -93,7 +93,7 @@
           <template #content>
             <div class="p-2">
               <h3 class="font-semibold text-base mb-1">
-                {{ project.jobNumber }} {{ project.name }}
+                {{ project.job_number }} {{ project.name }}
               </h3>
               <p class="text-xs text-surface-600 mb-2">
                 {{ project.changes }} recent change{{ project.changes !== 1 ? 's' : '' }}
@@ -285,7 +285,7 @@
             <div class="p-3 pb-0">
               <div class="flex justify-between items-start">
                 <h3 class="font-medium text-surface-900 text-sm">
-                  {{ project.jobNumber }} {{ project.name }}
+                  {{ project.job_number }} {{ project.name }}
                 </h3>
                 <i class="pi pi-chevron-right text-surface-600 text-xs"></i>
               </div>
@@ -483,7 +483,7 @@ const getTaskListSpanClass = computed(() => {
  */
 const groupedActivities = computed(() => {
   return activities.value.reduce((acc, activity) => {
-    const pid = activity.projectId;
+    const pid = activity.project_id;
     if (!acc[pid]) acc[pid] = [];
     acc[pid].push(activity);
     return acc;

@@ -34,8 +34,8 @@ export const useProjectStore = defineStore('project', () => {
   // Getters - Single Project (existing)
   const projectTeam = computed(() => {
     return [
-      currentProject.value.projectManager && {
-        name: currentProject.value.projectManager,
+      currentProject.value.project_manager && {
+        name: currentProject.value.project_manager,
         role: 'Project Manager',
         icon: 'pi-user',
         color: 'blue',
@@ -58,10 +58,10 @@ export const useProjectStore = defineStore('project', () => {
   const projectStatus = computed(() => {
     return {
       phase: currentProject.value.phase,
-      contractSigned: currentProject.value.contractSigned,
+      contract_signed: currentProject.value.contract_signed,
       cost: currentProject.value.cost,
-      startDate: currentProject.value.startDate,
-      endDate: currentProject.value.endDate,
+      start_date: currentProject.value.start_date,
+      end_date: currentProject.value.end_date,
     };
   });
 
@@ -465,8 +465,8 @@ export const useProjectStore = defineStore('project', () => {
     return projects.value.filter(
       (p) =>
         p.name.toLowerCase().includes(lowerQuery) ||
-        (p.jobNumber || '').toLowerCase().includes(lowerQuery) ||
-        (p.clientName || '').toLowerCase().includes(lowerQuery)
+        (p.job_number || '').toLowerCase().includes(lowerQuery) ||
+        (p.client_name || '').toLowerCase().includes(lowerQuery)
     );
   }
 

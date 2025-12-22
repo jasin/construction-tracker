@@ -233,7 +233,10 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import { useProjectStore } from '@/stores/project';
 import { storeToRefs } from 'pinia';
-import { createDocument, updateDocument as updateDocumentApi } from '@/services/api/documentsApi';
+import {
+  uploadDocument as uploadDocumentApi,
+  updateDocument as updateDocumentApi,
+} from '@/services/api/documentsApi';
 import googleDriveService from '@/services/api/googleDriveService.js';
 import { DOCUMENT_CATEGORIES } from '@/constants/documentCategories';
 import { handleError } from '@/utils/errorHandler';
@@ -547,27 +550,31 @@ async function uploadDocument() {
 
     uploadProgress.value = 60;
 
-    // Create document record in Firebase
+    // Create document record via backend API
     uploadStatus.value = 'Creating document record...';
-    const documentData = {
-      name: form.value.name.trim(),
-      description: form.value.description?.trim() || '',
-      category: form.value.category,
-      subfolder: form.value.subfolder || null,
-      tags: form.value.tags || [],
-      projectId: form.value.projectId, // Required field
 
-      // Google Drive data
-      googleDriveFileId: driveFile.id,
-      googleDriveLink: googleDriveService.getShareableLink(driveFile.id),
-      mimeType: selectedFile.value.type,
-      fileSize: selectedFile.value.size,
+    // Create FormData for document upload
+    const formData = new FormData();
+    formData.append('name', form.value.name.trim());
+    formData.append('description', form.value.description?.trim() || '');
+    formData.append('category', form.value.category);
+    formData.append('subfolder', form.value.subfolder || '');
+    formData.append('projectId', form.value.projectId);
+    formData.append('googleDriveFileId', driveFile.id);
+    formData.append('googleDriveLink', googleDriveService.getShareableLink(driveFile.id));
+    formData.append('mimeType', selectedFile.value.type);
+    formData.append('fileSize', selectedFile.value.size);
+    formData.append(
+      'status',
+      selectedCategoryConfig.value?.requiresApproval ? 'pending' : 'approved'
+    );
 
-      // Status
-      status: selectedCategoryConfig.value?.requiresApproval ? 'pending' : 'approved',
-    };
+    // Add tags as JSON array
+    if (form.value.tags && form.value.tags.length > 0) {
+      formData.append('tags', JSON.stringify(form.value.tags));
+    }
 
-    const result = await createDocument(documentData);
+    const result = await uploadDocumentApi(formData);
 
     uploadProgress.value = 100;
     uploadStatus.value = 'Upload complete!';

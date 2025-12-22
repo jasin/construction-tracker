@@ -32,7 +32,7 @@
                 <i :class="getFileIcon(document)" class="text-sm mr-2 flex-shrink-0"></i>
                 <div class="flex items-center gap-2 flex-1 min-w-0">
                   <span class="task-title truncate">
-                    {{ getProjectInfo(document.projectId) }}
+                    {{ getProjectInfo(document.project_id) }}
                   </span>
                   <span class="text-xs text-surface-600 flex-shrink-0">•</span>
                   <Tag
@@ -251,8 +251,8 @@ const formatDate = (dateString) => {
 };
 
 const getFileIcon = (document) => {
-  const fileName = document.name || '';
-  const extension = fileName.split('.').pop()?.toLowerCase() || '';
+  const file_name = document.name || '';
+  const extension = file_name.split('.').pop()?.toLowerCase() || '';
 
   const iconMap = {
     pdf: 'pi pi-file-pdf',
@@ -285,11 +285,11 @@ const getStatusClass = (status) => {
   return classMap[status] || '';
 };
 
-const getProjectInfo = (projectId) => {
-  const project = props.projects.find((p) => p.id === projectId);
+const getProjectInfo = (project_id) => {
+  const project = props.projects.find((p) => p.id === project_id);
   if (!project) return 'Unknown Project';
 
-  return `${project.jobNumber} - ${project.name}`;
+  return `${project.job_number} - ${project.name}`;
 };
 </script>
 

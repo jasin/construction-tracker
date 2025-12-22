@@ -23,20 +23,20 @@
         <div>
           <label class="block text-sm font-medium text-gray-700">Job Number *</label>
           <InputText
-            v-model="form.jobNumber"
+            v-model="form.job_number"
             class="w-full text-sm"
             placeholder="Enter job number"
-            :class="{ 'border-red-500': errors.jobNumber }"
+            :class="{ 'border-red-500': errors.job_number }"
           />
-          <span v-if="errors.jobNumber" class="text-red-500 text-xs mt-1">{{
-            errors.jobNumber
+          <span v-if="errors.job_number" class="text-red-500 text-xs mt-1">{{
+            errors.job_number
           }}</span>
         </div>
 
         <div>
           <label class="block text-sm font-medium text-gray-700">Client *</label>
           <Select
-            v-model="form.clientId"
+            v-model="form.client_id"
             :options="clients"
             option-label="name"
             option-value="id"
@@ -44,10 +44,10 @@
             class="w-full text-sm"
             :filter="true"
             show-clear
-            :class="{ 'p-invalid': errors.clientId }"
+            :class="{ 'p-invalid': errors.client_id }"
           />
-          <span v-if="errors.clientId" class="text-red-500 text-xs mt-1">{{
-            errors.clientId
+          <span v-if="errors.client_id" class="text-red-500 text-xs mt-1">{{
+            errors.client_id
           }}</span>
           <small class="text-gray-500 text-xs">
             Don't see your client?
@@ -56,7 +56,7 @@
               label="Add new client"
               size="small"
               text
-              class="!p-0 !h-auto text-xs underline text-blue-600 hover:text-blue-700"
+              class="p-0! h-auto! text-xs underline text-blue-600 hover:text-blue-700"
             />
           </small>
         </div>
@@ -301,25 +301,25 @@ const userOptions = computed(() => {
 // Form data
 const form = ref({
   name: '',
-  jobNumber: '',
-  clientId: '',
+  job_number: '',
+  client_id: '',
   architect: '',
-  projectManager: '',
+  project_manager: '',
   superintendent: '',
-  phase: 'preConstruction',
+  phase: 'pre-construction',
   cost: null,
-  contractSigned: false,
-  startDate: null,
-  endDate: null,
+  contract_signed: false,
+  start_date: null,
+  end_date: null,
   address: '',
   description: '',
 });
 
 // Phase options
 const phaseOptions = [
-  { label: 'Pre-Construction', value: 'preConstruction' },
+  { label: 'Pre-Construction', value: 'pre-construction' },
   { label: 'Construction', value: 'construction' },
-  { label: 'Close-Out', value: 'closeOut' },
+  { label: 'Close-Out', value: 'close-out' },
   { label: 'Complete', value: 'complete' },
 ];
 
@@ -359,16 +359,16 @@ const loadUsers = async () => {
 const resetToNewMode = () => {
   form.value = {
     name: '',
-    jobNumber: '',
-    clientId: props.initialClientId || '',
+    job_number: '',
+    client_id: props.initialClientId || '',
     architect: '',
-    projectManager: '',
+    project_manager: '',
     superintendent: '',
-    phase: 'preConstruction',
+    phase: 'pre-construction',
     cost: null,
-    contractSigned: false,
-    startDate: null,
-    endDate: null,
+    contract_signed: false,
+    start_date: null,
+    end_date: null,
     address: '',
     description: '',
   };
@@ -393,16 +393,16 @@ const loadProjectData = async () => {
     if (projectData && projectData.id) {
       form.value = {
         name: projectData.name || '',
-        jobNumber: projectData.jobNumber || '',
-        clientId: projectData.clientId || '',
+        job_number: projectData.job_number || '',
+        client_id: projectData.client_id || '',
         architect: projectData.architect || '',
-        projectManager: projectData.projectManager || '',
+        project_manager: projectData.project_manager || '',
         superintendent: projectData.superintendent || '',
-        phase: projectData.phase || 'preConstruction',
+        phase: projectData.phase || 'pre-construction',
         cost: projectData.cost || null,
-        contractSigned: projectData.contractSigned || false,
-        startDate: projectData.startDate ? new Date(projectData.startDate) : null,
-        endDate: projectData.endDate ? new Date(projectData.endDate) : null,
+        contract_signed: projectData.contract_signed || false,
+        start_date: projectData.start_date ? new Date(projectData.start_date) : null,
+        end_date: projectData.end_date ? new Date(projectData.end_date) : null,
         address: projectData.address || '',
         description: projectData.description || '',
       };
@@ -450,12 +450,12 @@ const validateForm = () => {
     errors.value.name = 'Project name is required';
   }
 
-  if (!form.value.jobNumber?.trim()) {
-    errors.value.jobNumber = 'Job number is required';
+  if (!form.value.job_number?.trim()) {
+    errors.value.job_number = 'Job number is required';
   }
 
-  if (!form.value.clientId) {
-    errors.value.clientId = 'Client is required';
+  if (!form.value.client_id) {
+    errors.value.client_id = 'Client is required';
   }
 
   return Object.keys(errors.value).length === 0;
@@ -479,23 +479,23 @@ const saveProject = async () => {
     // Build formData from refs (explicit, no spread to avoid undefined)
     const formData = {
       name: form.value.name.trim(),
-      jobNumber: form.value.jobNumber.trim(),
-      clientId: form.value.clientId || null,
+      job_number: form.value.job_number.trim(),
+      client_id: form.value.client_id || null,
       architect: form.value.architect.trim(),
-      projectManager: form.value.projectManager || '',
+      project_manager: form.value.project_manager || '',
       superintendent: form.value.superintendent || '',
-      phase: form.value.phase || 'preConstruction',
+      phase: form.value.phase,
       cost: form.value.cost || 0,
-      contractSigned: form.value.contractSigned || false,
-      startDate: form.value.startDate || null,
-      endDate: form.value.endDate || null,
+      contract_signed: form.value.contract_signed || false,
+      start_date: form.value.start_date || null,
+      end_date: form.value.end_date || null,
       address: form.value.address.trim(),
       description: form.value.description.trim(),
     };
 
     // Additional validation
-    if (!formData.clientId) {
-      errors.value.clientId = 'Client is required';
+    if (!formData.client_id) {
+      errors.value.client_id = 'Client is required';
       loading.value = false;
       return;
     }
@@ -544,7 +544,7 @@ const handleClientCreated = (newClient) => {
   clients.value.unshift(newClient);
 
   // Select new client
-  form.value.clientId = newClient.id;
+  form.value.client_id = newClient.id;
 
   // Close the client modal
   showCreateClient.value = false;

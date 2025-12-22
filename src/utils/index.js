@@ -183,10 +183,10 @@ export const sanitizeWithSchema = (data, schema) => {
   // Define metadata fields that should always be preserved
   const metadataFields = [
     'id',
-    'createdAt',
+    'created_at',
     'createdBy',
     'createdByName',
-    'updatedAt',
+    'updated_at',
     'updatedBy',
     'updatedByName',
     'completedAt',
@@ -302,22 +302,22 @@ export const getUserName = (userId, users) => {
 
 /**
  * Get project name by ID with fallback
- * @param {string} projectId - Project ID to lookup
+ * @param {string} project_id - Project ID to lookup
  * @param {Array|Object} projects - Array of projects or projects map
  * @returns {string} Project name or fallback
  */
-export const getProjectName = (projectId, projects) => {
-  if (!projectId) return 'Unknown Project';
+export const getProjectName = (project_id, projects) => {
+  if (!project_id) return 'Unknown Project';
 
   // Handle both array and map formats
   let project;
   if (Array.isArray(projects)) {
-    project = projects.find((p) => p.id === projectId);
+    project = projects.find((p) => p.id === project_id);
   } else {
-    project = projects[projectId];
+    project = projects[project_id];
   }
 
-  return project ? `${project.jobNumber} - ${project.name}` : 'Unknown Project';
+  return project ? `${project.job_number} - ${project.name}` : 'Unknown Project';
 };
 
 // ==================== FORMATTING UTILITIES ====================
@@ -541,12 +541,12 @@ export const getFileSizeCategory = (bytes) => {
 
 /**
  * Check if a task is overdue
- * @param {Object} task - Task object with dueDate and status
+ * @param {Object} task - Task object with.due_date and status
  * @returns {boolean} True if task is overdue
  */
 export const isOverdue = (task) => {
-  if (!task.dueDate || task.status === 'complete') return false;
-  return new Date(task.dueDate) < new Date();
+  if (!task.due_date || task.status === 'complete') return false;
+  return new Date(task.due_date) < new Date();
 };
 
 /**
@@ -696,7 +696,7 @@ export const groupBy = (items, property) => {
 
 /**
  * Sort items by priority and due date
- * @param {Array} items - Items to sort (should have priority and dueDate)
+ * @param {Array} items - Items to sort (should have priority and.due_date)
  * @returns {Array} Sorted items
  */
 export const sortByPriorityAndDate = (items) => {
@@ -709,10 +709,10 @@ export const sortByPriorityAndDate = (items) => {
     if (priorityDiff !== 0) return priorityDiff;
 
     // Then by due date (nulls last)
-    if (a.dueDate && !b.dueDate) return -1;
-    if (!a.dueDate && b.dueDate) return 1;
-    if (a.dueDate && b.dueDate) {
-      return new Date(a.dueDate) - new Date(b.dueDate);
+    if (a.due_date && !b.due_date) return -1;
+    if (!a.due_date && b.due_date) return 1;
+    if (a.due_date && b.due_date) {
+      return new Date(a.due_date) - new Date(b.due_date);
     }
 
     return 0;

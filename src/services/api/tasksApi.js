@@ -9,7 +9,7 @@ const TASKS_BASE = '/tasks'
  */
 export async function getAllTasks(params = {}) {
   const response = await apiClient.get(TASKS_BASE, { params })
-  return response.data || []
+  return response;
 }
 
 /**
@@ -19,7 +19,7 @@ export async function getAllTasks(params = {}) {
  */
 export async function getTaskById(taskId) {
   const response = await apiClient.get(`${TASKS_BASE}/${taskId}`)
-  return response.data
+  return response;
 }
 
 /**
@@ -31,7 +31,7 @@ export async function getTasksByProject(projectId) {
   const response = await apiClient.get(TASKS_BASE, {
     params: { projectId }
   })
-  return response.data || []
+  return response;
 }
 
 /**
@@ -43,7 +43,7 @@ export async function getTasksByAssignee(userId) {
   const response = await apiClient.get(TASKS_BASE, {
     params: { assignedTo: userId }
   })
-  return response.data || []
+  return response;
 }
 
 /**
@@ -53,7 +53,7 @@ export async function getTasksByAssignee(userId) {
  */
 export async function createTask(taskData) {
   const response = await apiClient.post(TASKS_BASE, taskData)
-  return response.data
+  return response;
 }
 
 /**
@@ -64,7 +64,7 @@ export async function createTask(taskData) {
  */
 export async function updateTask(taskId, taskData) {
   const response = await apiClient.put(`${TASKS_BASE}/${taskId}`, taskData)
-  return response.data
+  return response;
 }
 
 /**
@@ -83,5 +83,5 @@ export async function deleteTask(taskId) {
  */
 export async function bulkUpdateTasks(tasks) {
   const response = await apiClient.post(`${TASKS_BASE}/bulk`, tasks)
-  return response.data
+  return response;
 }

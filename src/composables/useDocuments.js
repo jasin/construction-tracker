@@ -8,7 +8,7 @@ import { getDocumentsByProject } from '@/services/api/documentsApi';
 
 export function useDocuments(options = {}) {
   const {
-    projectId = null,
+    project_id = null,
     mode = 'search', // 'search' | 'project' | 'manage'
     initialPageSize = 25,
     enableRealtime = true,
@@ -36,7 +36,7 @@ export function useDocuments(options = {}) {
   const showAdvancedFilters = ref(false);
 
   const activeFilters = ref({
-    projectIds: [],
+    project_ids: [],
     categories: [],
     tags: [],
     fileTypes: [],
@@ -60,7 +60,7 @@ export function useDocuments(options = {}) {
     { label: 'Name Z-A', value: 'name-desc' },
     { label: 'Size Largest', value: 'fileSize-desc' },
     { label: 'Size Smallest', value: 'fileSize-asc' },
-    { label: 'Most Recent Update', value: 'updatedAt-desc' },
+    { label: 'Most Recent Update', value: 'updated_at-desc' },
   ];
 
   // ==================== UI STATE ====================
@@ -77,11 +77,11 @@ export function useDocuments(options = {}) {
     ...(mode === 'search'
       ? [
           {
-            field: 'projectIds',
+            field: 'project_ids',
             label: 'Projects',
             type: 'multiselect',
             options: projects.value.map((p) => ({
-              label: `${p.jobNumber} - ${p.name}`,
+              label: `${p.job_number} - ${p.name}`,
               value: p.id,
             })),
             placeholder: 'Select projects...',
@@ -145,10 +145,10 @@ export function useDocuments(options = {}) {
     let docs = [...allDocuments.value];
 
     // Project filter (automatic for project mode, manual for search mode)
-    if (projectId) {
-      docs = docs.filter((doc) => doc.projectId === projectId);
-    } else if (activeFilters.value.projectIds.length > 0) {
-      docs = docs.filter((doc) => activeFilters.value.projectIds.includes(doc.projectId));
+    if (project_id) {
+      docs = docs.filter((doc) => doc.project_id === project_id);
+    } else if (activeFilters.value.project_ids.length > 0) {
+      docs = docs.filter((doc) => activeFilters.value.project_ids.includes(doc.project_id));
     }
 
     // Text search
@@ -180,12 +180,12 @@ export function useDocuments(options = {}) {
 
   const searchStats = computed(() => {
     const docs = filteredDocuments.value;
-    const projectIds = new Set(docs.map((doc) => doc.projectId));
+    const project_ids = new Set(docs.map((doc) => doc.project_id));
 
     return {
       total: docs.length,
       totalSize: docs.reduce((sum, doc) => sum + (doc.fileSize || 0), 0),
-      projectCount: projectIds.size,
+      projectCount: project_ids.size,
     };
   });
 
@@ -229,9 +229,9 @@ export function useDocuments(options = {}) {
     { label: 'Other', value: 'other' },
   ];
 
-  const getFileType = (fileName) => {
-    if (!fileName) return 'other';
-    const ext = fileName.split('.').pop()?.toLowerCase();
+  const getFileType = (file_name) => {
+    if (!file_name) return 'other';
+    const ext = file_name.split('.').pop()?.toLowerCase();
 
     const typeMap = {
       pdf: 'pdf',
@@ -267,7 +267,7 @@ export function useDocuments(options = {}) {
     // File type filter
     if (activeFilters.value.fileTypes.length > 0) {
       docs = docs.filter((doc) => {
-        const fileType = getFileType(doc.name || doc.fileName);
+        const fileType = getFileType(doc.name || doc.file_name);
         return activeFilters.value.fileTypes.includes(fileType);
       });
     }
@@ -299,7 +299,7 @@ export function useDocuments(options = {}) {
     // Date range filter
     if (activeFilters.value.dateRange.from || activeFilters.value.dateRange.to) {
       docs = docs.filter((doc) => {
-        const docDate = new Date(doc.uploadedAt || doc.createdAt);
+        const docDate = new Date(doc.uploadedAt || doc.created_at);
         const fromDate = activeFilters.value.dateRange.from;
         const toDate = activeFilters.value.dateRange.to;
 
@@ -323,7 +323,7 @@ export function useDocuments(options = {}) {
     // Version filter (latest only)
     if (activeFilters.value.versionFilter.latestOnly) {
       const groupedDocs = docs.reduce((groups, doc) => {
-        const baseName = doc.name?.replace(/\s*\(v\d+\)/, '') || doc.fileName;
+        const baseName = doc.name?.replace(/\s*\(v\d+\)/, '') || doc.file_name;
         if (!groups[baseName] || new Date(doc.uploadedAt) > new Date(groups[baseName].uploadedAt)) {
           groups[baseName] = doc;
         }
@@ -343,9 +343,9 @@ export function useDocuments(options = {}) {
       let bVal = b[field];
 
       if (field === 'name') {
-        aVal = (a.name || a.fileName || '').toLowerCase();
-        bVal = (b.name || b.fileName || '').toLowerCase();
-      } else if (field === 'uploadedAt' || field === 'updatedAt') {
+        aVal = (a.name || a.file_name || '').toLowerCase();
+        bVal = (b.name || b.file_name || '').toLowerCase();
+      } else if (field === 'uploadedAt' || field === 'updated_at') {
         aVal = new Date(aVal || 0);
         bVal = new Date(bVal || 0);
       } else if (field === 'fileSize') {
@@ -372,9 +372,9 @@ export function useDocuments(options = {}) {
       users.value = usersData;
 
       // Load documents based on mode
-      if (projectId) {
+      if (project_id) {
         // Project-specific modes (project, manage)
-        const documentsData = await getDocumentsByProject(projectId);
+        const documentsData = await getDocumentsByProject(project_id);
         allDocuments.value = documentsData;
 
         // Calculate stats for project documents
@@ -398,7 +398,7 @@ export function useDocuments(options = {}) {
           totalSize: allDocuments.value.reduce((sum, doc) => sum + (doc.fileSize || 0), 0),
           byCategory: {},
           byStatus: {},
-          projectCount: new Set(allDocuments.value.map((doc) => doc.projectId)).size,
+          projectCount: new Set(allDocuments.value.map((doc) => doc.project_id)).size,
         };
       }
     } catch (err) {
@@ -412,7 +412,7 @@ export function useDocuments(options = {}) {
   const setupRealtimeListener = () => {
     // Real-time subscriptions are now handled by the document store
     // This composable relies on the store's Supabase subscriptions
-    if (!enableRealtime || !projectId) return;
+    if (!enableRealtime || !project_id) return;
 
     console.log('Real-time listener - managed by document store with Supabase');
     // The document store automatically updates via Supabase real-time
@@ -440,7 +440,7 @@ export function useDocuments(options = {}) {
   const clearAllFilters = () => {
     searchQuery.value = '';
     activeFilters.value = {
-      projectIds: [],
+      project_ids: [],
       categories: [],
       tags: [],
       fileTypes: [],
@@ -517,8 +517,8 @@ export function useDocuments(options = {}) {
 
   const exportResults = () => {
     const dataToExport = filteredDocuments.value.map((doc) => ({
-      name: doc.name || doc.fileName,
-      project: projects.value.find((p) => p.id === doc.projectId)?.name,
+      name: doc.name || doc.file_name,
+      project: projects.value.find((p) => p.id === doc.project_id)?.name,
       category: doc.category,
       status: doc.status,
       fileSize: formatFileSize(doc.fileSize || 0),

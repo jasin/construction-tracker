@@ -1,7 +1,7 @@
 // src/services/api/projectsApi.js
 import { apiClient } from './apiClient';
 
-const PROJECTS_BASE = '/api/projects';
+const PROJECTS_BASE = '/projects';
 
 /**
  * Get all projects with optional filters
@@ -13,7 +13,7 @@ const PROJECTS_BASE = '/api/projects';
  */
 export async function getAllProjects(params = {}) {
   const response = await apiClient.get(PROJECTS_BASE, { params });
-  return response.data || [];
+  return response;
 }
 
 /**
@@ -22,7 +22,7 @@ export async function getAllProjects(params = {}) {
  */
 export async function getActiveProjects() {
   const response = await apiClient.get(`${PROJECTS_BASE}/active`);
-  return response.data;
+  return response;
 }
 
 /**
@@ -34,7 +34,7 @@ export async function searchProjects(query) {
   const response = await apiClient.get(`${PROJECTS_BASE}/search`, {
     params: { q: query },
   });
-  return response.data;
+  return response;
 }
 
 /**
@@ -44,7 +44,7 @@ export async function searchProjects(query) {
  */
 export async function getProjectByJobNumber(jobNumber) {
   const response = await apiClient.get(`${PROJECTS_BASE}/job-number/${jobNumber}`);
-  return response.data;
+  return response;
 }
 
 /**
@@ -54,7 +54,7 @@ export async function getProjectByJobNumber(jobNumber) {
  */
 export async function getProjectById(projectId) {
   const response = await apiClient.get(`${PROJECTS_BASE}/${projectId}`);
-  return response.data;
+  return response;
 }
 
 /**
@@ -64,7 +64,7 @@ export async function getProjectById(projectId) {
  */
 export async function createProject(projectData) {
   const response = await apiClient.post(PROJECTS_BASE, projectData);
-  return response.data;
+  return response;
 }
 
 /**
@@ -75,7 +75,7 @@ export async function createProject(projectData) {
  */
 export async function updateProject(projectId, projectData) {
   const response = await apiClient.patch(`${PROJECTS_BASE}/${projectId}`, projectData);
-  return response.data;
+  return response;
 }
 
 /**
@@ -85,5 +85,5 @@ export async function updateProject(projectId, projectData) {
  */
 export async function deleteProject(projectId) {
   const response = await apiClient.delete(`${PROJECTS_BASE}/${projectId}`);
-  return response.data;
+  return response;
 }

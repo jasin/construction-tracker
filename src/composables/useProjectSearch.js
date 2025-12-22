@@ -25,7 +25,7 @@ export function useProjectSearch({ groupByPhase = false, limit = 20 } = {}) {
       ? projectsList.filter(
           (p) =>
             p.name.toLowerCase().includes(lowerQuery) ||
-            (p.jobNumber || '').toLowerCase().includes(lowerQuery)
+            (p.job_number || '').toLowerCase().includes(lowerQuery)
         )
       : projectsList;
 
@@ -72,8 +72,8 @@ export function useProjectSearch({ groupByPhase = false, limit = 20 } = {}) {
       const filtered = store.projects.filter(
         (p) =>
           p.name.toLowerCase().includes(searchQuery) ||
-          (p.jobNumber || '').toLowerCase().includes(searchQuery) ||
-          (p.clientName || '').toLowerCase().includes(searchQuery)
+          (p.job_number || '').toLowerCase().includes(searchQuery) ||
+          (p.client_name || '').toLowerCase().includes(searchQuery)
       );
 
       suggestions.value = filtered.slice(0, limit);

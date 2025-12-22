@@ -24,7 +24,7 @@
           <div class="flex justify-between items-start">
             <div class="flex-1 min-w-0">
               <h1 class="project-title">
-                {{ currentProject.jobNumber }} - {{ currentProject.name }}
+                {{ currentProject.job_number }} - {{ currentProject.name }}
               </h1>
               <div class="project-meta">
                 <Tag
@@ -51,17 +51,17 @@
                 <i class="pi pi-building"></i>
                 <span>{{ currentProject.client }}</span>
               </div>
-              <div v-if="currentProject.projectManager" class="info-item">
+              <div v-if="currentProject.project_manager" class="info-item">
                 <i class="pi pi-user"></i>
-                <span>PM: {{ currentProject.projectManager }}</span>
+                <span>PM: {{ currentProject.project_manager }}</span>
               </div>
               <div v-if="currentProject.superintendent" class="info-item">
                 <i class="pi pi-hard-hat"></i>
                 <span>Super: {{ currentProject.superintendent }}</span>
               </div>
-              <div v-if="currentProject.startDate" class="info-item">
+              <div v-if="currentProject.start_date" class="info-item">
                 <i class="pi pi-calendar"></i>
-                <span>Start: {{ formatDate(currentProject.startDate) }}</span>
+                <span>Start: {{ formatDate(currentProject.start_date) }}</span>
               </div>
             </div>
 
@@ -93,16 +93,16 @@
         <div class="flex justify-between items-start">
           <div class="flex-1">
             <h1 class="project-title">
-              {{ currentProject.jobNumber }} - {{ currentProject.name }}
+              {{ currentProject.job_number }} - {{ currentProject.name }}
             </h1>
             <div class="project-info-row">
               <div v-if="currentProject.client" class="info-item">
                 <i class="pi pi-building"></i>
                 <span>{{ currentProject.client }}</span>
               </div>
-              <div v-if="currentProject.projectManager" class="info-item">
+              <div v-if="currentProject.project_manager" class="info-item">
                 <i class="pi pi-user"></i>
-                <span>PM: {{ currentProject.projectManager }}</span>
+                <span>PM: {{ currentProject.project_manager }}</span>
               </div>
               <div v-if="currentProject.superintendent" class="info-item">
                 <i class="pi pi-hard-hat"></i>
@@ -116,15 +116,15 @@
               />
               <span class="project-cost">{{ formatCurrency(currentProject.cost) }}</span>
               <Tag
-                :value="currentProject.contractSigned ? 'Contract Signed' : 'Contract Pending'"
-                :severity="currentProject.contractSigned ? 'success' : 'warn'"
+                :value="currentProject.contract_signed ? 'Contract Signed' : 'Contract Pending'"
+                :severity="currentProject.contract_signed ? 'success' : 'warn'"
                 size="small"
               />
-              <div v-if="currentProject.startDate" class="date-info">
-                <span class="font-medium">Start:</span> {{ formatDate(currentProject.startDate) }}
+              <div v-if="currentProject.start_date" class="date-info">
+                <span class="font-medium">Start:</span> {{ formatDate(currentProject.start_date) }}
               </div>
-              <div v-if="currentProject.endDate" class="date-info">
-                <span class="font-medium">End:</span> {{ formatDate(currentProject.endDate) }}
+              <div v-if="currentProject.end_date" class="date-info">
+                <span class="font-medium">End:</span> {{ formatDate(currentProject.end_date) }}
               </div>
             </div>
           </div>

@@ -56,8 +56,8 @@
                   class="pi pi-folder mr-2 text-gray-400 group-hover:text-emerald-600 transition-colors"
                 ></i>
                 <span class="truncate"
-                  >{{ project.jobNumber }} - {{ project.name
-                  }}{{ getClientName(project.clientId, clientsMap) }}</span
+                  >{{ project.job_number }} - {{ project.name
+                  }}{{ getClientName(project.client_id, clientsMap) }}</span
                 >
               </button>
             </div>
@@ -69,22 +69,22 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
-import { Accordion, AccordionPanel, AccordionHeader, AccordionContent } from 'primevue'
-import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
-import ClientRepository from '@/services/firebase/Repositories/ClientRepository'
-import { createLookupMap, getClientName } from '@/utils/index'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { useRouter } from 'vue-router';
+import { Accordion, AccordionPanel, AccordionHeader, AccordionContent } from 'primevue';
+import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository';
+import ClientRepository from '@/services/firebase/Repositories/ClientRepository';
+import { createLookupMap, getClientName } from '@/utils/index';
 
 // Reactive state
-const projects = ref([])
-const clients = ref([])
-const loading = ref(true)
-const error = ref(null)
-const router = useRouter()
+const projects = ref([]);
+const clients = ref([]);
+const loading = ref(true);
+const error = ref(null);
+const router = useRouter();
 // Default to have pre-construction expanded
-const accordionValue = ref(['pre-construction'])
-let unsubscribe = null
+const accordionValue = ref(['pre-construction']);
+let unsubscribe = null;
 
 // Phase configuration
 const phaseConfig = {
@@ -108,15 +108,15 @@ const phaseConfig = {
     icon: 'pi pi-verified',
     color: '#059669',
   },
-}
+};
 
 // Create clients map for better performance using utility
-const clientsMap = computed(() => createLookupMap(clients.value))
+const clientsMap = computed(() => createLookupMap(clients.value));
 
 // Transform projects data for accordion
 const accordionItems = computed(() => {
   if (!projects.value || projects.value.length === 0) {
-    return []
+    return [];
   }
 
   // Group projects by phase
@@ -125,18 +125,18 @@ const accordionItems = computed(() => {
     construction: [],
     'close-out': [],
     complete: [],
-  }
+  };
 
   // Distribute projects into appropriate phases
   projects.value.forEach((project) => {
-    const phase = project.phase || 'pre-construction'
+    const phase = project.phase || 'pre-construction';
     if (grouped[phase]) {
-      grouped[phase].push(project)
+      grouped[phase].push(project);
     } else {
       // Default to pre-construction if phase doesn't match
-      grouped['pre-construction'].push(project)
+      grouped['pre-construction'].push(project);
     }
-  })
+  });
 
   // Create the accordion structure
   return Object.entries(grouped).map(([phaseKey, phaseProjects]) => ({
@@ -145,46 +145,46 @@ const accordionItems = computed(() => {
     icon: phaseConfig[phaseKey].icon,
     color: phaseConfig[phaseKey].color,
     projects: phaseProjects,
-  }))
-})
+  }));
+});
 
 // Navigate to project
 const navigateToProject = (projectId) => {
-  router.push(`/project/${projectId}`)
-}
+  router.push(`/project/${projectId}`);
+};
 
 // Fetch projects using the service
 onMounted(async () => {
-  console.log('ProjectMenu.vue mounted. Fetching data...')
+  console.log('ProjectMenu.vue mounted. Fetching data...');
 
   try {
     // Load clients using utility function
-    clients.value = await ClientRepository.getAllClients()
+    clients.value = await ClientRepository.getAllClients();
 
     // Set up real-time listener for projects
     unsubscribe = ProjectRepository.subscribeToProjects((projectsData) => {
-      console.log('Projects updated:', projectsData)
-      projects.value = projectsData
-      loading.value = false
-    })
+      console.log('Projects updated:', projectsData);
+      projects.value = projectsData;
+      loading.value = false;
+    });
   } catch (err) {
-    console.error('Error fetching projects:', err)
-    error.value = 'Failed to load projects.'
-    loading.value = false
+    console.error('Error fetching projects:', err);
+    error.value = 'Failed to load projects.';
+    loading.value = false;
   }
-})
+});
 
 // Clean up Firebase listener
 onBeforeUnmount(() => {
   if (unsubscribe) {
-    console.log('Cleaning up ProjectMenu listeners')
+    console.log('Cleaning up ProjectMenu listeners');
     if (typeof unsubscribe === 'function') {
-      unsubscribe()
+      unsubscribe();
     } else {
-      ProjectRepository.unsubscribe(unsubscribe)
+      ProjectRepository.unsubscribe(unsubscribe);
     }
   }
-})
+});
 </script>
 
 <style scoped>

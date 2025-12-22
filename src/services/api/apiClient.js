@@ -62,7 +62,9 @@ export async function apiGet(endpoint) {
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Request failed');
+    const errorMessage =
+      typeof error.detail === 'string' ? error.detail : JSON.stringify(error.detail || error);
+    throw new Error(errorMessage || 'Request failed');
   }
 
   return await response.json();
@@ -82,7 +84,9 @@ export async function apiPost(endpoint, data) {
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Request failed');
+    const errorMessage =
+      typeof error.detail === 'string' ? error.detail : JSON.stringify(error.detail || error);
+    throw new Error(errorMessage || 'Request failed');
   }
 
   return await response.json();
@@ -102,7 +106,9 @@ export async function apiPut(endpoint, data) {
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Request failed');
+    const errorMessage =
+      typeof error.detail === 'string' ? error.detail : JSON.stringify(error.detail || error);
+    throw new Error(errorMessage || 'Request failed');
   }
 
   return await response.json();
@@ -122,7 +128,9 @@ export async function apiPatch(endpoint, data) {
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Request failed');
+    const errorMessage =
+      typeof error.detail === 'string' ? error.detail : JSON.stringify(error.detail || error);
+    throw new Error(errorMessage || 'Request failed');
   }
 
   return await response.json();
@@ -138,7 +146,9 @@ export async function apiDelete(endpoint) {
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Request failed');
+    const errorMessage =
+      typeof error.detail === 'string' ? error.detail : JSON.stringify(error.detail || error);
+    throw new Error(errorMessage || 'Request failed');
   }
 
   // DELETE might return empty response

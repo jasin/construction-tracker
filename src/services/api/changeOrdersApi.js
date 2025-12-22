@@ -9,7 +9,7 @@ const CHANGE_ORDERS_BASE = '/change-orders'
  */
 export async function getAllChangeOrders(params = {}) {
   const response = await apiClient.get(CHANGE_ORDERS_BASE, { params })
-  return response.data || []
+  return response;
 }
 
 /**
@@ -19,7 +19,7 @@ export async function getAllChangeOrders(params = {}) {
  */
 export async function getChangeOrderById(changeOrderId) {
   const response = await apiClient.get(`${CHANGE_ORDERS_BASE}/${changeOrderId}`)
-  return response.data
+  return response;
 }
 
 /**
@@ -31,7 +31,7 @@ export async function getChangeOrdersByProject(projectId) {
   const response = await apiClient.get(CHANGE_ORDERS_BASE, {
     params: { projectId }
   })
-  return response.data || []
+  return response;
 }
 
 /**
@@ -41,7 +41,7 @@ export async function getChangeOrdersByProject(projectId) {
  */
 export async function createChangeOrder(changeOrderData) {
   const response = await apiClient.post(CHANGE_ORDERS_BASE, changeOrderData)
-  return response.data
+  return response;
 }
 
 /**
@@ -52,7 +52,7 @@ export async function createChangeOrder(changeOrderData) {
  */
 export async function updateChangeOrder(changeOrderId, changeOrderData) {
   const response = await apiClient.put(`${CHANGE_ORDERS_BASE}/${changeOrderId}`, changeOrderData)
-  return response.data
+  return response;
 }
 
 /**

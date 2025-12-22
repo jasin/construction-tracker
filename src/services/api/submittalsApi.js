@@ -9,7 +9,7 @@ const SUBMITTALS_BASE = '/submittals'
  */
 export async function getAllSubmittals(params = {}) {
   const response = await apiClient.get(SUBMITTALS_BASE, { params })
-  return response.data || []
+  return response;
 }
 
 /**
@@ -19,7 +19,7 @@ export async function getAllSubmittals(params = {}) {
  */
 export async function getSubmittalById(submittalId) {
   const response = await apiClient.get(`${SUBMITTALS_BASE}/${submittalId}`)
-  return response.data
+  return response;
 }
 
 /**
@@ -31,7 +31,7 @@ export async function getSubmittalsByProject(projectId) {
   const response = await apiClient.get(SUBMITTALS_BASE, {
     params: { projectId }
   })
-  return response.data || []
+  return response;
 }
 
 /**
@@ -41,7 +41,7 @@ export async function getSubmittalsByProject(projectId) {
  */
 export async function createSubmittal(submittalData) {
   const response = await apiClient.post(SUBMITTALS_BASE, submittalData)
-  return response.data
+  return response;
 }
 
 /**
@@ -52,7 +52,7 @@ export async function createSubmittal(submittalData) {
  */
 export async function updateSubmittal(submittalId, submittalData) {
   const response = await apiClient.put(`${SUBMITTALS_BASE}/${submittalId}`, submittalData)
-  return response.data
+  return response;
 }
 
 /**

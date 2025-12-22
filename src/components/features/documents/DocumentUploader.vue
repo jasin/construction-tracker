@@ -516,25 +516,6 @@ const uploadFiles = async () => {
 
         uploadProgress.value[i] = 50;
 
-        // Create document record in Firebase
-        const documentData = {
-          name: file.name,
-          description: description.value,
-          category: selectedCategory.value,
-          subfolder: selectedSubfolder.value,
-          tags: tags.value,
-          projectId: props.projectId,
-
-          // Google Drive data
-          googleDriveFileId: driveFile.id,
-          googleDriveLink: googleDriveService.getShareableLink(driveFile.id),
-          mimeType: file.type,
-          fileSize: file.size,
-
-          // Status
-          status: selectedCategoryConfig.value?.requiresApproval ? 'pending' : 'approved',
-        };
-
         // Handle version updates
         if (isUpdate.value) {
           const updatedDoc = await updateDocument(props.existingDocument.id, {
@@ -548,7 +529,28 @@ const uploadFiles = async () => {
           });
           uploadedDocuments.push(updatedDoc);
         } else {
-          const newDoc = await createDocument(documentData);
+          // Create FormData for document upload
+          const formData = new FormData();
+          formData.append('name', file.name);
+          formData.append('description', description.value || '');
+          formData.append('category', selectedCategory.value);
+          formData.append('subfolder', selectedSubfolder.value || '');
+          formData.append('projectId', props.projectId);
+          formData.append('googleDriveFileId', driveFile.id);
+          formData.append('googleDriveLink', googleDriveService.getShareableLink(driveFile.id));
+          formData.append('mimeType', file.type);
+          formData.append('fileSize', file.size);
+          formData.append(
+            'status',
+            selectedCategoryConfig.value?.requiresApproval ? 'pending' : 'approved'
+          );
+
+          // Add tags as JSON array
+          if (tags.value && tags.value.length > 0) {
+            formData.append('tags', JSON.stringify(tags.value));
+          }
+
+          const newDoc = await uploadDocument(formData);
           uploadedDocuments.push(newDoc);
         }
 

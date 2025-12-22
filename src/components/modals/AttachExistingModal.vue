@@ -139,7 +139,7 @@
           <div class="flex items-start gap-3 pr-8">
             <i
               :class="getDocumentIcon(document.name, document.category)"
-              class="text-xl text-gray-600 flex-shrink-0 mt-1"
+              class="text-xl text-gray-600 shrink-0 mt-1"
             ></i>
 
             <div class="flex-1 min-w-0">

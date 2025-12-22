@@ -1,7 +1,7 @@
 // src/services/api/activityLogsApi.js
-import { apiClient } from './apiClient'
+import { apiClient } from './apiClient';
 
-const ACTIVITY_BASE = '/api/activity-logs'
+const ACTIVITY_BASE = '/activity-logs';
 
 /**
  * Get activity logs with optional filters
@@ -14,8 +14,8 @@ const ACTIVITY_BASE = '/api/activity-logs'
  * @returns {Promise<Array>} List of activity logs
  */
 export async function getActivityLogs(params = {}) {
-  const response = await apiClient.get(ACTIVITY_BASE, { params })
-  return response.data
+  const response = await apiClient.get(ACTIVITY_BASE, { params });
+  return response;
 }
 
 /**
@@ -25,9 +25,9 @@ export async function getActivityLogs(params = {}) {
  */
 export async function getRecentActivityLogs(limit = 50) {
   const response = await apiClient.get(`${ACTIVITY_BASE}/recent`, {
-    params: { limit }
-  })
-  return response.data
+    params: { limit },
+  });
+  return response;
 }
 
 /**
@@ -37,8 +37,8 @@ export async function getRecentActivityLogs(limit = 50) {
  * @returns {Promise<Array>} Activity summary grouped by user
  */
 export async function getActivitySummaryByUser(params = {}) {
-  const response = await apiClient.get(`${ACTIVITY_BASE}/summary/by-user`, { params })
-  return response.data
+  const response = await apiClient.get(`${ACTIVITY_BASE}/summary/by-user`, { params });
+  return response;
 }
 
 /**
@@ -48,8 +48,8 @@ export async function getActivitySummaryByUser(params = {}) {
  * @returns {Promise<Array>} Activity summary grouped by action
  */
 export async function getActivitySummaryByAction(params = {}) {
-  const response = await apiClient.get(`${ACTIVITY_BASE}/summary/by-action`, { params })
-  return response.data
+  const response = await apiClient.get(`${ACTIVITY_BASE}/summary/by-action`, { params });
+  return response;
 }
 
 /**
@@ -58,8 +58,8 @@ export async function getActivitySummaryByAction(params = {}) {
  * @returns {Promise<Object>} Activity log data
  */
 export async function getActivityLogById(logId) {
-  const response = await apiClient.get(`${ACTIVITY_BASE}/${logId}`)
-  return response.data
+  const response = await apiClient.get(`${ACTIVITY_BASE}/${logId}`);
+  return response;
 }
 
 /**
@@ -69,7 +69,7 @@ export async function getActivityLogById(logId) {
  */
 export async function cleanupOldLogs(daysOld) {
   const response = await apiClient.delete(`${ACTIVITY_BASE}/cleanup`, {
-    params: { days_old: daysOld }
-  })
-  return response.data
+    params: { days_old: daysOld },
+  });
+  return response;
 }

@@ -9,7 +9,7 @@ const DOCUMENTS_BASE = '/documents'
  */
 export async function getAllDocuments(params = {}) {
   const response = await apiClient.get(DOCUMENTS_BASE, { params })
-  return response.data || []
+  return response;
 }
 
 /**
@@ -19,7 +19,7 @@ export async function getAllDocuments(params = {}) {
  */
 export async function getDocumentById(documentId) {
   const response = await apiClient.get(`${DOCUMENTS_BASE}/${documentId}`)
-  return response.data
+  return response;
 }
 
 /**
@@ -31,7 +31,7 @@ export async function getDocumentsByProject(projectId) {
   const response = await apiClient.get(DOCUMENTS_BASE, {
     params: { projectId }
   })
-  return response.data || []
+  return response;
 }
 
 /**
@@ -47,7 +47,7 @@ export async function getDocumentsByEntity(entityType, entityId) {
       linkedEntityId: entityId
     }
   })
-  return response.data || []
+  return response;
 }
 
 /**
@@ -57,7 +57,7 @@ export async function getDocumentsByEntity(entityType, entityId) {
  */
 export async function uploadDocument(formData) {
   const response = await apiClient.upload(DOCUMENTS_BASE, formData)
-  return response.data
+  return response;
 }
 
 /**
@@ -68,7 +68,7 @@ export async function uploadDocument(formData) {
  */
 export async function updateDocument(documentId, documentData) {
   const response = await apiClient.put(`${DOCUMENTS_BASE}/${documentId}`, documentData)
-  return response.data
+  return response;
 }
 
 /**
@@ -89,5 +89,5 @@ export async function downloadDocument(documentId) {
   const response = await apiClient.get(`${DOCUMENTS_BASE}/${documentId}/download`, {
     responseType: 'blob'
   })
-  return response.data
+  return response;
 }

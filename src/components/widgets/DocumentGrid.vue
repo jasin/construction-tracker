@@ -18,9 +18,9 @@
             <!-- Project Info - Job Number and Name -->
             <div
               class="text-xs text-gray-600 font-medium mb-1 truncate"
-              :title="getProjectName(document.projectId)"
+              :title="getProjectName(document.project_id)"
             >
-              {{ getProjectName(document.projectId) }}
+              {{ getProjectName(document.project_id) }}
             </div>
             <!-- Document Name -->
             <h3 class="font-medium text-gray-900 truncate text-sm" :title="document.name">
@@ -153,7 +153,7 @@ const props = defineProps({
   },
 
   // User activity tracking
-  projectId: {
+  project_id: {
     type: String,
     required: false,
   },
@@ -222,11 +222,11 @@ const getCategoryLabel = (category) => {
   return config ? config.label : category || 'Uncategorized';
 };
 
-const getProjectName = (projectId) => {
-  const project = props.projects.find((p) => p.id === projectId);
+const getProjectName = (project_id) => {
+  const project = props.projects.find((p) => p.id === project_id);
   if (!project) return 'Unknown Project';
 
-  return `${project.jobNumber} - ${project.name}`;
+  return `${project.job_number} - ${project.name}`;
 };
 
 const getFileExtension = (filename) => {
@@ -243,7 +243,7 @@ const handleDocumentClick = (document) => {
   emit('document-click', document);
 
   // Mark document as read when clicked
-  if (props.projectId && props.onItemClicked) {
+  if (props.project_id && props.onItemClicked) {
     props.onItemClicked(document);
   }
 };
