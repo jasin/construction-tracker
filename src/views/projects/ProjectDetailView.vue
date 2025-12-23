@@ -502,14 +502,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Task Dialog -->
-    <TaskDialog
-      v-model:visible="taskDialogVisible"
-      :task="selectedTask"
-      :project-id="projectId"
-      @task-saved="handleTaskSaved"
-    />
   </div>
 </template>
 
@@ -534,7 +526,6 @@ import RFIList from '@/components/lists/RFIList.vue';
 import SubmittalList from '@/components/lists/SubmittalList.vue';
 import ChangeOrderList from '@/components/lists/ChangeOrderList.vue';
 import DocumentGrid from '@/components/widgets/DocumentGrid.vue';
-import TaskDialog from '@/components/forms/TaskDialog.vue';
 
 // Props
 const props = defineProps({
@@ -553,8 +544,6 @@ const toast = useToast();
 // Local state
 const headerExpanded = ref(false);
 const activeTabIndex = ref(0);
-const taskDialogVisible = ref(false);
-const selectedTask = ref(null);
 
 // User activity tracking
 const {
@@ -727,18 +716,12 @@ const retryFullLoad = async () => {
 };
 
 const editTask = async (task) => {
-  selectedTask.value = task;
-  taskDialogVisible.value = true;
+  uiStore.openModal('taskDialog', { task });
 
   // Mark task as read when opened
   if (props.projectId && task.id) {
     await markItemAsRead(props.projectId, 'task', task.id);
   }
-};
-
-const handleTaskSaved = async () => {
-  taskDialogVisible.value = false;
-  selectedTask.value = null;
 };
 
 // User activity handlers

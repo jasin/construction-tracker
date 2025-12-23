@@ -145,7 +145,7 @@
               <div class="flex items-center min-w-0">
                 <i
                   :class="getDocumentIcon(document.name, document.category)"
-                  class="text-xl text-gray-600 mr-3 flex-shrink-0"
+                  class="text-xl text-gray-600 mr-3 shrink-0"
                 ></i>
                 <div class="min-w-0 flex-1">
                   <div class="text-sm font-medium text-gray-900 truncate">

@@ -12,7 +12,7 @@
         <div class="flex items-center gap-2 flex-1 min-w-0">
           <i
             :class="getDocumentIcon(document.name, document.category)"
-            class="text-xl text-gray-600 flex-shrink-0"
+            class="text-xl text-gray-600 shrink-0"
           ></i>
           <div class="flex-1 min-w-0">
             <!-- Project Info - Job Number and Name -->
@@ -55,7 +55,7 @@
         <!-- Uploader and Date -->
         <div class="flex items-center justify-between text-xs text-gray-500">
           <span class="truncate">{{ document.uploadedByName || 'Unknown' }}</span>
-          <span class="flex-shrink-0 ml-2">{{ formatDate(document.uploadedAt) }}</span>
+          <span class="shrink-0 ml-2">{{ formatDate(document.uploadedAt) }}</span>
         </div>
 
         <!-- Tags -->

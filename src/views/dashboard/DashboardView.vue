@@ -351,14 +351,6 @@
       </div>
     </div>
 
-    <!-- Task Dialog -->
-    <TaskDialog
-      v-model:visible="taskDialogVisible"
-      :task="selectedTask"
-      :project-id="null"
-      @task-saved="handleTaskSaved"
-    />
-
     <!-- Submittal Dialog -->
     <SubmittalDialog
       v-model:visible="submittalDialogVisible"
@@ -388,6 +380,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
+import { useConfirm } from 'primevue/useconfirm';
 import { useWindowSize } from '@vueuse/core';
 
 import Card from 'primevue/card';
@@ -405,7 +398,6 @@ import { useDocumentStore } from '@/stores/document';
 import { useUIStore } from '@/stores/ui';
 
 import TaskList from '@/components/lists/TaskList.vue';
-import TaskDialog from '@/components/forms/TaskDialog.vue';
 import SubmittalDialog from '@/components/forms/SubmittalDialog.vue';
 import ChangeOrderList from '@/components/lists/ChangeOrderList.vue';
 import ChangeOrderDialog from '@/components/forms/ChangeOrderDialog.vue';
@@ -419,6 +411,7 @@ import DashboardMobileSection from '@/components/dashboard/DashboardMobileSectio
 const emit = defineEmits(['open-rfi-dialog']);
 
 const toast = useToast();
+const confirm = useConfirm();
 const { width } = useWindowSize();
 
 const projectStore = useProjectStore();
@@ -432,10 +425,6 @@ const uiStore = useUIStore();
 
 const loading = ref(true);
 const activities = ref([]);
-
-// Task dialog state
-const taskDialogVisible = ref(false);
-const selectedTask = ref(null);
 
 // Submittal dialog state
 const submittalDialogVisible = ref(false);
@@ -617,19 +606,24 @@ const handleProjectClick = async (project) => {
 };
 
 /**
- * Handle task click
+ * Handle task click (open for editing)
  */
 const handleTaskClick = (task) => {
-  selectedTask.value = task;
-  taskDialogVisible.value = true;
+  uiStore.openModal('taskDialog', { task });
 };
 
 /**
  * Handle create task
  */
 const handleCreateTask = () => {
-  selectedTask.value = null;
-  taskDialogVisible.value = true;
+  uiStore.openModal('taskDialog');
+};
+
+/**
+ * Handle edit task
+ */
+const handleEditTask = (task) => {
+  uiStore.openModal('taskDialog', { task });
 };
 
 /**
@@ -669,14 +663,6 @@ const handleToggleComplete = async (task) => {
 };
 
 /**
- * Handle task saved from dialog
- */
-const handleTaskSaved = () => {
-  taskDialogVisible.value = false;
-  selectedTask.value = null;
-};
-
-/**
  * Handle status change from TaskList
  */
 const handleStatusChange = async ({ task, newStatus }) => {
@@ -701,39 +687,45 @@ const handleStatusChange = async ({ task, newStatus }) => {
 };
 
 /**
- * Handle edit task
- */
-const handleEditTask = (task) => {
-  selectedTask.value = task;
-  taskDialogVisible.value = true;
-};
-
-/**
  * Handle delete task
  */
 const handleDeleteTask = async (task) => {
-  if (!confirm(`Are you sure you want to delete "${task.title}"?`)) {
-    return;
-  }
+  confirm.require({
+    message: `Are you sure you want to delete "${task.title}"?`,
+    header: 'Delete Task',
+    icon: 'pi pi-exclamation-triangle',
+    rejectLabel: 'Cancel',
+    acceptLabel: 'Delete',
+    rejectClass: 'p-button-secondary p-button-outlined',
+    acceptClass: 'p-button-danger',
+    accept: async () => {
+      // Optimistic update - remove from UI immediately
+      const taskId = task.id;
+      taskStore.userTasks = taskStore.userTasks.filter((t) => t.id !== taskId);
 
-  try {
-    const result = await taskStore.deleteTask(task.id);
-    if (result) {
-      toast.add({
-        severity: 'success',
-        summary: 'Task Deleted',
-        detail: `"${task.title}" has been deleted`,
-        life: 3000,
-      });
-    }
-  } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Delete Failed',
-      detail: error.message || 'An error occurred while deleting the task',
-      life: 5000,
-    });
-  }
+      try {
+        const result = await taskStore.deleteTask(taskId);
+        if (result) {
+          toast.add({
+            severity: 'success',
+            summary: 'Task Deleted',
+            detail: `"${task.title}" has been deleted`,
+            life: 3000,
+          });
+        }
+      } catch (error) {
+        // Rollback - add task back if delete failed
+        taskStore.userTasks.push(task);
+
+        toast.add({
+          severity: 'error',
+          summary: 'Delete Failed',
+          detail: error.message || 'An error occurred while deleting the task',
+          life: 5000,
+        });
+      }
+    },
+  });
 };
 
 /**

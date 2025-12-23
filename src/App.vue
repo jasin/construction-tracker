@@ -56,6 +56,7 @@
       <!-- Context Menu for actions (right-click anywhere) -->
       <ContextMenu ref="contextMenu" :model="contextMenuItems" />
       <Toast />
+      <ConfirmDialog />
       <ProjectDialog
         v-if="modals.projectDialog"
         :visible="modals.projectDialog"
@@ -69,6 +70,7 @@
         :visible="modals.taskDialog"
         @update:visible="uiStore.closeModal('taskDialog')"
         @task-saved="handleTaskUpdated"
+        :task="uiStore.selectedTask"
         :project-id="projectStore.activeProjectId"
       />
       <RFIDialog
@@ -209,6 +211,7 @@ import Hammer from 'hammerjs';
 
 // Stores
 import { useAuthStore, useProjectStore, useUIStore, useUserSettingsStore } from '@/stores';
+import { useTaskStore } from '@/stores/task';
 
 // Components
 import LoginView from '@/views/auth/LoginView.vue';
@@ -221,6 +224,7 @@ import Avatar from 'primevue/avatar';
 import Menu from 'primevue/menu';
 import ContextMenu from 'primevue/contextmenu';
 import Toast from 'primevue/toast';
+import ConfirmDialog from 'primevue/confirmdialog';
 import Dialog from 'primevue/dialog';
 import ProjectDialog from './components/forms/ProjectDialog.vue';
 import TaskDialog from './components/forms/TaskDialog.vue';
@@ -238,6 +242,7 @@ const router = useRouter();
 const projectStore = useProjectStore();
 const authStore = useAuthStore();
 const uiStore = useUIStore();
+const taskStore = useTaskStore();
 const userSettingsStore = useUserSettingsStore();
 const { modals, projectDialogMode } = storeToRefs(uiStore);
 const toast = useToast();
@@ -332,7 +337,20 @@ const handleProjectUpdated = async (project) => {
 };
 
 const handleTaskUpdated = (task) => {
-  uiStore.closeModal('taskDialog');
+  uiStore.closeModal('taskDialog'); // This will auto-clear selectedTask
+
+  // Add/update task in user tasks (optimistic update)
+  if (task) {
+    const existingIndex = taskStore.userTasks.findIndex((t) => t.id === task.id);
+    if (existingIndex === -1) {
+      // New task, add it
+      taskStore.userTasks.push(task);
+    } else {
+      // Updated task, replace it
+      taskStore.userTasks[existingIndex] = task;
+    }
+  }
+
   toast.add({
     severity: 'success',
     summary: 'Success',

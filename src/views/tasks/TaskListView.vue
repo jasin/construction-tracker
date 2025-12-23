@@ -7,7 +7,12 @@
           <h1 class="text-2xl font-bold text-gray-900">Tasks</h1>
           <p class="text-sm text-gray-500 mt-1">Manage and track project tasks</p>
         </div>
-        <Button @click="showTaskDialog = true" icon="pi pi-plus" label="New Task" size="small" />
+        <Button
+          @click="uiStore.openModal('taskDialog')"
+          icon="pi pi-plus"
+          label="New Task"
+          size="small"
+        />
       </div>
     </div>
 
@@ -175,7 +180,7 @@
           {{ getEmptyStateMessage() }}
         </p>
         <Button
-          @click="showTaskDialog = true"
+          @click="uiStore.openModal('taskDialog')"
           icon="pi pi-plus"
           label="Create New Task"
           size="small"
@@ -250,16 +255,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Task Slide-Over -->
-    <TaskDialog
-      v-model:visible="showTaskDialog"
-      :project-id="selectedProjectId"
-      :task="editingTask"
-      :available-tasks="allTasks"
-      @task-created="handleTaskCreated"
-      @task-updated="handleTaskUpdated"
-    />
   </div>
 </template>
 
@@ -271,19 +266,23 @@ import Select from 'primevue/select';
 import MultiSelect from 'primevue/multiselect';
 import DatePicker from 'primevue/datepicker';
 import ProgressSpinner from 'primevue/progressspinner';
-import TaskDialog from '@/components/forms/TaskDialog.vue';
 import { getAllTasks } from '@/services/api/tasksApi';
 import { getActiveUsers } from '@/services/api/usersApi';
 import { getAllProjects } from '@/services/api/projectsApi';
 import { useAuthStore } from '@/stores/auth';
+import { useUIStore } from '@/stores/ui';
+import { useTaskStore } from '@/stores/task';
 import { handleError } from '@/utils/errorHandler';
+
+// Stores
+const uiStore = useUIStore();
+const taskStore = useTaskStore();
 
 // Reactive state
 const loading = ref(true);
 const currentView = ref('my-tasks'); // 'my-tasks', 'all-tasks', 'overdue'
 const showAdvancedFilters = ref(false);
-const showTaskDialog = ref(false);
-const editingTask = ref(null);
+
 const selectedProjectId = ref(null);
 
 // Data
@@ -509,24 +508,8 @@ const clearFilters = () => {
 };
 
 const editTask = (task) => {
-  editingTask.value = task;
   selectedProjectId.value = task.project_id;
-  showTaskDialog.value = true;
-};
-
-const handleTaskCreated = (newTask) => {
-  allTasks.value.unshift(newTask);
-  editingTask.value = null;
-  showTaskDialog.value = false;
-};
-
-const handleTaskUpdated = (updatedTask) => {
-  const index = allTasks.value.findIndex((t) => t.id === updatedTask.id);
-  if (index !== -1) {
-    allTasks.value[index] = updatedTask;
-  }
-  editingTask.value = null;
-  showTaskDialog.value = false;
+  uiStore.openModal('taskDialog', { task });
 };
 
 // Data loading

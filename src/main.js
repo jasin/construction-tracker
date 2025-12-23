@@ -10,12 +10,14 @@ import PrimeVue from 'primevue/config';
 import Aura from '@primeuix/themes/aura';
 import Tooltip from 'primevue/tooltip';
 import ToastService from 'primevue/toastservice';
+import ConfirmationService from 'primevue/confirmationservice';
 import { handleError } from './utils/errorHandler';
 const app = createApp(App);
 
 app.use(router);
 app.use(pinia);
 app.use(ToastService);
+app.use(ConfirmationService);
 app.use(PrimeVue, {
   theme: {
     preset: Aura,

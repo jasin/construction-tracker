@@ -50,7 +50,7 @@
                 v-for="project in phase.projects"
                 :key="project.id"
                 @click="navigateToProject(project.id)"
-                class="w-full flex items-center px-3 py-1.5 text-left text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-md text-xs transition-all duration-150 group hover:transform hover:translate-x-0.5 !bg-gray-50"
+                class="w-full flex items-center px-3 py-1.5 text-left text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-md text-xs transition-all duration-150 group hover:transform hover:translate-x-0.5 bg-gray-50!"
               >
                 <i
                   class="pi pi-folder mr-2 text-gray-400 group-hover:text-emerald-600 transition-colors"

@@ -726,6 +726,7 @@ const handleSubmit = async () => {
       success.value = 'Task created successfully!';
     }
 
+    console.log('TaskDialog emitting task-saved with:', taskSaved);
     emit('task-saved', taskSaved);
 
     setTimeout(() => {

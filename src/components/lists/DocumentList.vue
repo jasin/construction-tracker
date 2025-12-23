@@ -29,18 +29,18 @@
           <div class="task-accordion-header">
             <div class="task-row">
               <div class="task-title-area">
-                <i :class="getFileIcon(document)" class="text-sm mr-2 flex-shrink-0"></i>
+                <i :class="getFileIcon(document)" class="text-sm mr-2 shrink-0"></i>
                 <div class="flex items-center gap-2 flex-1 min-w-0">
                   <span class="task-title truncate">
                     {{ getProjectInfo(document.project_id) }}
                   </span>
-                  <span class="text-xs text-surface-600 flex-shrink-0">•</span>
+                  <span class="text-xs text-surface-600 shrink-0">•</span>
                   <Tag
                     v-if="document.category"
                     :value="formatCategory(document.category)"
                     size="small"
                     severity="info"
-                    class="text-[10px] font-normal flex-shrink-0"
+                    class="text-[10px] font-normal shrink-0"
                   />
                   <span v-if="document.notes" class="text-xs text-surface-500 truncate">
                     - {{ document.notes }}
