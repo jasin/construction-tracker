@@ -11,7 +11,15 @@
  * - Real-time dependency status calculation
  */
 
-import { TASK_STATUSES } from '@/constants';
+// Task status constants
+const TASK_STATUSES = {
+  TODO: 'todo',
+  IN_PROGRESS: 'in-progress',
+  COMPLETE: 'complete',
+  REVIEW: 'review',
+  ON_HOLD: 'on-hold',
+  CANCELLED: 'cancelled',
+};
 
 /**
  * Calculates the dependency completion status for a task

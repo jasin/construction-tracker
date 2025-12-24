@@ -18,11 +18,30 @@
           </svg>
         </div>
         <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">Construction Tracker</h2>
-        <p class="mt-2 text-center text-sm text-gray-600">Sign in to your account</p>
+        <p class="mt-2 text-center text-sm text-gray-600">
+          {{ isSignUp ? 'Create a new account' : 'Sign in to your account' }}
+        </p>
       </div>
 
-      <form class="mt-8 space-y-6" @submit.prevent="handleLogin">
+      <form class="mt-8 space-y-6" @submit.prevent="handleSubmit">
         <div class="rounded-md shadow-sm -space-y-px">
+          <!-- Name field (only for sign up) -->
+          <div v-if="isSignUp">
+            <label for="name" class="sr-only">Full Name</label>
+            <input
+              id="name"
+              v-model="form.name"
+              name="name"
+              type="text"
+              autocomplete="name"
+              :required="isSignUp"
+              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm"
+              placeholder="Full name"
+              :disabled="loading"
+            />
+          </div>
+
+          <!-- Email field -->
           <div>
             <label for="email" class="sr-only">Email address</label>
             <input
@@ -32,11 +51,16 @@
               type="email"
               autocomplete="email"
               required
-              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm"
+              :class="[
+                'appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm',
+                isSignUp ? '' : 'rounded-t-md',
+              ]"
               placeholder="Email address"
               :disabled="loading"
             />
           </div>
+
+          <!-- Password field -->
           <div>
             <label for="password" class="sr-only">Password</label>
             <input
@@ -44,16 +68,36 @@
               v-model="form.password"
               name="password"
               type="password"
-              autocomplete="current-password"
+              :autocomplete="isSignUp ? 'new-password' : 'current-password'"
               required
-              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm"
+              :class="[
+                'appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm',
+                isSignUp ? '' : 'rounded-b-md',
+              ]"
               placeholder="Password"
+              :disabled="loading"
+            />
+          </div>
+
+          <!-- Confirm Password field (only for sign up) -->
+          <div v-if="isSignUp">
+            <label for="confirmPassword" class="sr-only">Confirm Password</label>
+            <input
+              id="confirmPassword"
+              v-model="form.confirmPassword"
+              name="confirmPassword"
+              type="password"
+              autocomplete="new-password"
+              :required="isSignUp"
+              class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 focus:z-10 sm:text-sm"
+              placeholder="Confirm password"
               :disabled="loading"
             />
           </div>
         </div>
 
-        <div class="flex items-center justify-between">
+        <!-- Remember me (only for sign in) -->
+        <div v-if="!isSignUp" class="flex items-center justify-between">
           <div class="flex items-center">
             <input
               id="remember-me"
@@ -77,6 +121,11 @@
           </div>
         </div>
 
+        <!-- Validation errors -->
+        <div v-if="validationError" class="text-red-500 text-sm text-center">
+          {{ validationError }}
+        </div>
+
         <AlertMessage v-if="error" :message="error" type="error" />
         <AlertMessage v-if="success" :message="success" type="success" />
 
@@ -88,8 +137,28 @@
             class="w-full bg-emerald-600 hover:bg-emerald-700 border-emerald-600 hover:border-emerald-700"
             size="large"
           >
-            {{ loading ? 'Signing in...' : 'Sign in' }}
+            {{
+              loading
+                ? isSignUp
+                  ? 'Creating account...'
+                  : 'Signing in...'
+                : isSignUp
+                  ? 'Create account'
+                  : 'Sign in'
+            }}
           </Button>
+        </div>
+
+        <!-- Toggle between sign in and sign up -->
+        <div class="text-center">
+          <button
+            type="button"
+            @click="toggleMode"
+            class="font-medium text-emerald-600 hover:text-emerald-500"
+            :disabled="loading"
+          >
+            {{ isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up" }}
+          </button>
         </div>
       </form>
     </div>
@@ -97,23 +166,90 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { Button } from 'primevue'
-import { useAuth } from '@/composables/useAuth'
-import AlertMessage from '@/components/ui/AlertMessage.vue'
+import { ref, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { Button } from 'primevue';
+import { useAuth } from '@/composables/useAuth';
+import AlertMessage from '@/components/ui/AlertMessage.vue';
 
-const { loading, success, error, signIn } = useAuth()
+const router = useRouter();
+const { loading, success, error, signIn, signUp } = useAuth();
+
+// Toggle between sign in and sign up
+const isSignUp = ref(false);
 
 // Form data
 const form = ref({
+  name: '',
   email: '',
   password: '',
+  confirmPassword: '',
   rememberMe: false,
-})
+});
 
-// Handle login
-const handleLogin = async () => {
-  await signIn(form.value.email, form.value.password)
-}
+// Validation error
+const validationError = ref('');
 
+// Validate form
+const validateForm = () => {
+  validationError.value = '';
+
+  if (isSignUp.value) {
+    if (!form.value.name.trim()) {
+      validationError.value = 'Please enter your name';
+      return false;
+    }
+
+    if (form.value.password.length < 6) {
+      validationError.value = 'Password must be at least 6 characters';
+      return false;
+    }
+
+    if (form.value.password !== form.value.confirmPassword) {
+      validationError.value = 'Passwords do not match';
+      return false;
+    }
+  }
+
+  return true;
+};
+
+// Handle form submission
+const handleSubmit = async () => {
+  if (!validateForm()) {
+    return;
+  }
+
+  try {
+    if (isSignUp.value) {
+      await signUp({
+        name: form.value.name,
+        email: form.value.email,
+        password: form.value.password,
+        role: 'user', // Default role for new registrations
+      });
+    } else {
+      await signIn(form.value.email, form.value.password);
+    }
+
+    // Navigate to dashboard on success
+    router.push('/');
+  } catch (err) {
+    console.error('Auth error:', err);
+  }
+};
+
+// Toggle between sign in and sign up modes
+const toggleMode = () => {
+  isSignUp.value = !isSignUp.value;
+  validationError.value = '';
+  // Clear form fields
+  form.value = {
+    name: '',
+    email: form.value.email, // Keep email
+    password: '',
+    confirmPassword: '',
+    rememberMe: false,
+  };
+};
 </script>

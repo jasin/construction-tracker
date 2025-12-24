@@ -1,64 +1,92 @@
 // src/composables/useAuth.js
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores' // Import via stores/index.js wrapper for centralized access
+import { computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores';
 
 /**
  * Composable for handling authentication using Pinia store.
- * Provides access to auth state and methods, with optional Google sign-in and user syncing.
+ * Provides access to auth state and methods for JWT-based authentication.
  *
  * @returns {Object} Auth state and methods.
- * @property {Ref<Object|null>} user - Current synced user (from Auth and RTDB).
+ * @property {ComputedRef<Object|null>} user - Current authenticated user.
  * @property {ComputedRef<boolean>} isAuthenticated - Authentication status.
- * @property {Ref<boolean>} loading - Loading state.
- * @property {Ref<string>} error - Error message.
- * @property {Ref<string>} success - Success message.
- * @property {Function} signIn - Email/password sign-in with sync.
- * @property {Function} googleSignIn - Optional Google sign-in with sync.
+ * @property {ComputedRef<boolean>} loading - Loading state.
+ * @property {ComputedRef<string>} error - Error message.
+ * @property {ComputedRef<string>} success - Success message.
+ * @property {Function} signIn - Email/password sign-in.
+ * @property {Function} signUp - User registration with auto sign-in.
  * @property {Function} logout - Logout function.
+ * @property {Function} clearMessages - Clear error and success messages.
  */
 export function useAuth() {
-  const router = useRouter()
-  const authStore = useAuthStore()
+  const router = useRouter();
+  const authStore = useAuthStore();
 
+  /**
+   * Sign in with email and password
+   * @param {string} email - User email
+   * @param {string} password - User password
+   */
   const signIn = async (email, password) => {
     try {
-      await authStore.signIn(email, password)
-      router.push('/')
+      await authStore.signIn(email, password);
+      // Don't navigate here - let the calling component handle navigation
+      return { success: true };
     } catch (err) {
-      console.error('Sign-in error:', err)
-      throw new Error(`Sign-in failed: ${err.message}`)
+      console.error('Sign-in error:', err);
+      throw new Error(`Sign-in failed: ${err.message}`);
     }
-  }
+  };
 
-  // Added: Optional Google sign-in method, calling store action for sync
-  const googleSignIn = async () => {
+  /**
+   * Register a new user and automatically sign them in
+   * @param {Object} userData - User registration data
+   * @param {string} userData.name - User's full name
+   * @param {string} userData.email - User's email
+   * @param {string} userData.password - User's password
+   * @param {string} userData.role - User's role (default: 'user')
+   */
+  const signUp = async (userData) => {
     try {
-      await authStore.googleSignIn()
-      router.push('/')
+      await authStore.signUp(userData);
+      // Don't navigate here - let the calling component handle navigation
+      return { success: true };
     } catch (err) {
-      console.error('Google sign-in error:', err)
-      throw new Error(`Google sign-in failed: ${err.message}`)
+      console.error('Sign-up error:', err);
+      throw new Error(`Sign-up failed: ${err.message}`);
     }
-  }
+  };
 
+  /**
+   * Logout current user
+   */
   const logout = async () => {
     try {
-      await authStore.logout()
-      router.push('/login')
+      await authStore.logout();
+      router.push('/login');
+      return { success: true };
     } catch (err) {
-      console.error('Logout error:', err)
-      throw new Error(`Logout failed: ${err.message}`)
+      console.error('Logout error:', err);
+      throw new Error(`Logout failed: ${err.message}`);
     }
-  }
+  };
+
+  /**
+   * Clear error and success messages
+   */
+  const clearMessages = () => {
+    authStore.clearMessages();
+  };
 
   return {
-    user: authStore.user,
-    isAuthenticated: authStore.isAuthenticated,
-    loading: authStore.loading,
-    error: authStore.error,
-    success: authStore.success,
+    user: computed(() => authStore.user),
+    isAuthenticated: computed(() => authStore.isAuthenticated),
+    loading: computed(() => authStore.loading),
+    error: computed(() => authStore.error),
+    success: computed(() => authStore.success),
     signIn,
-    googleSignIn, // Added: Expose Google sign-in for optional use in views
+    signUp,
     logout,
-  }
+    clearMessages,
+  };
 }

@@ -12,50 +12,57 @@
         <div class="flex items-center gap-2 flex-1 min-w-0">
           <i
             :class="getDocumentIcon(document.name, document.category)"
-            class="text-xl text-gray-600 flex-shrink-0"
+            class="text-xl text-gray-600 shrink-0"
           ></i>
           <div class="flex-1 min-w-0">
-            <h3 class="font-medium text-gray-900 truncate" :title="document.name">
+            <!-- Project Info - Job Number and Name -->
+            <div
+              class="text-xs text-gray-600 font-medium mb-1 truncate"
+              :title="getProjectName(document.project_id)"
+            >
+              {{ getProjectName(document.project_id) }}
+            </div>
+            <!-- Document Name -->
+            <h3 class="font-medium text-gray-900 truncate text-sm" :title="document.name">
               {{ document.name }}
             </h3>
-            <p class="text-xs text-gray-500">
-              v{{ document.version || 1 }}
-              <span v-if="showFileExtension" class="ml-1">
-                ({{ getFileExtension(document.name) }})
-              </span>
-            </p>
           </div>
         </div>
         <DocumentStatusBadge :status="document.status" size="small" />
       </div>
 
+      <!-- Notes - More prominent -->
+      <div
+        v-if="document.notes"
+        class="mb-3 text-sm text-gray-700 line-clamp-2"
+        :title="document.notes"
+      >
+        <span class="text-xs font-semibold text-gray-600">Notes:</span> {{ document.notes }}
+      </div>
+
       <!-- Document Meta -->
       <div class="space-y-2">
-        <!-- Category and Size -->
+        <!-- Category, Version, and Size -->
         <div class="flex items-center justify-between text-xs text-gray-500">
-          <span>{{ getCategoryLabel(document.category) }}</span>
+          <span class="flex items-center gap-1.5">
+            <span>{{ getCategoryLabel(document.category) }}</span>
+            <span class="text-gray-400">•</span>
+            <span>v{{ document.version || 1 }}</span>
+          </span>
           <span>{{ formatFileSize(document.fileSize) }}</span>
-        </div>
-
-        <!-- Project (if cross-project view) -->
-        <div v-if="showProject" class="text-xs text-gray-600 truncate">
-          <i class="pi pi-folder mr-1"></i>
-          {{ getProjectName(document.projectId) }}
         </div>
 
         <!-- Uploader and Date -->
         <div class="flex items-center justify-between text-xs text-gray-500">
           <span class="truncate">{{ document.uploadedByName || 'Unknown' }}</span>
-          <span class="flex-shrink-0 ml-2">{{ formatDate(document.uploadedAt) }}</span>
-        </div>
-
-        <!-- Description -->
-        <div v-if="document.description && showDescription" class="text-xs text-gray-600 line-clamp-2">
-          {{ document.description }}
+          <span class="shrink-0 ml-2">{{ formatDate(document.uploadedAt) }}</span>
         </div>
 
         <!-- Tags -->
-        <div v-if="document.tags && document.tags.length > 0 && showTags" class="flex flex-wrap gap-1">
+        <div
+          v-if="document.tags && document.tags.length > 0 && showTags"
+          class="flex flex-wrap gap-1"
+        >
           <span
             v-for="tag in document.tags.slice(0, maxVisibleTags)"
             :key="tag"
@@ -63,10 +70,7 @@
           >
             {{ tag }}
           </span>
-          <span
-            v-if="document.tags.length > maxVisibleTags"
-            class="text-xs text-gray-500 px-1"
-          >
+          <span v-if="document.tags.length > maxVisibleTags" class="text-xs text-gray-500 px-1">
             +{{ document.tags.length - maxVisibleTags }}
           </span>
         </div>
@@ -134,108 +138,119 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { Button } from 'primevue'
-import { DOCUMENT_CATEGORIES, getDocumentIcon } from '@/constants/documentCategories'
-import DocumentStatusBadge from '@/components/features/documents/DocumentStatusBadge.vue'
-import { formatFileSize, formatDate } from '@/utils/index'
+import { computed } from 'vue';
+import { Button } from 'primevue';
+import { DOCUMENT_CATEGORIES, getDocumentIcon } from '@/constants/documentCategories';
+import DocumentStatusBadge from '@/components/features/documents/DocumentStatusBadge.vue';
+import { formatFileSize, formatDate } from '@/utils/index';
 
 // Props
 const props = defineProps({
   // Required
   documents: {
     type: Array,
-    required: true
+    required: true,
+  },
+
+  // User activity tracking
+  project_id: {
+    type: String,
+    required: false,
+  },
+  onItemClicked: {
+    type: Function,
+    default: () => {},
   },
 
   // Display options
   showProject: {
     type: Boolean,
-    default: false
+    default: false,
   },
   showDescription: {
     type: Boolean,
-    default: true
+    default: true,
   },
   showTags: {
     type: Boolean,
-    default: true
+    default: true,
   },
   showActions: {
     type: Boolean,
-    default: true
+    default: true,
   },
   showDriveLink: {
     type: Boolean,
-    default: true
+    default: true,
   },
   showFileExtension: {
     type: Boolean,
-    default: false
+    default: false,
   },
 
   // Configuration
   maxVisibleTags: {
     type: Number,
-    default: 3
+    default: 3,
   },
 
   // Selection
   selectedDocuments: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
 
   // Data mappings (for cross-app compatibility)
   projects: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
 
   // Permission functions
   canEdit: {
     type: Function,
-    default: () => true
-  }
-})
+    default: () => true,
+  },
+});
 
 // Emits
-const emit = defineEmits([
-  'document-click',
-  'document-action',
-  'document-select'
-])
+const emit = defineEmits(['document-click', 'document-action', 'document-select']);
 
 // Helper functions
 const getCategoryLabel = (category) => {
-  const config = DOCUMENT_CATEGORIES[category]
-  return config ? config.label : (category || 'Uncategorized')
-}
+  const config = DOCUMENT_CATEGORIES[category];
+  return config ? config.label : category || 'Uncategorized';
+};
 
-const getProjectName = (projectId) => {
-  if (!props.showProject) return ''
+const getProjectName = (project_id) => {
+  const project = props.projects.find((p) => p.id === project_id);
+  if (!project) return 'Unknown Project';
 
-  const project = props.projects.find(p => p.id === projectId)
-  return project ? `${project.jobNumber} - ${project.name}` : 'Unknown Project'
-}
+  return `${project.job_number} - ${project.name}`;
+};
 
 const getFileExtension = (filename) => {
-  if (!filename) return ''
-  return filename.split('.').pop().toUpperCase()
-}
+  if (!filename) return '';
+  return filename.split('.').pop().toUpperCase();
+};
 
 const isSelected = (document) => {
-  return props.selectedDocuments.some(doc => doc.id === document.id)
-}
+  return props.selectedDocuments.some((doc) => doc.id === document.id);
+};
 
 // Event handlers
 const handleDocumentClick = (document) => {
-  emit('document-click', document)
-}
+  emit('document-click', document);
+
+  // Mark document as read when clicked
+  if (props.project_id && props.onItemClicked) {
+    props.onItemClicked(document);
+  }
+};
 
 const handleAction = (action, document) => {
-  emit('document-action', { action, document })
-}
+  emit('document-action', { action, document });
+};
 </script>
 
 <style scoped>

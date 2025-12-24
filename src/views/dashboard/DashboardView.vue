@@ -93,7 +93,7 @@
           <template #content>
             <div class="p-2">
               <h3 class="font-semibold text-base mb-1">
-                {{ project.jobNumber }} {{ project.name }}
+                {{ project.job_number }} {{ project.name }}
               </h3>
               <p class="text-xs text-surface-600 mb-2">
                 {{ project.changes }} recent change{{ project.changes !== 1 ? 's' : '' }}
@@ -165,6 +165,7 @@
       <DocumentList
         :documents="documentStore.userRecentDocuments"
         :loading="documentStore.userDocumentsLoading"
+        :projects="projectStore.projects"
         title=""
         @create-document="handleCreateDocument"
         @document-click="handleDocumentClick"
@@ -196,10 +197,10 @@
         </div>
       </div>
 
-      <!-- Tasks Section -->
+      <!-- Row 1: Tasks and Documents (Full Width) -->
       <div class="mb-6">
-        <div class="desktop-tasks-container grid gap-4" :class="getGridClass">
-          <div :class="getTaskListSpanClass">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 dashboard-row-1">
+          <div class="col-span-1 md:col-span-6 dashboard-component-wrapper">
             <TaskList
               :tasks="taskStore.userTasks"
               :loading="taskStore.userTasksLoading"
@@ -217,17 +218,26 @@
               @delete-task="handleDeleteTask"
             />
           </div>
-          <div class="col-span-1">
-            <RFIList
-              :rfis="rfiStore.userRFIs"
-              :loading="rfiStore.userRFIsLoading"
-              title="Request Information"
-              @create-rfi="handleCreateRFI"
-              @rfi-click="handleRFIClick"
-              @edit-rfi="handleEditRFI"
+          <div class="col-span-1 md:col-span-6 dashboard-component-wrapper">
+            <DocumentList
+              :documents="documentStore.userRecentDocuments"
+              :loading="documentStore.userDocumentsLoading"
+              :projects="projectStore.projects"
+              title="Documents"
+              @create-document="handleCreateDocument"
+              @document-click="handleDocumentClick"
+              @view-document="handleViewDocument"
+              @edit-document="handleEditDocument"
+              @delete-document="handleDeleteDocument"
             />
           </div>
-          <div class="col-span-1">
+        </div>
+      </div>
+
+      <!-- Row 2: Submittals, RFIs, Change Orders (12-Column Layout) -->
+      <div class="mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 dashboard-row-2">
+          <div class="col-span-1 md:col-span-4 dashboard-component-wrapper">
             <SubmittalList
               :submittals="submittalStore.userSubmittals"
               :loading="submittalStore.userSubmittalsLoading"
@@ -238,7 +248,17 @@
               @delete-submittal="handleDeleteSubmittal"
             />
           </div>
-          <div class="col-span-1">
+          <div class="col-span-1 md:col-span-4 dashboard-component-wrapper">
+            <RFIList
+              :rfis="rfiStore.userRFIs"
+              :loading="rfiStore.userRFIsLoading"
+              title="Request Information"
+              @create-rfi="handleCreateRFI"
+              @rfi-click="handleRFIClick"
+              @edit-rfi="handleEditRFI"
+            />
+          </div>
+          <div class="col-span-1 md:col-span-4 dashboard-component-wrapper">
             <ChangeOrderList
               :change-orders="changeOrderStore.userChangeOrders"
               :loading="changeOrderStore.userChangeOrdersLoading"
@@ -247,18 +267,6 @@
               @change-order-click="handleChangeOrderClick"
               @edit-change-order="handleEditChangeOrder"
               @delete-change-order="handleDeleteChangeOrder"
-            />
-          </div>
-          <div class="col-span-1">
-            <DocumentList
-              :documents="documentStore.userRecentDocuments"
-              :loading="documentStore.userDocumentsLoading"
-              title="Documents"
-              @create-document="handleCreateDocument"
-              @document-click="handleDocumentClick"
-              @view-document="handleViewDocument"
-              @edit-document="handleEditDocument"
-              @delete-document="handleDeleteDocument"
             />
           </div>
         </div>
@@ -277,7 +285,7 @@
             <div class="p-3 pb-0">
               <div class="flex justify-between items-start">
                 <h3 class="font-medium text-surface-900 text-sm">
-                  {{ project.jobNumber }} {{ project.name }}
+                  {{ project.job_number }} {{ project.name }}
                 </h3>
                 <i class="pi pi-chevron-right text-surface-600 text-xs"></i>
               </div>
@@ -343,14 +351,6 @@
       </div>
     </div>
 
-    <!-- Task Dialog -->
-    <TaskDialog
-      v-model:visible="taskDialogVisible"
-      :task="selectedTask"
-      :project-id="null"
-      @task-saved="handleTaskSaved"
-    />
-
     <!-- Submittal Dialog -->
     <SubmittalDialog
       v-model:visible="submittalDialogVisible"
@@ -380,12 +380,13 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
+import { useConfirm } from 'primevue/useconfirm';
 import { useWindowSize } from '@vueuse/core';
 
 import Card from 'primevue/card';
 import ProgressSpinner from 'primevue/progressspinner';
 
-import ActivityService from '@/services/logging/ActivityService';
+import { useActivityStore } from '@/stores/activity';
 import { ACTIVITY_CATEGORIES } from '@/constants/activityActions';
 
 import { useProjectStore } from '@/stores/project';
@@ -397,7 +398,6 @@ import { useDocumentStore } from '@/stores/document';
 import { useUIStore } from '@/stores/ui';
 
 import TaskList from '@/components/lists/TaskList.vue';
-import TaskDialog from '@/components/forms/TaskDialog.vue';
 import SubmittalDialog from '@/components/forms/SubmittalDialog.vue';
 import ChangeOrderList from '@/components/lists/ChangeOrderList.vue';
 import ChangeOrderDialog from '@/components/forms/ChangeOrderDialog.vue';
@@ -411,6 +411,7 @@ import DashboardMobileSection from '@/components/dashboard/DashboardMobileSectio
 const emit = defineEmits(['open-rfi-dialog']);
 
 const toast = useToast();
+const confirm = useConfirm();
 const { width } = useWindowSize();
 
 const projectStore = useProjectStore();
@@ -419,15 +420,11 @@ const rfiStore = useRFIStore();
 const submittalStore = useSubmittalStore();
 const changeOrderStore = useChangeOrderStore();
 const documentStore = useDocumentStore();
+const activityStore = useActivityStore();
 const uiStore = useUIStore();
 
 const loading = ref(true);
 const activities = ref([]);
-let activityUnsubscribe = null;
-
-// Task dialog state
-const taskDialogVisible = ref(false);
-const selectedTask = ref(null);
 
 // Submittal dialog state
 const submittalDialogVisible = ref(false);
@@ -475,7 +472,7 @@ const getTaskListSpanClass = computed(() => {
  */
 const groupedActivities = computed(() => {
   return activities.value.reduce((acc, activity) => {
-    const pid = activity.projectId;
+    const pid = activity.project_id;
     if (!acc[pid]) acc[pid] = [];
     acc[pid].push(activity);
     return acc;
@@ -525,14 +522,12 @@ const loadData = () => {
 /**
  * Sets up realtime subscription to meaningful activity changes.
  */
-const setupActivitySubscription = () => {
-  activityUnsubscribe = ActivityService.subscribeToActivitiesByCategory(
-    ACTIVITY_CATEGORIES.CHANGE,
-    { limit: 200 },
-    (updatedActivities) => {
-      activities.value = updatedActivities;
-    }
-  );
+const setupActivitySubscription = async () => {
+  // Load recent activities from the activity store
+  await activityStore.loadRecentActivities(200);
+
+  // Use the activities from the store (it has real-time subscriptions built in)
+  activities.value = activityStore.activities;
 };
 
 /**
@@ -611,19 +606,24 @@ const handleProjectClick = async (project) => {
 };
 
 /**
- * Handle task click
+ * Handle task click (open for editing)
  */
 const handleTaskClick = (task) => {
-  selectedTask.value = task;
-  taskDialogVisible.value = true;
+  uiStore.openModal('taskDialog', { task });
 };
 
 /**
  * Handle create task
  */
 const handleCreateTask = () => {
-  selectedTask.value = null;
-  taskDialogVisible.value = true;
+  uiStore.openModal('taskDialog');
+};
+
+/**
+ * Handle edit task
+ */
+const handleEditTask = (task) => {
+  uiStore.openModal('taskDialog', { task });
 };
 
 /**
@@ -663,14 +663,6 @@ const handleToggleComplete = async (task) => {
 };
 
 /**
- * Handle task saved from dialog
- */
-const handleTaskSaved = () => {
-  taskDialogVisible.value = false;
-  selectedTask.value = null;
-};
-
-/**
  * Handle status change from TaskList
  */
 const handleStatusChange = async ({ task, newStatus }) => {
@@ -695,39 +687,45 @@ const handleStatusChange = async ({ task, newStatus }) => {
 };
 
 /**
- * Handle edit task
- */
-const handleEditTask = (task) => {
-  selectedTask.value = task;
-  taskDialogVisible.value = true;
-};
-
-/**
  * Handle delete task
  */
 const handleDeleteTask = async (task) => {
-  if (!confirm(`Are you sure you want to delete "${task.title}"?`)) {
-    return;
-  }
+  confirm.require({
+    message: `Are you sure you want to delete "${task.title}"?`,
+    header: 'Delete Task',
+    icon: 'pi pi-exclamation-triangle',
+    rejectLabel: 'Cancel',
+    acceptLabel: 'Delete',
+    rejectClass: 'p-button-secondary p-button-outlined',
+    acceptClass: 'p-button-danger',
+    accept: async () => {
+      // Optimistic update - remove from UI immediately
+      const taskId = task.id;
+      taskStore.userTasks = taskStore.userTasks.filter((t) => t.id !== taskId);
 
-  try {
-    const result = await taskStore.deleteTask(task.id);
-    if (result) {
-      toast.add({
-        severity: 'success',
-        summary: 'Task Deleted',
-        detail: `"${task.title}" has been deleted`,
-        life: 3000,
-      });
-    }
-  } catch (error) {
-    toast.add({
-      severity: 'error',
-      summary: 'Delete Failed',
-      detail: error.message || 'An error occurred while deleting the task',
-      life: 5000,
-    });
-  }
+      try {
+        const result = await taskStore.deleteTask(taskId);
+        if (result) {
+          toast.add({
+            severity: 'success',
+            summary: 'Task Deleted',
+            detail: `"${task.title}" has been deleted`,
+            life: 3000,
+          });
+        }
+      } catch (error) {
+        // Rollback - add task back if delete failed
+        taskStore.userTasks.push(task);
+
+        toast.add({
+          severity: 'error',
+          summary: 'Delete Failed',
+          detail: error.message || 'An error occurred while deleting the task',
+          life: 5000,
+        });
+      }
+    },
+  });
 };
 
 /**
@@ -903,9 +901,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  if (activityUnsubscribe) {
-    activityUnsubscribe();
-  }
+  // Activity store manages its own subscriptions
   taskStore.cleanupUserTasksSubscription();
   rfiStore.cleanupUserRFIsSubscription();
   submittalStore.cleanupUserSubmittalsSubscription();
@@ -956,18 +952,23 @@ onUnmounted(() => {
   gap: 1rem;
 }
 
-.desktop-tasks-container {
-  display: grid;
-  gap: 1rem;
-  height: 400px;
-  min-height: 400px;
+/* Dashboard row height constraints */
+.dashboard-row-1 {
+  height: 300px;
+  min-height: 300px;
 }
 
-.desktop-tasks-container > div {
+.dashboard-row-2 {
+  height: 300px;
+  min-height: 300px;
+}
+
+/* Component wrapper with overflow handling */
+.dashboard-component-wrapper {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  max-height: 400px;
+  max-height: 300px;
   overflow: hidden;
 }
 

@@ -1,13 +1,18 @@
 <template>
   <div class="h-full flex flex-col bg-gray-50">
     <!-- Header -->
-    <div class="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
+    <div class="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
       <div class="flex justify-between items-center">
         <div>
           <h1 class="text-2xl font-bold text-gray-900">Tasks</h1>
           <p class="text-sm text-gray-500 mt-1">Manage and track project tasks</p>
         </div>
-        <Button @click="showTaskDialog = true" icon="pi pi-plus" label="New Task" size="small" />
+        <Button
+          @click="uiStore.openModal('taskDialog')"
+          icon="pi pi-plus"
+          label="New Task"
+          size="small"
+        />
       </div>
     </div>
 
@@ -69,7 +74,7 @@
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Project</label>
             <Select
-              v-model="filters.projectId"
+              v-model="filters.project_id"
               :options="projectOptions"
               option-label="label"
               option-value="value"
@@ -111,7 +116,7 @@
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Assigned To</label>
             <MultiSelect
-              v-model="filters.assignedTo"
+              v-model="filters.assigned_to"
               :options="userOptions"
               option-label="label"
               option-value="value"
@@ -125,7 +130,7 @@
           <div>
             <label class="block text-xs font-medium text-gray-700 mb-1">Due Date</label>
             <DatePicker
-              v-model="filters.dueDateRange"
+              v-model="filters.due_dateRange"
               selection-mode="range"
               class="w-full text-sm"
               placeholder="Select date range"
@@ -175,7 +180,7 @@
           {{ getEmptyStateMessage() }}
         </p>
         <Button
-          @click="showTaskDialog = true"
+          @click="uiStore.openModal('taskDialog')"
           icon="pi pi-plus"
           label="Create New Task"
           size="small"
@@ -194,7 +199,7 @@
           <div class="flex items-start justify-between mb-3">
             <div class="flex items-center gap-2">
               <div
-                class="w-3 h-3 rounded-full flex-shrink-0"
+                class="w-3 h-3 rounded-full shrink-0"
                 :class="{
                   'bg-red-500': task.priority === 'critical',
                   'bg-orange-500': task.priority === 'high',
@@ -227,16 +232,16 @@
           <!-- Task Meta -->
           <div class="space-y-2 text-xs text-gray-500">
             <div class="flex items-center justify-between">
-              <span>{{ getProjectName(task.projectId) }}</span>
+              <span>{{ getProjectName(task.project_id) }}</span>
               <span v-if="task.category" class="px-2 py-1 bg-gray-100 rounded text-xs">
                 {{ formatCategory(task.category) }}
               </span>
             </div>
 
             <div class="flex items-center justify-between">
-              <span>{{ getUserName(task.assignedTo) }}</span>
+              <span>{{ getUserName(task.assigned_to) }}</span>
               <span :class="{ 'text-red-600 font-medium': isOverdue(task) }">
-                {{ task.dueDate ? formatDate(task.dueDate) : 'No due date' }}
+                {{ task.due_date ? formatDate(task.due_date) : 'No due date' }}
               </span>
             </div>
 
@@ -250,56 +255,51 @@
         </div>
       </div>
     </div>
-
-    <!-- Task Slide-Over -->
-    <TaskDialog
-      v-model:visible="showTaskDialog"
-      :project-id="selectedProjectId"
-      :task="editingTask"
-      :available-tasks="allTasks"
-      @task-created="handleTaskCreated"
-      @task-updated="handleTaskUpdated"
-    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import Button from 'primevue/button'
-import InputText from 'primevue/inputtext'
-import Select from 'primevue/select'
-import MultiSelect from 'primevue/multiselect'
-import DatePicker from 'primevue/datepicker'
-import ProgressSpinner from 'primevue/progressspinner'
-import { getCurrentUserId } from '@/services/auth/authService'
-import TaskDialog from '@/components/forms/TaskDialog.vue'
-import TaskRepository from '@/services/firebase/Repositories/TaskRepository'
-import UserRepository from '@/services/firebase/Repositories/UserRepository'
-import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository'
+import { ref, computed, onMounted, watch } from 'vue';
+import Button from 'primevue/button';
+import InputText from 'primevue/inputtext';
+import Select from 'primevue/select';
+import MultiSelect from 'primevue/multiselect';
+import DatePicker from 'primevue/datepicker';
+import ProgressSpinner from 'primevue/progressspinner';
+import { getAllTasks } from '@/services/api/tasksApi';
+import { getActiveUsers } from '@/services/api/usersApi';
+import { getAllProjects } from '@/services/api/projectsApi';
+import { useAuthStore } from '@/stores/auth';
+import { useUIStore } from '@/stores/ui';
+import { useTaskStore } from '@/stores/task';
+import { handleError } from '@/utils/errorHandler';
+
+// Stores
+const uiStore = useUIStore();
+const taskStore = useTaskStore();
 
 // Reactive state
-const loading = ref(true)
-const currentView = ref('my-tasks') // 'my-tasks', 'all-tasks', 'overdue'
-const showAdvancedFilters = ref(false)
-const showTaskDialog = ref(false)
-const editingTask = ref(null)
-const selectedProjectId = ref(null)
+const loading = ref(true);
+const currentView = ref('my-tasks'); // 'my-tasks', 'all-tasks', 'overdue'
+const showAdvancedFilters = ref(false);
+
+const selectedProjectId = ref(null);
 
 // Data
-const allTasks = ref([])
-const projects = ref([])
-const users = ref([])
+const allTasks = ref([]);
+const projects = ref([]);
+const users = ref([]);
 
 // Filters
 const filters = ref({
   search: '',
-  projectId: null,
+  project_id: null,
   status: [],
   priority: [],
-  assignedTo: [],
+  assigned_to: [],
   category: [],
-  dueDateRange: null,
-})
+  due_dateRange: null,
+});
 
 // Options for filters
 const statusOptions = [
@@ -308,14 +308,14 @@ const statusOptions = [
   { label: 'Review', value: 'review' },
   { label: 'Complete', value: 'complete' },
   { label: 'On Hold', value: 'on-hold' },
-]
+];
 
 const priorityOptions = [
   { label: 'Critical', value: 'critical' },
   { label: 'High', value: 'high' },
   { label: 'Medium', value: 'medium' },
   { label: 'Low', value: 'low' },
-]
+];
 
 const categoryOptions = [
   { label: 'Planning', value: 'planning' },
@@ -324,127 +324,129 @@ const categoryOptions = [
   { label: 'Inspection', value: 'inspection' },
   { label: 'Documentation', value: 'documentation' },
   { label: 'Administrative', value: 'administrative' },
-]
+];
 
 // Computed options
 const projectOptions = computed(() =>
   projects.value.map((project) => ({
-    label: `${project.jobNumber} - ${project.name}`,
+    label: `${project.job_number} - ${project.name}`,
     value: project.id,
-  })),
-)
+  }))
+);
 
 const userOptions = computed(() =>
   users.value.map((user) => ({
     label: user.name || user.email,
     value: user.id,
-  })),
-)
+  }))
+);
 
 // Task filtering
 const filteredTasks = computed(() => {
-  let tasks = []
+  let tasks = [];
 
   // Apply view filter first
   if (currentView.value === 'my-tasks') {
-    const currentUserId = getCurrentUserId()
-    tasks = allTasks.value.filter((task) => task.assignedTo === currentUserId)
+    const authStore = useAuthStore();
+    const currentUserId = authStore.user?.id;
+    tasks = allTasks.value.filter((task) => task.assigned_to === currentUserId);
   } else if (currentView.value === 'overdue') {
-    const now = new Date().toISOString()
+    const now = new Date().toISOString();
     tasks = allTasks.value.filter(
-      (task) => task.dueDate && task.dueDate < now && task.status !== 'complete',
-    )
+      (task) => task.due_date && task.due_date < now && task.status !== 'complete'
+    );
   } else {
-    tasks = allTasks.value
+    tasks = allTasks.value;
   }
 
   // Apply advanced filters
   if (filters.value.search) {
-    const search = filters.value.search.toLowerCase()
+    const search = filters.value.search.toLowerCase();
     tasks = tasks.filter(
       (task) =>
         task.title.toLowerCase().includes(search) ||
-        (task.description && task.description.toLowerCase().includes(search)),
-    )
+        (task.description && task.description.toLowerCase().includes(search))
+    );
   }
 
-  if (filters.value.projectId) {
-    tasks = tasks.filter((task) => task.projectId === filters.value.projectId)
+  if (filters.value.project_id) {
+    tasks = tasks.filter((task) => task.project_id === filters.value.project_id);
   }
 
   if (filters.value.status.length > 0) {
-    tasks = tasks.filter((task) => filters.value.status.includes(task.status))
+    tasks = tasks.filter((task) => filters.value.status.includes(task.status));
   }
 
   if (filters.value.priority.length > 0) {
-    tasks = tasks.filter((task) => filters.value.priority.includes(task.priority))
+    tasks = tasks.filter((task) => filters.value.priority.includes(task.priority));
   }
 
-  if (filters.value.assignedTo.length > 0) {
-    tasks = tasks.filter((task) => filters.value.assignedTo.includes(task.assignedTo))
+  if (filters.value.assigned_to.length > 0) {
+    tasks = tasks.filter((task) => filters.value.assigned_to.includes(task.assigned_to));
   }
 
   if (filters.value.category.length > 0) {
-    tasks = tasks.filter((task) => filters.value.category.includes(task.category))
+    tasks = tasks.filter((task) => filters.value.category.includes(task.category));
   }
 
-  if (filters.value.dueDateRange && filters.value.dueDateRange.length === 2) {
-    const [startDate, endDate] = filters.value.dueDateRange
+  if (filters.value.due_dateRange && filters.value.due_dateRange.length === 2) {
+    const [startDate, endDate] = filters.value.due_dateRange;
     tasks = tasks.filter((task) => {
-      if (!task.dueDate) return false
-      const taskDate = new Date(task.dueDate)
-      return taskDate >= startDate && taskDate <= endDate
-    })
+      if (!task.due_date) return false;
+      const taskDate = new Date(task.due_date);
+      return taskDate >= startDate && taskDate <= endDate;
+    });
   }
 
   // Sort by priority and due date
   return tasks.sort((a, b) => {
     // Sort by priority first
-    const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 }
-    const priorityDiff = (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2)
-    if (priorityDiff !== 0) return priorityDiff
+    const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+    const priorityDiff = (priorityOrder[a.priority] || 2) - (priorityOrder[b.priority] || 2);
+    if (priorityDiff !== 0) return priorityDiff;
 
     // Then by due date (nulls last)
-    if (a.dueDate && !b.dueDate) return -1
-    if (!a.dueDate && b.dueDate) return 1
-    if (a.dueDate && b.dueDate) {
-      return new Date(a.dueDate) - new Date(b.dueDate)
+    if (a.due_date && !b.due_date) return -1;
+    if (!a.due_date && b.due_date) return 1;
+    if (a.due_date && b.due_date) {
+      return new Date(a.due_date) - new Date(b.due_date);
     }
 
-    return 0
-  })
-})
+    return 0;
+  });
+});
 
 // Task counts for badges
 const myTasksCount = computed(() => {
-  const currentUserId = getCurrentUserId()
+  const authStore = useAuthStore();
+  const currentUserId = authStore.user?.id;
   return allTasks.value.filter(
-    (task) => task.assignedTo === currentUserId && task.status !== 'complete',
-  ).length
-})
+    (task) => task.assigned_to === currentUserId && task.status !== 'complete'
+  ).length;
+});
 
 const allTasksCount = computed(
-  () => allTasks.value.filter((task) => task.status !== 'complete').length,
-)
+  () => allTasks.value.filter((task) => task.status !== 'complete').length
+);
 
 const overdueTasksCount = computed(() => {
-  const now = new Date().toISOString()
+  const now = new Date().toISOString();
   return allTasks.value.filter(
-    (task) => task.dueDate && task.dueDate < now && task.status !== 'complete',
-  ).length
-})
+    (task) => task.due_date && task.due_date < now && task.status !== 'complete'
+  ).length;
+});
 
 // Helper functions
 const getUserName = (userId) => {
-  if (!userId) return 'Unassigned'
-  const user = users.value.find((u) => u.id === userId)
-  return user ? user.name || user.email : userId
-}
+  if (!userId) return 'Unassigned';
+  const user = users.value.find((u) => u.id === userId);
+  return user ? user.name || user.email : userId;
+};
 
-const getProjectName = (projectId) => {
-  const project = projects.value.find((p) => p.id === projectId)
-  return project ? `${project.jobNumber} - ${project.name}` : 'Unknown Project'
-}
+const getProjectName = (project_id) => {
+  const project = projects.value.find((p) => p.id === project_id);
+  return project ? `${project.job_number} - ${project.name}` : 'Unknown Project';
+};
 
 const formatTaskStatus = (status) => {
   const statusMap = {
@@ -453,9 +455,9 @@ const formatTaskStatus = (status) => {
     review: 'Review',
     complete: 'Complete',
     'on-hold': 'On Hold',
-  }
-  return statusMap[status] || status
-}
+  };
+  return statusMap[status] || status;
+};
 
 const formatCategory = (category) => {
   const categoryMap = {
@@ -465,98 +467,83 @@ const formatCategory = (category) => {
     inspection: 'Inspection',
     documentation: 'Documentation',
     administrative: 'Administrative',
-  }
-  return categoryMap[category] || category
-}
+  };
+  return categoryMap[category] || category;
+};
 
 const formatDate = (dateString) => {
-  if (!dateString) return 'No due date'
+  if (!dateString) return 'No due date';
   return new Date(dateString).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-  })
-}
+  });
+};
 
 const isOverdue = (task) => {
-  if (!task.dueDate || task.status === 'complete') return false
-  return new Date(task.dueDate) < new Date()
-}
+  if (!task.due_date || task.status === 'complete') return false;
+  return new Date(task.due_date) < new Date();
+};
 
 const getEmptyStateMessage = () => {
   if (currentView.value === 'my-tasks') {
-    return 'No tasks assigned to you. Check back later or ask your project manager.'
+    return 'No tasks assigned to you. Check back later or ask your project manager.';
   } else if (currentView.value === 'overdue') {
-    return 'No overdue tasks! Great job staying on track.'
+    return 'No overdue tasks! Great job staying on track.';
   } else {
-    return 'No tasks found matching your filters.'
+    return 'No tasks found matching your filters.';
   }
-}
+};
 
 const clearFilters = () => {
   filters.value = {
     search: '',
-    projectId: null,
+    project_id: null,
     status: [],
     priority: [],
-    assignedTo: [],
+    assigned_to: [],
     category: [],
-    dueDateRange: null,
-  }
-}
+    due_dateRange: null,
+  };
+};
 
 const editTask = (task) => {
-  editingTask.value = task
-  selectedProjectId.value = task.projectId
-  showTaskDialog.value = true
-}
-
-const handleTaskCreated = (newTask) => {
-  allTasks.value.unshift(newTask)
-  editingTask.value = null
-  showTaskDialog.value = false
-}
-
-const handleTaskUpdated = (updatedTask) => {
-  const index = allTasks.value.findIndex((t) => t.id === updatedTask.id)
-  if (index !== -1) {
-    allTasks.value[index] = updatedTask
-  }
-  editingTask.value = null
-  showTaskDialog.value = false
-}
+  selectedProjectId.value = task.project_id;
+  uiStore.openModal('taskDialog', { task });
+};
 
 // Data loading
 const loadData = async () => {
   try {
-    loading.value = true
+    loading.value = true;
 
     const [tasksData, projectsData, usersData] = await Promise.all([
-      TaskRepository.getAllTasks(),
-      ProjectRepository.getAllProjects(),
-      UserRepository.getUsersMinimal(),
-    ])
+      getAllTasks(),
+      getAllProjects(),
+      getActiveUsers(),
+    ]);
 
-    allTasks.value = tasksData
-    projects.value = projectsData
-    users.value = usersData.filter((user) => user.active)
+    allTasks.value = tasksData;
+    projects.value = projectsData;
+    users.value = usersData;
   } catch (error) {
-    console.error('Error loading tasks data:', error)
+    console.error('Error loading tasks data:', error);
+    handleError(error, 'Load tasks data');
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // Lifecycle
 onMounted(() => {
-  loadData()
-})
+  loadData();
+});
 
 // Watch for view changes to update URL params (optional)
 watch(currentView, (newView) => {
   // Could update URL params here for bookmarkable views
-  console.log('View changed to:', newView)
-})
+  console.log('View changed to:', newView);
+});
 </script>
 
 <style scoped>

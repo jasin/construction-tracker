@@ -8,17 +8,13 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint . --fix",
-    "format": "prettier --write src/",
-    "emulators": "firebase emulators:start --import=./emulator-data",
-    "emulators:save": "node scripts/backup-emulator-data.js",
-    "emulators:clear": "if exist emulator-data rmdir /s /q emulator-data"
+    "format": "prettier --write src/"
   },
   "dependencies": {
     "@primeuix/themes": "^1.2.1",
+    "@supabase/supabase-js": "^2.88.0",
     "@tailwindcss/vite": "^4.1.11",
     "@vueuse/core": "^14.0.0",
-    "firebase": "^11.8.1",
-    "firebase-admin": "^13.4.0",
     "hammerjs": "^2.0.8",
     "lodash-es": "^4.17.21",
     "p-retry": "^7.1.0",

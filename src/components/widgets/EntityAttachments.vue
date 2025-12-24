@@ -192,10 +192,15 @@ import DocumentDisplay from './DocumentDisplay.vue';
 import DocumentUploader from '@/components/features/documents/DocumentUploader.vue';
 import DocumentViewer from '@/components/features/documents/DocumentViewer.vue';
 import AttachExistingModal from '@/components/modals/AttachExistingModal.vue';
-import firebaseService from '@/services/firebase/firebaseService';
-import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository';
 import { formatFileSize } from '@/utils/index';
-import AttatchmentRepository from '../../services/firebase/Repositories/AttatchmentRepository';
+import {
+  getDocumentsByEntity,
+  getDocumentById,
+  updateDocument,
+  deleteDocument as deleteDocumentApi,
+} from '@/services/api/documentsApi';
+import { handleError } from '@/utils/errorHandler';
+import { useDocumentStore } from '@/stores/document';
 
 // Props
 const props = defineProps({
@@ -254,8 +259,8 @@ const showAttachExisting = ref(false);
 const showViewer = ref(false);
 const selectedDocument = ref(null);
 
-// Real-time subscription
-let attachmentsSubscription = null;
+// Store
+const documentStore = useDocumentStore();
 
 // Computed
 const attachmentStats = computed(() => ({
@@ -271,10 +276,7 @@ const loadAttachments = async () => {
     loading.value = true;
     error.value = '';
 
-    const attachmentData = await AttatchmentRepository.getEntityAttachments(
-      props.entityType,
-      props.entityId
-    );
+    const attachmentData = await getDocumentsByEntity(props.entityType, props.entityId);
 
     attachments.value = attachmentData;
 
@@ -285,7 +287,7 @@ const loadAttachments = async () => {
       attachments: attachmentData,
     });
   } catch (err) {
-    console.error('Error loading attachments:', err);
+    handleError(err, 'Failed to load attachments');
     error.value = 'Failed to load attachments';
     emit('error', err);
   } finally {
@@ -294,19 +296,15 @@ const loadAttachments = async () => {
 };
 
 const setupRealtimeListener = () => {
-  if (!props.enableRealtime || !props.projectId) return;
+  if (!props.enableRealtime) return;
 
-  // Subscribe to documents where linkedEntityId matches our entityId
-  // This is a simplified version - you might want to create a specific
-  // Firebase method for this subscription
-  attachmentsSubscription = ProjectRepository.subscribeToProjectDocuments(
-    props.projectId,
+  // Document store handles real-time subscriptions via Supabase
+  // Filter documents for this entity from the store
+  watch(
+    () => documentStore.documents,
     (allDocs) => {
       const entityAttachments = allDocs.filter(
-        (doc) =>
-          doc.linkedEntityType === props.entityType &&
-          doc.linkedEntityId === props.entityId &&
-          doc.isAttachment === true
+        (doc) => doc.linkedEntityType === props.entityType && doc.linkedEntityId === props.entityId
       );
 
       attachments.value = entityAttachments;
@@ -316,7 +314,8 @@ const setupRealtimeListener = () => {
         totalSize: attachmentStats.value.totalSize,
         attachments: entityAttachments,
       });
-    }
+    },
+    { deep: true }
   );
 };
 
@@ -346,8 +345,11 @@ const handleDocumentAction = ({ action, document }) => {
 
 const handleDocumentUploaded = async (newDocument) => {
   try {
-    // Link the uploaded document to our entity
-    await firebaseService.attachDocumentToEntity(newDocument.id, props.entityType, props.entityId);
+    // Link the uploaded document to our entity by updating its metadata
+    await updateDocument(newDocument.id, {
+      linkedEntityType: props.entityType,
+      linkedEntityId: props.entityId,
+    });
 
     // Refresh attachments if not using real-time
     if (!props.enableRealtime) {
@@ -357,17 +359,20 @@ const handleDocumentUploaded = async (newDocument) => {
     emit('attachment-uploaded', newDocument);
     showUploader.value = false;
   } catch (err) {
-    console.error('Error linking uploaded document:', err);
+    handleError(err, 'Failed to attach uploaded document');
     error.value = 'Failed to attach uploaded document';
   }
 };
 
 const handleDocumentsAttached = async (documentIds) => {
   try {
-    // Attach each selected document
+    // Update each document to link it to this entity
     await Promise.all(
       documentIds.map((docId) =>
-        firebaseService.attachDocumentToEntity(docId, props.entityType, props.entityId)
+        updateDocument(docId, {
+          linkedEntityType: props.entityType,
+          linkedEntityId: props.entityId,
+        })
       )
     );
 
@@ -378,7 +383,7 @@ const handleDocumentsAttached = async (documentIds) => {
 
     showAttachExisting.value = false;
   } catch (err) {
-    console.error('Error attaching existing documents:', err);
+    handleError(err, 'Failed to attach documents');
     error.value = 'Failed to attach documents';
   }
 };
@@ -389,7 +394,11 @@ const handleDetach = async (document) => {
   }
 
   try {
-    await firebaseService.detachDocumentFromEntity(document.id, props.entityType, props.entityId);
+    // Remove the entity link by clearing the linkedEntity fields
+    await updateDocument(document.id, {
+      linkedEntityType: null,
+      linkedEntityId: null,
+    });
 
     // Refresh attachments if not using real-time
     if (!props.enableRealtime) {
@@ -398,7 +407,7 @@ const handleDetach = async (document) => {
 
     emit('attachment-detached', document);
   } catch (err) {
-    console.error('Error detaching document:', err);
+    handleError(err, 'Failed to detach document');
     error.value = 'Failed to detach document';
   }
 };
@@ -438,40 +447,10 @@ onMounted(async () => {
   }
 });
 
-onBeforeUnmount(() => {
-  if (attachmentsSubscription && typeof attachmentsSubscription === 'function') {
-    try {
-      attachmentsSubscription();
-    } catch (err) {
-      console.error('Error unsubscribing from attachments:', err);
-    }
-  } else if (attachmentsSubscription) {
-    try {
-      firebaseService.unsubscribe(attachmentsSubscription);
-    } catch (err) {
-      console.error('Error unsubscribing from attachments:', err);
-    }
-  }
-});
-
 // Watch for entity changes
 watch(
   () => [props.entityType, props.entityId],
   async () => {
-    // Clean up old subscription
-    if (attachmentsSubscription) {
-      try {
-        if (typeof attachmentsSubscription === 'function') {
-          attachmentsSubscription();
-        } else {
-          firebaseService.unsubscribe(attachmentsSubscription);
-        }
-      } catch (err) {
-        console.error('Error unsubscribing during watch:', err);
-      }
-      attachmentsSubscription = null;
-    }
-
     // Reload for new entity
     await loadAttachments();
 

@@ -198,7 +198,16 @@ import {
   canTransitionToStatus,
   getIncompleteDependencies,
 } from '@/utils/taskDependencies';
-import { TASK_STATUSES } from '@/constants';
+
+// Task status constants
+const TASK_STATUSES = {
+  TODO: 'todo',
+  IN_PROGRESS: 'in-progress',
+  COMPLETE: 'complete',
+  REVIEW: 'review',
+  ON_HOLD: 'on-hold',
+  CANCELLED: 'cancelled',
+};
 
 // Computed for description expansion mode
 

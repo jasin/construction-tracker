@@ -1,81 +1,97 @@
 // stores/submittal.js
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import SubmittalRepository from '@/services/firebase/Repositories/SubmittalRepository'
-import firebaseCore from '@/services/firebase/core/FirebaseCore'
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import {
+  getAllSubmittals,
+  getSubmittalById as getSubmittalByIdApi,
+  getSubmittalsByProject,
+  createSubmittal as createSubmittalApi,
+  updateSubmittal as updateSubmittalApi,
+  deleteSubmittal as deleteSubmittalApi,
+} from '@/services/api/submittalsApi';
+import { supabase } from '@/configs/supabase';
+import { useAuthStore } from './auth';
 
 export const useSubmittalStore = defineStore('submittal', () => {
   // State - User Submittals (for dashboard - assigned to user or submitted by user)
-  const userSubmittals = ref([])
-  const userSubmittalsLoading = ref(true)
-  const userSubmittalsInitialized = ref(false)
+  const userSubmittals = ref([]);
+  const userSubmittalsLoading = ref(true);
+  const userSubmittalsInitialized = ref(false);
 
   // State - Project Submittals (for project detail views)
-  const projectSubmittals = ref([])
-  const projectSubmittalsLoading = ref(false)
-  const currentProjectId = ref(null)
+  const projectSubmittals = ref([]);
+  const projectSubmittalsLoading = ref(false);
+  const currentProjectId = ref(null);
 
   // State - Single Submittal (for detail view/editing)
-  const currentSubmittal = ref(null)
-  const loading = ref(false)
-  const error = ref(null)
+  const currentSubmittal = ref(null);
+  const loading = ref(false);
+  const error = ref(null);
 
   // Subscription management
-  let userSubmittalsUnsubscribe = null
-  let projectSubmittalsUnsubscribe = null
+  let userSubmittalsUnsubscribe = null;
+  let projectSubmittalsUnsubscribe = null;
 
   // Getters - User Submittals
-  const userSubmittalCount = computed(() => userSubmittals.value.length)
+  const userSubmittalCount = computed(() => userSubmittals.value.length);
 
   const userActiveSubmittals = computed(() =>
-    userSubmittals.value.filter((s) => !['approved', 'approved_with_comments', 'rejected'].includes(s.status))
-  )
+    userSubmittals.value.filter(
+      (s) => !['approved', 'approved_with_comments', 'rejected'].includes(s.status)
+    )
+  );
 
   const userOverdueSubmittals = computed(() => {
-    const now = new Date()
+    const now = new Date();
     return userSubmittals.value.filter((s) => {
       return (
         s.requiredDate &&
         new Date(s.requiredDate) < now &&
         !['approved', 'approved_with_comments'].includes(s.status)
-      )
-    })
-  })
+      );
+    });
+  });
 
   const userSubmittalsDueSoon = computed(() => {
-    const now = new Date()
-    const futureDate = new Date()
-    futureDate.setDate(now.getDate() + 7) // 7 days ahead
+    const now = new Date();
+    const futureDate = new Date();
+    futureDate.setDate(now.getDate() + 7); // 7 days ahead
 
     return userSubmittals.value.filter((s) => {
-      if (!s.requiredDate || ['approved', 'approved_with_comments', 'rejected'].includes(s.status)) {
-        return false
+      if (
+        !s.requiredDate ||
+        ['approved', 'approved_with_comments', 'rejected'].includes(s.status)
+      ) {
+        return false;
       }
-      const requiredDate = new Date(s.requiredDate)
-      return requiredDate >= now && requiredDate <= futureDate
-    })
-  })
+      const requiredDate = new Date(s.requiredDate);
+      return requiredDate >= now && requiredDate <= futureDate;
+    });
+  });
 
   const userSubmittalsByStatus = computed(() => {
-    const grouped = {}
+    const grouped = {};
     userSubmittals.value.forEach((submittal) => {
-      const status = submittal.status || 'not_submitted'
-      if (!grouped[status]) grouped[status] = []
-      grouped[status].push(submittal)
-    })
-    return grouped
-  })
+      const status = submittal.status || 'not_submitted';
+      if (!grouped[status]) grouped[status] = [];
+      grouped[status].push(submittal);
+    });
+    return grouped;
+  });
 
   const userSubmittalsNeedingReview = computed(() =>
     userSubmittals.value.filter((s) => ['submitted', 'under_review'].includes(s.status))
-  )
+  );
 
   // Getters - Project Submittals
-  const projectSubmittalCount = computed(() => projectSubmittals.value.length)
+  const projectSubmittalCount = computed(() => projectSubmittals.value.length);
 
   const projectActiveSubmittalsCount = computed(
-    () => projectSubmittals.value.filter((s) => !['approved', 'approved_with_comments', 'rejected'].includes(s.status)).length
-  )
+    () =>
+      projectSubmittals.value.filter(
+        (s) => !['approved', 'approved_with_comments', 'rejected'].includes(s.status)
+      ).length
+  );
 
   // Actions - User Submittals Subscription (for dashboard)
   /**
@@ -84,34 +100,85 @@ export const useSubmittalStore = defineStore('submittal', () => {
    */
   async function initializeUserSubmittalsSubscription() {
     if (userSubmittalsInitialized.value) {
-      console.log('Submittal Store: User submittals subscription already initialized')
-      return
+      console.log('Submittal Store: User submittals subscription already initialized');
+      return;
     }
 
-    const userId = firebaseCore.getCurrentUserId()
+    const authStore = useAuthStore();
+    const userId = authStore.user?.id;
     if (!userId) {
-      console.warn('Submittal Store: Cannot initialize user submittals subscription - no user ID')
-      userSubmittalsLoading.value = false
-      return
+      console.warn('Submittal Store: Cannot initialize user submittals subscription - no user ID');
+      userSubmittalsLoading.value = false;
+      return;
     }
 
-    console.log('Submittal Store: Initializing user submittals subscription for user:', userId)
-    userSubmittalsLoading.value = true
+    console.log('Submittal Store: Initializing user submittals subscription for user:', userId);
+    userSubmittalsLoading.value = true;
 
     try {
-      // Subscribe to all submittals and filter for user's submittals
-      userSubmittalsUnsubscribe = SubmittalRepository.subscribeToSubmittals((submittals) => {
-        // Filter submittals submitted by or reviewed by current user
-        userSubmittals.value = submittals.filter((submittal) =>
-          submittal.submittedBy === userId || submittal.reviewedBy === userId
+      // Cleanup existing subscription before creating a new one
+      cleanupUserSubmittalsSubscription();
+
+      // Load initial data from API
+      const allSubmittals = await getAllSubmittals();
+      userSubmittals.value = allSubmittals.filter(
+        (submittal) => submittal.submittedBy === userId || submittal.reviewedBy === userId
+      );
+
+      console.log('Submittal Store: User submittals loaded, count:', userSubmittals.value.length);
+
+      // Subscribe to real-time updates with Supabase
+      const channel = supabase
+        .channel('user-submittals')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'submittals',
+          },
+          (payload) => {
+            handleUserSubmittalUpdate(payload);
+          }
         )
-        userSubmittalsLoading.value = false
-        userSubmittalsInitialized.value = true
-        console.log('Submittal Store: User submittals updated, count:', userSubmittals.value.length)
-      })
+        .subscribe();
+
+      userSubmittalsUnsubscribe = () => supabase.removeChannel(channel);
+      userSubmittalsInitialized.value = true;
+      userSubmittalsLoading.value = false;
     } catch (error) {
-      console.error('Submittal Store: Error initializing user submittals subscription:', error)
-      userSubmittalsLoading.value = false
+      console.error('Submittal Store: Error initializing user submittals subscription:', error);
+      userSubmittalsLoading.value = false;
+    }
+  }
+
+  /**
+   * Handle real-time updates for user submittals
+   */
+  function handleUserSubmittalUpdate(payload) {
+    const authStore = useAuthStore();
+    const userId = authStore.user?.id;
+    if (!userId) return;
+
+    const submittal = payload.new || payload.old;
+
+    // Only process if this submittal is relevant to the user
+    const isRelevant = submittal.submittedBy === userId || submittal.reviewedBy === userId;
+
+    if (!isRelevant) return;
+
+    if (payload.eventType === 'INSERT') {
+      userSubmittals.value.push(payload.new);
+    } else if (payload.eventType === 'UPDATE') {
+      const index = userSubmittals.value.findIndex((s) => s.id === payload.new.id);
+      if (index !== -1) {
+        userSubmittals.value[index] = payload.new;
+      } else if (isRelevant) {
+        // Submittal became relevant to user (e.g., assigned as reviewer)
+        userSubmittals.value.push(payload.new);
+      }
+    } else if (payload.eventType === 'DELETE') {
+      userSubmittals.value = userSubmittals.value.filter((s) => s.id !== payload.old.id);
     }
   }
 
@@ -120,13 +187,13 @@ export const useSubmittalStore = defineStore('submittal', () => {
    */
   function cleanupUserSubmittalsSubscription() {
     if (userSubmittalsUnsubscribe) {
-      console.log('Submittal Store: Cleaning up user submittals subscription')
-      userSubmittalsUnsubscribe()
-      userSubmittalsUnsubscribe = null
+      console.log('Submittal Store: Cleaning up user submittals subscription');
+      userSubmittalsUnsubscribe();
+      userSubmittalsUnsubscribe = null;
     }
-    userSubmittals.value = []
-    userSubmittalsInitialized.value = false
-    userSubmittalsLoading.value = true
+    userSubmittals.value = [];
+    userSubmittalsInitialized.value = false;
+    userSubmittalsLoading.value = true;
   }
 
   // Actions - Project Submittals Subscription (for project detail)
@@ -135,32 +202,68 @@ export const useSubmittalStore = defineStore('submittal', () => {
    */
   async function initializeProjectSubmittalsSubscription(projectId) {
     if (!projectId) {
-      console.warn('Submittal Store: Cannot initialize project submittals - no project ID')
-      return
+      console.warn('Submittal Store: Cannot initialize project submittals - no project ID');
+      return;
     }
 
     // If already subscribed to this project, do nothing
     if (currentProjectId.value === projectId && projectSubmittalsUnsubscribe) {
-      console.log('Submittal Store: Already subscribed to project submittals:', projectId)
-      return
+      console.log('Submittal Store: Already subscribed to project submittals:', projectId);
+      return;
     }
 
     // Cleanup existing subscription
-    cleanupProjectSubmittalsSubscription()
+    cleanupProjectSubmittalsSubscription();
 
-    console.log('Submittal Store: Initializing project submittals subscription for:', projectId)
-    currentProjectId.value = projectId
-    projectSubmittalsLoading.value = true
+    console.log('Submittal Store: Initializing project submittals subscription for:', projectId);
+    currentProjectId.value = projectId;
+    projectSubmittalsLoading.value = true;
 
     try {
-      projectSubmittalsUnsubscribe = SubmittalRepository.subscribeToSubmittalsByProject(projectId, (submittals) => {
-        projectSubmittals.value = submittals
-        projectSubmittalsLoading.value = false
-        console.log('Submittal Store: Project submittals updated, count:', submittals.length)
-      })
+      // Load initial data from API
+      projectSubmittals.value = await getSubmittalsByProject(projectId);
+
+      console.log(
+        'Submittal Store: Project submittals loaded, count:',
+        projectSubmittals.value.length
+      );
+
+      // Subscribe to real-time updates with Supabase
+      const channel = supabase
+        .channel(`project-${projectId}-submittals`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'submittals',
+            filter: `project_id=eq.${projectId}`,
+          },
+          (payload) => {
+            handleProjectSubmittalUpdate(payload);
+          }
+        )
+        .subscribe();
+
+      projectSubmittalsUnsubscribe = () => supabase.removeChannel(channel);
+      projectSubmittalsLoading.value = false;
     } catch (error) {
-      console.error('Submittal Store: Error initializing project submittals subscription:', error)
-      projectSubmittalsLoading.value = false
+      console.error('Submittal Store: Error initializing project submittals subscription:', error);
+      projectSubmittalsLoading.value = false;
+    }
+  }
+
+  /**
+   * Handle real-time updates for project submittals
+   */
+  function handleProjectSubmittalUpdate(payload) {
+    if (payload.eventType === 'INSERT') {
+      projectSubmittals.value.push(payload.new);
+    } else if (payload.eventType === 'UPDATE') {
+      const index = projectSubmittals.value.findIndex((s) => s.id === payload.new.id);
+      if (index !== -1) projectSubmittals.value[index] = payload.new;
+    } else if (payload.eventType === 'DELETE') {
+      projectSubmittals.value = projectSubmittals.value.filter((s) => s.id !== payload.old.id);
     }
   }
 
@@ -169,13 +272,13 @@ export const useSubmittalStore = defineStore('submittal', () => {
    */
   function cleanupProjectSubmittalsSubscription() {
     if (projectSubmittalsUnsubscribe) {
-      console.log('Submittal Store: Cleaning up project submittals subscription')
-      projectSubmittalsUnsubscribe()
-      projectSubmittalsUnsubscribe = null
+      console.log('Submittal Store: Cleaning up project submittals subscription');
+      projectSubmittalsUnsubscribe();
+      projectSubmittalsUnsubscribe = null;
     }
-    projectSubmittals.value = []
-    currentProjectId.value = null
-    projectSubmittalsLoading.value = false
+    projectSubmittals.value = [];
+    currentProjectId.value = null;
+    projectSubmittalsLoading.value = false;
   }
 
   // Actions - CRUD Operations
@@ -183,19 +286,19 @@ export const useSubmittalStore = defineStore('submittal', () => {
    * Create a new submittal
    */
   async function createSubmittal(submittalData) {
-    loading.value = true
-    error.value = null
+    loading.value = true;
+    error.value = null;
 
     try {
-      const newSubmittal = await SubmittalRepository.createSubmittal(submittalData)
-      console.log('Submittal Store: Submittal created successfully:', newSubmittal.id)
-      return newSubmittal
+      const newSubmittal = await createSubmittalApi(submittalData);
+      console.log('Submittal Store: Submittal created successfully:', newSubmittal.id);
+      return newSubmittal;
     } catch (err) {
-      console.error('Submittal Store: Error creating submittal:', err)
-      error.value = err.message
-      throw err
+      console.error('Submittal Store: Error creating submittal:', err);
+      error.value = err.message;
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
   }
 
@@ -203,19 +306,19 @@ export const useSubmittalStore = defineStore('submittal', () => {
    * Update an existing submittal
    */
   async function updateSubmittal(submittalId, updates) {
-    loading.value = true
-    error.value = null
+    loading.value = true;
+    error.value = null;
 
     try {
-      const updatedSubmittal = await SubmittalRepository.updateSubmittal(submittalId, updates)
-      console.log('Submittal Store: Submittal updated successfully:', submittalId)
-      return updatedSubmittal
+      const updatedSubmittal = await updateSubmittalApi(submittalId, updates);
+      console.log('Submittal Store: Submittal updated successfully:', submittalId);
+      return updatedSubmittal;
     } catch (err) {
-      console.error('Submittal Store: Error updating submittal:', err)
-      error.value = err.message
-      throw err
+      console.error('Submittal Store: Error updating submittal:', err);
+      error.value = err.message;
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
   }
 
@@ -223,18 +326,18 @@ export const useSubmittalStore = defineStore('submittal', () => {
    * Delete a submittal
    */
   async function deleteSubmittal(submittalId) {
-    loading.value = true
-    error.value = null
+    loading.value = true;
+    error.value = null;
 
     try {
-      await SubmittalRepository.deleteSubmittal(submittalId)
-      console.log('Submittal Store: Submittal deleted successfully:', submittalId)
+      await deleteSubmittalApi(submittalId);
+      console.log('Submittal Store: Submittal deleted successfully:', submittalId);
     } catch (err) {
-      console.error('Submittal Store: Error deleting submittal:', err)
-      error.value = err.message
-      throw err
+      console.error('Submittal Store: Error deleting submittal:', err);
+      error.value = err.message;
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
   }
 
@@ -242,19 +345,19 @@ export const useSubmittalStore = defineStore('submittal', () => {
    * Get submittal by ID
    */
   async function getSubmittalById(submittalId) {
-    loading.value = true
-    error.value = null
+    loading.value = true;
+    error.value = null;
 
     try {
-      const submittal = await SubmittalRepository.getById(submittalId)
-      currentSubmittal.value = submittal
-      return submittal
+      const submittal = await getSubmittalByIdApi(submittalId);
+      currentSubmittal.value = submittal;
+      return submittal;
     } catch (err) {
-      console.error('Submittal Store: Error getting submittal:', err)
-      error.value = err.message
-      throw err
+      console.error('Submittal Store: Error getting submittal:', err);
+      error.value = err.message;
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
   }
 
@@ -262,19 +365,21 @@ export const useSubmittalStore = defineStore('submittal', () => {
    * Submit submittal for review
    */
   async function submitForReview(submittalId) {
-    loading.value = true
-    error.value = null
+    loading.value = true;
+    error.value = null;
 
     try {
-      const updatedSubmittal = await SubmittalRepository.submitForReview(submittalId)
-      console.log('Submittal Store: Submittal submitted for review:', submittalId)
-      return updatedSubmittal
+      const updatedSubmittal = await updateSubmittalApi(submittalId, {
+        status: 'submitted',
+      });
+      console.log('Submittal Store: Submittal submitted for review:', submittalId);
+      return updatedSubmittal;
     } catch (err) {
-      console.error('Submittal Store: Error submitting submittal for review:', err)
-      error.value = err.message
-      throw err
+      console.error('Submittal Store: Error submitting submittal for review:', err);
+      error.value = err.message;
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
   }
 
@@ -282,19 +387,22 @@ export const useSubmittalStore = defineStore('submittal', () => {
    * Review submittal
    */
   async function reviewSubmittal(submittalId, status, comments = '') {
-    loading.value = true
-    error.value = null
+    loading.value = true;
+    error.value = null;
 
     try {
-      const updatedSubmittal = await SubmittalRepository.reviewSubmittal(submittalId, status, comments)
-      console.log('Submittal Store: Submittal reviewed:', submittalId)
-      return updatedSubmittal
+      const updatedSubmittal = await updateSubmittalApi(submittalId, {
+        status,
+        ...(comments && { comments }),
+      });
+      console.log('Submittal Store: Submittal reviewed:', submittalId);
+      return updatedSubmittal;
     } catch (err) {
-      console.error('Submittal Store: Error reviewing submittal:', err)
-      error.value = err.message
-      throw err
+      console.error('Submittal Store: Error reviewing submittal:', err);
+      error.value = err.message;
+      throw err;
     } finally {
-      loading.value = false
+      loading.value = false;
     }
   }
 
@@ -339,5 +447,5 @@ export const useSubmittalStore = defineStore('submittal', () => {
     getSubmittalById,
     submitForReview,
     reviewSubmittal,
-  }
-})
+  };
+});

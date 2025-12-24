@@ -81,8 +81,8 @@
               @click="handleSelectProject(project)"
             >
               <div class="font-medium text-base">{{ project.name }}</div>
-              <div v-if="project.jobNumber" class="text-sm text-surface-500 mt-1">
-                #{{ project.jobNumber }}
+              <div v-if="project.job_number" class="text-sm text-surface-500 mt-1">
+                #{{ project.job_number }}
               </div>
             </div>
           </div>
@@ -164,8 +164,8 @@
                 @click="handleSelectProject(project)"
               >
                 <div class="font-medium text-sm">{{ project.name }}</div>
-                <div v-if="project.jobNumber" class="text-xs text-surface-500 mt-0.5">
-                  #{{ project.jobNumber }}
+                <div v-if="project.job_number" class="text-xs text-surface-500 mt-0.5">
+                  #{{ project.job_number }}
                 </div>
               </div>
             </div>

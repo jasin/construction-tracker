@@ -17,7 +17,9 @@
             </th>
 
             <!-- Document column -->
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
               <button
                 v-if="sortable"
                 @click="handleSort('name')"
@@ -46,7 +48,9 @@
             </th>
 
             <!-- Category column -->
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
               <button
                 v-if="sortable"
                 @click="handleSort('category')"
@@ -59,7 +63,9 @@
             </th>
 
             <!-- Status column -->
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
               <button
                 v-if="sortable"
                 @click="handleSort('status')"
@@ -72,7 +78,9 @@
             </th>
 
             <!-- Size column -->
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
               <button
                 v-if="sortable"
                 @click="handleSort('fileSize')"
@@ -85,7 +93,9 @@
             </th>
 
             <!-- Upload Info column -->
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th
+              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            >
               <button
                 v-if="sortable"
                 @click="handleSort('uploadedAt')"
@@ -135,7 +145,7 @@
               <div class="flex items-center min-w-0">
                 <i
                   :class="getDocumentIcon(document.name, document.category)"
-                  class="text-xl text-gray-600 mr-3 flex-shrink-0"
+                  class="text-xl text-gray-600 mr-3 shrink-0"
                 ></i>
                 <div class="min-w-0 flex-1">
                   <div class="text-sm font-medium text-gray-900 truncate">
@@ -154,7 +164,7 @@
             <!-- Project column (conditional) -->
             <td v-if="showProject" class="px-6 py-4 whitespace-nowrap">
               <div class="text-sm text-gray-900 truncate max-w-xs">
-                {{ getProjectName(document.projectId) }}
+                {{ getProjectName(document.project_id) }}
               </div>
             </td>
 
@@ -181,16 +191,17 @@
             <!-- Upload Info column -->
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
               <div>{{ formatDate(document.uploadedAt) }}</div>
-              <div class="text-xs text-gray-400">
-                by {{ document.uploadedByName || 'Unknown' }}
-              </div>
+              <div class="text-xs text-gray-400">by {{ document.uploadedByName || 'Unknown' }}</div>
             </td>
 
             <!-- Custom columns slot -->
             <slot name="custom-cells" :document="document" />
 
             <!-- Actions column -->
-            <td v-if="showActions" class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+            <td
+              v-if="showActions"
+              class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"
+            >
               <div class="flex justify-end gap-1">
                 <Button
                   @click.stop="handleAction('view', document)"
@@ -251,77 +262,77 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { Button } from 'primevue'
-import { DOCUMENT_CATEGORIES, getDocumentIcon } from '@/constants/documentCategories'
-import DocumentStatusBadge from '@/components/features/documents/DocumentStatusBadge.vue'
-import { formatFileSize, formatDate } from '@/utils/index'
+import { computed } from 'vue';
+import { Button } from 'primevue';
+import { DOCUMENT_CATEGORIES, getDocumentIcon } from '@/constants/documentCategories';
+import DocumentStatusBadge from '@/components/features/documents/DocumentStatusBadge.vue';
+import { formatFileSize, formatDate } from '@/utils/index';
 
 // Props
 const props = defineProps({
   // Required
   documents: {
     type: Array,
-    required: true
+    required: true,
   },
 
   // Display options
   showProject: {
     type: Boolean,
-    default: false
+    default: false,
   },
   showDescription: {
     type: Boolean,
-    default: false
+    default: false,
   },
   showActions: {
     type: Boolean,
-    default: true
+    default: true,
   },
   showDriveLink: {
     type: Boolean,
-    default: true
+    default: true,
   },
 
   // Functionality
   selectable: {
     type: Boolean,
-    default: false
+    default: false,
   },
   sortable: {
     type: Boolean,
-    default: true
+    default: true,
   },
 
   // Selection
   selectedDocuments: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
 
   // Sorting
   sortField: {
     type: String,
-    default: ''
+    default: '',
   },
   sortOrder: {
     type: String,
     default: 'asc',
-    validator: (value) => ['asc', 'desc'].includes(value)
+    validator: (value) => ['asc', 'desc'].includes(value),
   },
 
   // Data mappings
   projects: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
 
   // Permission functions
   canEdit: {
     type: Function,
-    default: () => true
-  }
-})
+    default: () => true,
+  },
+});
 
 // Emits
 const emit = defineEmits([
@@ -329,23 +340,25 @@ const emit = defineEmits([
   'document-action',
   'document-select',
   'select-all',
-  'sort-change'
-])
+  'sort-change',
+]);
 
 // Selection computed
 const allSelected = computed(() => {
-  return props.documents.length > 0 && props.selectedDocuments.length === props.documents.length
-})
+  return props.documents.length > 0 && props.selectedDocuments.length === props.documents.length;
+});
 
 const someSelected = computed(() => {
-  return props.selectedDocuments.length > 0 && props.selectedDocuments.length < props.documents.length
-})
+  return (
+    props.selectedDocuments.length > 0 && props.selectedDocuments.length < props.documents.length
+  );
+});
 
 // Helper functions
 const getCategoryLabel = (category) => {
-  const config = DOCUMENT_CATEGORIES[category]
-  return config ? config.label : (category || 'Uncategorized')
-}
+  const config = DOCUMENT_CATEGORIES[category];
+  return config ? config.label : category || 'Uncategorized';
+};
 
 const getCategoryBadgeClass = (category) => {
   // You can customize these colors based on category
@@ -354,53 +367,53 @@ const getCategoryBadgeClass = (category) => {
     permits: 'bg-red-100 text-red-800',
     plans: 'bg-blue-100 text-blue-800',
     photos: 'bg-orange-100 text-orange-800',
-    reports: 'bg-purple-100 text-purple-800'
-  }
-  return colorMap[category] || 'bg-gray-100 text-gray-800'
-}
+    reports: 'bg-purple-100 text-purple-800',
+  };
+  return colorMap[category] || 'bg-gray-100 text-gray-800';
+};
 
-const getProjectName = (projectId) => {
-  if (!props.showProject) return ''
+const getProjectName = (project_id) => {
+  if (!props.showProject) return '';
 
-  const project = props.projects.find(p => p.id === projectId)
-  return project ? `${project.jobNumber} - ${project.name}` : 'Unknown Project'
-}
+  const project = props.projects.find((p) => p.id === project_id);
+  return project ? `${project.job_number} - ${project.name}` : 'Unknown Project';
+};
 
 const truncateText = (text, maxLength) => {
-  if (!text || text.length <= maxLength) return text
-  return text.substring(0, maxLength) + '...'
-}
+  if (!text || text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+};
 
 const isSelected = (document) => {
-  return props.selectedDocuments.some(doc => doc.id === document.id)
-}
+  return props.selectedDocuments.some((doc) => doc.id === document.id);
+};
 
 const getSortIcon = (field) => {
-  if (props.sortField !== field) return 'pi pi-sort text-gray-300'
-  return props.sortOrder === 'asc' ? 'pi pi-sort-up' : 'pi pi-sort-down'
-}
+  if (props.sortField !== field) return 'pi pi-sort text-gray-300';
+  return props.sortOrder === 'asc' ? 'pi pi-sort-up' : 'pi pi-sort-down';
+};
 
 // Event handlers
 const handleRowClick = (document) => {
-  emit('document-click', document)
-}
+  emit('document-click', document);
+};
 
 const handleAction = (action, document) => {
-  emit('document-action', { action, document })
-}
+  emit('document-action', { action, document });
+};
 
 const toggleSelection = (document) => {
-  emit('document-select', document)
-}
+  emit('document-select', document);
+};
 
 const toggleSelectAll = () => {
-  emit('select-all', !allSelected.value)
-}
+  emit('select-all', !allSelected.value);
+};
 
 const handleSort = (field) => {
-  const newOrder = props.sortField === field && props.sortOrder === 'asc' ? 'desc' : 'asc'
-  emit('sort-change', { field, order: newOrder })
-}
+  const newOrder = props.sortField === field && props.sortOrder === 'asc' ? 'desc' : 'asc';
+  emit('sort-change', { field, order: newOrder });
+};
 </script>
 
 <style scoped>

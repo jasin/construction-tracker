@@ -8,7 +8,47 @@
     :draggable="false"
     @hide="closeModal"
   >
-    <form @submit.prevent="handleSubmit" class="space-y-3">
+    <div class="space-y-4">
+      <!-- File Upload Area (only for new documents) -->
+      <div v-if="!document?.id" class="space-y-2">
+        <label class="block text-sm font-semibold text-surface-900">
+          Document File <span class="text-red-500">*</span>
+        </label>
+        <div
+          @drop="handleDrop"
+          @dragover.prevent
+          @dragenter.prevent="isDragging = true"
+          @dragleave.prevent="isDragging = false"
+          class="border-2 border-dashed rounded-lg p-6 text-center transition-colors cursor-pointer"
+          :class="{
+            'border-primary-500 bg-primary-50': isDragging,
+            'border-surface-300 hover:border-surface-400': !isDragging,
+            'border-red-500': errors.file,
+          }"
+          @click="$refs.fileInput?.click()"
+        >
+          <i class="pi pi-cloud-upload text-3xl text-surface-400 mb-2"></i>
+          <p class="text-sm font-medium text-surface-900 mb-1">
+            {{ selectedFile ? selectedFile.name : 'Drop file here or click to browse' }}
+          </p>
+          <p class="text-xs text-surface-500">
+            {{ selectedFile ? formatFileSize(selectedFile.size) : 'Select a file to upload' }}
+          </p>
+          <input
+            ref="fileInput"
+            type="file"
+            @change="handleFileSelect"
+            class="hidden"
+            :accept="acceptedFileTypes"
+          />
+        </div>
+        <small v-if="errors.file" class="text-red-500">{{ errors.file }}</small>
+        <small v-else-if="selectedCategoryConfig?.allowedTypes" class="text-surface-500">
+          Allowed types: {{ selectedCategoryConfig.allowedTypes.join(', ') }} (Max:
+          {{ formatFileSize(selectedCategoryConfig.maxFileSize) }})
+        </small>
+      </div>
+
       <!-- File Name -->
       <div class="space-y-2">
         <label for="doc-name" class="block text-sm font-semibold text-surface-900">
@@ -22,38 +62,6 @@
           class="w-full"
         />
         <small v-if="errors.name" class="text-red-500">{{ errors.name }}</small>
-      </div>
-
-      <!-- Description -->
-      <div class="space-y-2">
-        <label for="doc-description" class="block text-sm font-semibold text-surface-900"
-          >Description</label
-        >
-        <Textarea
-          id="doc-description"
-          v-model="form.description"
-          placeholder="Enter document description"
-          rows="3"
-          class="w-full"
-        />
-      </div>
-
-      <!-- Project -->
-      <div class="space-y-2">
-        <label for="doc-project" class="block text-sm font-semibold text-surface-900"
-          >Project</label
-        >
-        <Select
-          id="doc-project"
-          v-model="form.projectId"
-          :options="projectOptions"
-          optionLabel="label"
-          optionValue="value"
-          placeholder="Select a project (optional)"
-          class="w-full"
-          :disabled="!!projectId"
-          showClear
-        />
       </div>
 
       <!-- Category -->
@@ -72,69 +80,75 @@
           class="w-full"
         />
         <small v-if="errors.category" class="text-red-500">{{ errors.category }}</small>
+        <small v-else-if="selectedCategoryConfig" class="text-surface-500">
+          {{ selectedCategoryConfig.description }}
+        </small>
       </div>
 
-      <!-- Google Drive File ID -->
-      <div class="space-y-2">
-        <label for="doc-drive-id" class="block text-sm font-semibold text-surface-900">
-          Google Drive File ID
-          <span v-if="!document?.id" class="text-red-500">*</span>
+      <!-- Subfolder Selection (for categories that have subfolders) -->
+      <div v-if="selectedCategoryConfig?.subfolders" class="space-y-2">
+        <label for="doc-subfolder" class="block text-sm font-semibold text-surface-900">
+          Subfolder
         </label>
-        <InputText
-          id="doc-drive-id"
-          v-model="form.googleDriveFileId"
-          placeholder="Enter Google Drive file ID"
-          :class="{ 'border-red-500': errors.googleDriveFileId }"
+        <Select
+          id="doc-subfolder"
+          v-model="form.subfolder"
+          :options="subfolderOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Select subfolder (optional)"
           class="w-full"
-        />
-        <small v-if="errors.googleDriveFileId" class="text-red-500">{{
-          errors.googleDriveFileId
-        }}</small>
-        <small class="text-surface-500"
-          >The file ID from the Google Drive share link (e.g.,
-          1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p)</small
-        >
-      </div>
-
-      <!-- Google Drive Link -->
-      <div class="space-y-2">
-        <label for="doc-drive-link" class="block text-sm font-semibold text-surface-900"
-          >Google Drive Link</label
-        >
-        <InputText
-          id="doc-drive-link"
-          v-model="form.googleDriveLink"
-          placeholder="Enter full Google Drive share link"
-          class="w-full"
+          showClear
         />
       </div>
 
-      <!-- File Size -->
+      <!-- Project -->
       <div class="space-y-2">
-        <label for="doc-size" class="block text-sm font-semibold text-surface-900"
-          >File Size (bytes)</label
-        >
-        <InputNumber
-          id="doc-size"
-          v-model="form.fileSize"
-          placeholder="Enter file size in bytes"
+        <label for="doc-project" class="block text-sm font-semibold text-surface-900">
+          Project <span class="text-red-500">*</span>
+        </label>
+        <Select
+          id="doc-project"
+          v-model="form.projectId"
+          :options="projectOptions"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Select a project"
+          :class="{ 'p-invalid': errors.projectId }"
           class="w-full"
+          :disabled="!!projectId"
         />
+        <small v-if="errors.projectId" class="text-red-500">{{ errors.projectId }}</small>
       </div>
 
-      <!-- MIME Type -->
+      <!-- Description -->
       <div class="space-y-2">
-        <label for="doc-mime" class="block text-sm font-semibold text-surface-900">MIME Type</label>
-        <InputText
-          id="doc-mime"
-          v-model="form.mimeType"
-          placeholder="e.g., application/pdf"
+        <label for="doc-description" class="block text-sm font-semibold text-surface-900">
+          Description
+        </label>
+        <Textarea
+          id="doc-description"
+          v-model="form.description"
+          placeholder="Enter document description"
+          rows="3"
           class="w-full"
         />
       </div>
 
-      <!-- Status -->
+      <!-- Tags -->
       <div class="space-y-2">
+        <label for="doc-tags" class="block text-sm font-semibold text-surface-900">Tags</label>
+        <InputChips
+          id="doc-tags"
+          v-model="form.tags"
+          placeholder="Add tags (press Enter to add)"
+          class="w-full"
+        />
+        <small class="text-surface-500">Add tags to help organize and search for documents</small>
+      </div>
+
+      <!-- Status (only show when editing) -->
+      <div v-if="document?.id" class="space-y-2">
         <label for="doc-status" class="block text-sm font-semibold text-surface-900">Status</label>
         <Select
           id="doc-status"
@@ -147,11 +161,11 @@
         />
       </div>
 
-      <!-- Review Comments (only show if status is approved/rejected) -->
+      <!-- Review Comments (only show if editing and status is approved/rejected) -->
       <div v-if="document?.id && ['approved', 'rejected'].includes(form.status)" class="space-y-2">
-        <label for="doc-comments" class="block text-sm font-semibold text-surface-900"
-          >Review Comments</label
-        >
+        <label for="doc-comments" class="block text-sm font-semibold text-surface-900">
+          Review Comments
+        </label>
         <Textarea
           id="doc-comments"
           v-model="form.reviewComments"
@@ -161,29 +175,53 @@
         />
       </div>
 
-      <!-- Tags -->
-      <div class="space-y-2">
-        <label for="doc-tags" class="block text-sm font-semibold text-surface-900">Tags</label>
-        <InputText
-          id="doc-tags"
-          v-model="tagsInput"
-          placeholder="Enter tags separated by commas"
-          class="w-full"
-        />
-        <small class="text-surface-500"
-          >Separate tags with commas (e.g., structural, approved, final)</small
-        >
+      <!-- Approval Required Notice -->
+      <div
+        v-if="selectedCategoryConfig?.requiresApproval && !document?.id"
+        class="bg-yellow-50 border border-yellow-200 rounded-lg p-3"
+      >
+        <div class="flex items-start gap-2">
+          <i class="pi pi-info-circle text-yellow-600 mt-0.5"></i>
+          <div>
+            <p class="text-sm font-medium text-yellow-800">Approval Required</p>
+            <p class="text-sm text-yellow-700">
+              Documents in this category require approval before they become active.
+            </p>
+          </div>
+        </div>
       </div>
-    </form>
+
+      <!-- File Validation Warning -->
+      <div v-if="validationWarning" class="bg-red-50 border border-red-200 rounded-lg p-3">
+        <div class="flex items-start gap-2">
+          <i class="pi pi-exclamation-triangle text-red-600 mt-0.5"></i>
+          <div>
+            <p class="text-sm font-medium text-red-800">Invalid File</p>
+            <p class="text-sm text-red-700">{{ validationWarning }}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload Progress -->
+      <div v-if="uploading" class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <div class="flex items-center gap-3">
+          <ProgressSpinner style="width: 24px; height: 24px" strokeWidth="4" />
+          <div class="flex-1">
+            <p class="text-sm font-medium text-blue-800">{{ uploadStatus }}</p>
+            <ProgressBar v-if="uploadProgress > 0" :value="uploadProgress" class="mt-2" />
+          </div>
+        </div>
+      </div>
+    </div>
 
     <template #footer>
       <div class="flex justify-end gap-2">
-        <Button label="Cancel" severity="secondary" @click="closeModal" :disabled="loading" />
+        <Button label="Cancel" severity="secondary" @click="closeModal" :disabled="uploading" />
         <Button
           :label="document?.id ? 'Update' : 'Upload'"
           @click="handleSubmit"
-          :loading="loading"
-          :disabled="loading"
+          :loading="uploading"
+          :disabled="uploading || !canSubmit"
         />
       </div>
     </template>
@@ -195,15 +233,22 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import { useProjectStore } from '@/stores/project';
 import { storeToRefs } from 'pinia';
-import DocumentRepository from '@/services/firebase/Repositories/DocumentRepository';
+import {
+  uploadDocument as uploadDocumentApi,
+  updateDocument as updateDocumentApi,
+} from '@/services/api/documentsApi';
+import googleDriveService from '@/services/api/googleDriveService.js';
 import { DOCUMENT_CATEGORIES } from '@/constants/documentCategories';
+import { handleError } from '@/utils/errorHandler';
 
 import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
 import Select from 'primevue/select';
-import InputNumber from 'primevue/inputnumber';
+import InputChips from 'primevue/inputchips';
 import Button from 'primevue/button';
+import ProgressBar from 'primevue/progressbar';
+import ProgressSpinner from 'primevue/progressspinner';
 
 const props = defineProps({
   visible: {
@@ -227,9 +272,15 @@ const projectStore = useProjectStore();
 const { projects } = storeToRefs(projectStore);
 
 const loading = ref(false);
+const uploading = ref(false);
+const uploadProgress = ref(0);
+const uploadStatus = ref('');
 const errors = ref({});
 const windowWidth = ref(window.innerWidth);
-const tagsInput = ref('');
+const selectedFile = ref(null);
+const isDragging = ref(false);
+const fileInput = ref(null);
+const validationWarning = ref('');
 
 const isOpen = computed({
   get: () => props.visible,
@@ -268,6 +319,24 @@ const categoryOptions = computed(() => {
   }));
 });
 
+const selectedCategoryConfig = computed(() => {
+  return form.value.category ? DOCUMENT_CATEGORIES[form.value.category] : null;
+});
+
+const subfolderOptions = computed(() => {
+  if (!selectedCategoryConfig.value?.subfolders) return [];
+
+  return Object.entries(selectedCategoryConfig.value.subfolders).map(([key, label]) => ({
+    label,
+    value: key,
+  }));
+});
+
+const acceptedFileTypes = computed(() => {
+  if (!selectedCategoryConfig.value) return '*';
+  return selectedCategoryConfig.value.allowedTypes.join(',');
+});
+
 const statusOptions = [
   { label: 'Pending', value: 'pending' },
   { label: 'Approved', value: 'approved' },
@@ -280,14 +349,105 @@ const form = ref({
   description: '',
   projectId: '',
   category: '',
-  googleDriveFileId: '',
-  googleDriveLink: '',
-  fileSize: null,
-  mimeType: '',
+  subfolder: null,
+  tags: [],
   status: 'pending',
   reviewComments: '',
-  tags: [],
 });
+
+const canSubmit = computed(() => {
+  // For editing, just need valid data
+  if (props.document?.id) {
+    return form.value.name?.trim() && form.value.category && !uploading.value;
+  }
+
+  // For new upload, need file + valid data + no validation warnings
+  return (
+    selectedFile.value &&
+    form.value.name?.trim() &&
+    form.value.category &&
+    !validationWarning.value &&
+    !uploading.value
+  );
+});
+
+// Helper functions
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+const isValidFileType = (filename, category) => {
+  const config = DOCUMENT_CATEGORIES[category];
+  if (!config || !config.allowedTypes || config.allowedTypes.length === 0) return true;
+
+  const extension = '.' + filename.split('.').pop().toLowerCase();
+  return config.allowedTypes.includes(extension);
+};
+
+const getMaxFileSize = (category) => {
+  const config = DOCUMENT_CATEGORIES[category];
+  return config ? config.maxFileSize : 25 * 1024 * 1024; // Default 25MB
+};
+
+// Validate selected file
+const validateFile = (file) => {
+  validationWarning.value = '';
+
+  if (!file) return false;
+
+  // Check file type
+  if (form.value.category && !isValidFileType(file.name, form.value.category)) {
+    validationWarning.value = `File type not allowed for ${selectedCategoryConfig.value.label}`;
+    return false;
+  }
+
+  // Check file size
+  const maxSize = form.value.category ? getMaxFileSize(form.value.category) : 50 * 1024 * 1024;
+  if (file.size > maxSize) {
+    validationWarning.value = `File size (${formatFileSize(file.size)}) exceeds maximum allowed (${formatFileSize(maxSize)})`;
+    return false;
+  }
+
+  return true;
+};
+
+// Handle file selection
+const handleFileSelect = (event) => {
+  const file = event.target.files?.[0];
+  if (file) {
+    selectedFile.value = file;
+    if (!form.value.name) {
+      form.value.name = file.name;
+    }
+    validateFile(file);
+  }
+};
+
+// Handle drag and drop
+const handleDrop = (event) => {
+  event.preventDefault();
+  isDragging.value = false;
+
+  const file = event.dataTransfer.files?.[0];
+  if (file) {
+    selectedFile.value = file;
+    if (!form.value.name) {
+      form.value.name = file.name;
+    }
+    validateFile(file);
+
+    // Update file input
+    if (fileInput.value) {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      fileInput.value.files = dataTransfer.files;
+    }
+  }
+};
 
 // Load document data when editing
 async function loadDocumentData() {
@@ -297,15 +457,11 @@ async function loadDocumentData() {
       description: props.document.description || '',
       projectId: props.document.projectId || props.projectId || '',
       category: props.document.category || '',
-      googleDriveFileId: props.document.googleDriveFileId || '',
-      googleDriveLink: props.document.googleDriveLink || '',
-      fileSize: props.document.fileSize || null,
-      mimeType: props.document.mimeType || '',
+      subfolder: props.document.subfolder || null,
+      tags: props.document.tags || [],
       status: props.document.status || 'pending',
       reviewComments: props.document.reviewComments || '',
-      tags: props.document.tags || [],
     };
-    tagsInput.value = (props.document.tags || []).join(', ');
   } else {
     // New document - set defaults
     form.value = {
@@ -313,15 +469,13 @@ async function loadDocumentData() {
       description: '',
       projectId: props.projectId || '',
       category: '',
-      googleDriveFileId: '',
-      googleDriveLink: '',
-      fileSize: null,
-      mimeType: '',
+      subfolder: null,
+      tags: [],
       status: 'pending',
       reviewComments: '',
-      tags: [],
     };
-    tagsInput.value = '';
+    selectedFile.value = null;
+    validationWarning.value = '';
   }
 }
 
@@ -337,8 +491,12 @@ function validateForm() {
     errors.value.category = 'Category is required';
   }
 
-  if (!props.document?.id && !form.value.googleDriveFileId?.trim()) {
-    errors.value.googleDriveFileId = 'Google Drive File ID is required for new documents';
+  if (!form.value.projectId) {
+    errors.value.projectId = 'Project is required';
+  }
+
+  if (!props.document?.id && !selectedFile.value) {
+    errors.value.file = 'Please select a file to upload';
   }
 
   return Object.keys(errors.value).length === 0;
@@ -356,64 +514,133 @@ async function handleSubmit() {
     return;
   }
 
-  loading.value = true;
+  // If editing, just update metadata
+  if (props.document?.id) {
+    await updateDocument();
+  } else {
+    await uploadDocument();
+  }
+}
+
+// Upload new document
+async function uploadDocument() {
+  uploading.value = true;
+  uploadProgress.value = 0;
+  uploadStatus.value = 'Initializing Google Drive...';
 
   try {
-    // Parse tags from input
-    const tags = tagsInput.value
-      ? tagsInput.value
-          .split(',')
-          .map((tag) => tag.trim())
-          .filter((tag) => tag.length > 0)
-      : [];
-
-    const documentData = {
-      name: form.value.name.trim(),
-      description: form.value.description?.trim() || '',
-      projectId: form.value.projectId || null,
-      category: form.value.category,
-      googleDriveFileId: form.value.googleDriveFileId?.trim() || '',
-      googleDriveLink: form.value.googleDriveLink?.trim() || '',
-      fileSize: form.value.fileSize || null,
-      mimeType: form.value.mimeType?.trim() || '',
-      status: form.value.status || 'pending',
-      tags: tags,
-    };
-
-    // Add review comments if applicable
-    if (form.value.reviewComments?.trim()) {
-      documentData.reviewComments = form.value.reviewComments.trim();
+    // Initialize Google Drive if needed
+    if (!googleDriveService.isSignedIn()) {
+      uploadStatus.value = 'Signing in to Google Drive...';
+      await googleDriveService.signIn();
     }
 
-    let result;
-    if (props.document?.id) {
-      // Update existing document
-      result = await DocumentRepository.updateDocument(props.document.id, documentData);
-      toast.add({
-        severity: 'success',
-        summary: 'Success',
-        detail: 'Document updated successfully',
-        life: 3000,
-      });
-    } else {
-      // Create new document
-      result = await DocumentRepository.createDocument(documentData);
-      toast.add({
-        severity: 'success',
-        summary: 'Success',
-        detail: 'Document uploaded successfully',
-        life: 3000,
-      });
+    uploadProgress.value = 20;
+
+    // Upload to Google Drive
+    uploadStatus.value = `Uploading ${selectedFile.value.name} to Google Drive...`;
+    const driveFile = await googleDriveService.uploadDocument(
+      selectedFile.value,
+      null, // folder ID - can be implemented later
+      {
+        name: form.value.name,
+        description: form.value.description,
+      }
+    );
+
+    uploadProgress.value = 60;
+
+    // Create document record via backend API
+    uploadStatus.value = 'Creating document record...';
+
+    // Create FormData for document upload
+    const formData = new FormData();
+    formData.append('name', form.value.name.trim());
+    formData.append('description', form.value.description?.trim() || '');
+    formData.append('category', form.value.category);
+    formData.append('subfolder', form.value.subfolder || '');
+    formData.append('projectId', form.value.projectId);
+    formData.append('googleDriveFileId', driveFile.id);
+    formData.append('googleDriveLink', googleDriveService.getShareableLink(driveFile.id));
+    formData.append('mimeType', selectedFile.value.type);
+    formData.append('fileSize', selectedFile.value.size);
+    formData.append(
+      'status',
+      selectedCategoryConfig.value?.requiresApproval ? 'pending' : 'approved'
+    );
+
+    // Add tags as JSON array
+    if (form.value.tags && form.value.tags.length > 0) {
+      formData.append('tags', JSON.stringify(form.value.tags));
     }
+
+    const result = await uploadDocumentApi(formData);
+
+    uploadProgress.value = 100;
+    uploadStatus.value = 'Upload complete!';
+
+    toast.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Document uploaded successfully',
+      life: 3000,
+    });
 
     emit('document-saved', result);
     closeModal();
   } catch (error) {
-    console.error('Error saving document:', error);
+    console.error('Error uploading document:', error);
+    handleError(error, 'Upload document');
+    toast.add({
+      severity: 'error',
+      summary: 'Upload Failed',
+      detail: error.message || 'Failed to upload document',
+      life: 5000,
+    });
+  } finally {
+    uploading.value = false;
+    uploadProgress.value = 0;
+    uploadStatus.value = '';
+  }
+}
+
+// Update existing document metadata
+async function updateDocument() {
+  loading.value = true;
+
+  try {
+    const updates = {
+      name: form.value.name.trim(),
+      description: form.value.description?.trim() || '',
+      category: form.value.category,
+      subfolder: form.value.subfolder || null,
+      tags: form.value.tags || [],
+      status: form.value.status,
+    };
+
+    // Add review comments if applicable
+    if (form.value.reviewComments?.trim()) {
+      updates.reviewComments = form.value.reviewComments.trim();
+    }
+
+    const result = await updateDocumentApi(props.document.id, updates);
+
+    toast.add({
+      severity: 'success',
+      summary: 'Success',
+      detail: 'Document updated successfully',
+      life: 3000,
+    });
+
+    emit('document-saved', result);
+    closeModal();
+  } catch (error) {
+    console.error('Error updating document:', error);
+    handleError(error, 'Update document');
     toast.add({
       severity: 'error',
       summary: 'Error',
-      detail: error.message || 'Failed to save document',
+      detail: error.message || 'Failed to update document',
       life: 5000,
     });
   } finally {
@@ -423,9 +650,14 @@ async function handleSubmit() {
 
 // Close modal
 function closeModal() {
-  isOpen.value = false;
-  errors.value = {};
-  tagsInput.value = '';
+  if (!uploading.value) {
+    isOpen.value = false;
+    errors.value = {};
+    selectedFile.value = null;
+    validationWarning.value = '';
+    uploadProgress.value = 0;
+    uploadStatus.value = '';
+  }
 }
 
 // Handle window resize
@@ -440,8 +672,17 @@ watch(
     if (newVal) {
       loadDocumentData();
     }
-  },
-  { deep: true }
+  }
+);
+
+// Watch for category changes to re-validate file
+watch(
+  () => form.value.category,
+  () => {
+    if (selectedFile.value) {
+      validateFile(selectedFile.value);
+    }
+  }
 );
 
 // Lifecycle hooks
@@ -471,7 +712,8 @@ onUnmounted(() => {
 :deep(.p-select),
 :deep(.p-select-label),
 :deep(.p-inputnumber-input),
-:deep(.p-textarea) {
+:deep(.p-textarea),
+:deep(.p-inputchips) {
   font-size: 0.813rem;
   padding: 0.5rem;
 }
@@ -482,12 +724,17 @@ onUnmounted(() => {
   font-size: 0.813rem;
 }
 
+:deep(.p-chip) {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+
 label {
   margin-bottom: 0.25rem;
 }
 
-.space-y-3 > * + * {
-  margin-top: 0.75rem;
+.space-y-4 > * + * {
+  margin-top: 1rem;
 }
 
 .space-y-2 > * + * {

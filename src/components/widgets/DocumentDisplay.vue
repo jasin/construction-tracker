@@ -116,99 +116,99 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { Button, Select } from 'primevue'
-import DocumentGrid from './DocumentGrid.vue'
-import DocumentTable from './DocumentTable.vue'
-import { formatFileSize } from '@/utils/index'
+import { ref, computed, watch } from 'vue';
+import { Button, Select } from 'primevue';
+import DocumentGrid from './DocumentGrid.vue';
+import DocumentTable from './DocumentTable.vue';
+import { formatFileSize } from '@/utils/index';
 
 // Props
 const props = defineProps({
   // Required
   documents: {
     type: Array,
-    required: true
+    required: true,
   },
 
   // Display options
   showProject: {
     type: Boolean,
-    default: false
+    default: false,
   },
   showDescription: {
     type: Boolean,
-    default: true
+    default: true,
   },
   showTableDescription: {
     type: Boolean,
-    default: false
+    default: false,
   },
   showTags: {
     type: Boolean,
-    default: true
+    default: true,
   },
   showActions: {
     type: Boolean,
-    default: true
+    default: true,
   },
   showDriveLink: {
     type: Boolean,
-    default: true
+    default: true,
   },
   showFileExtension: {
     type: Boolean,
-    default: false
+    default: false,
   },
   showStats: {
     type: Boolean,
-    default: true
+    default: true,
   },
 
   // Configuration
   maxVisibleTags: {
     type: Number,
-    default: 3
+    default: 3,
   },
   defaultViewMode: {
     type: String,
     default: 'grid',
-    validator: (value) => ['grid', 'list'].includes(value)
+    validator: (value) => ['grid', 'list'].includes(value),
   },
 
   // Functionality
   selectable: {
     type: Boolean,
-    default: false
+    default: false,
   },
   sortable: {
     type: Boolean,
-    default: true
+    default: true,
   },
 
   // Selection
   selectedDocuments: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
 
   // Data mappings
   projects: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
 
   // Permission functions
   canEdit: {
     type: Function,
-    default: () => true
+    default: () => true,
   },
 
   // Initial sort
   initialSort: {
     type: String,
-    default: 'uploadedAt-desc'
-  }
-})
+    default: 'uploadedAt-desc',
+  },
+});
 
 // Emits
 const emit = defineEmits([
@@ -216,18 +216,18 @@ const emit = defineEmits([
   'document-action',
   'document-select',
   'select-all',
-  'view-mode-change'
-])
+  'view-mode-change',
+]);
 
 // Reactive state
-const viewMode = ref(props.defaultViewMode)
-const currentSort = ref(props.initialSort)
+const viewMode = ref(props.defaultViewMode);
+const currentSort = ref(props.initialSort);
 
 // Computed
 const [sortField, sortOrder] = computed(() => {
-  const [field, order] = currentSort.value.split('-')
-  return [field, order || 'asc']
-}).value
+  const [field, order] = currentSort.value.split('-');
+  return [field, order || 'asc'];
+}).value;
 
 const sortOptions = [
   { label: 'Upload Date (Newest)', value: 'uploadedAt-desc' },
@@ -237,94 +237,94 @@ const sortOptions = [
   { label: 'File Size (Largest)', value: 'fileSize-desc' },
   { label: 'File Size (Smallest)', value: 'fileSize-asc' },
   { label: 'Project', value: 'project-asc' },
-  { label: 'Category', value: 'category-asc' }
-]
+  { label: 'Category', value: 'category-asc' },
+];
 
 const totalSize = computed(() =>
   props.documents.reduce((sum, doc) => sum + (doc.fileSize || 0), 0)
-)
+);
 
 const sortedDocuments = computed(() => {
-  const docs = [...props.documents]
-  const [field, direction] = currentSort.value.split('-')
+  const docs = [...props.documents];
+  const [field, direction] = currentSort.value.split('-');
 
   docs.sort((a, b) => {
-    let aVal, bVal
+    let aVal, bVal;
 
     switch (field) {
       case 'name':
-        aVal = a.name?.toLowerCase() || ''
-        bVal = b.name?.toLowerCase() || ''
-        break
+        aVal = a.name?.toLowerCase() || '';
+        bVal = b.name?.toLowerCase() || '';
+        break;
       case 'uploadedAt':
-        aVal = new Date(a.uploadedAt || 0)
-        bVal = new Date(b.uploadedAt || 0)
-        break
+        aVal = new Date(a.uploadedAt || 0);
+        bVal = new Date(b.uploadedAt || 0);
+        break;
       case 'fileSize':
-        aVal = a.fileSize || 0
-        bVal = b.fileSize || 0
-        break
+        aVal = a.fileSize || 0;
+        bVal = b.fileSize || 0;
+        break;
       case 'project':
-        aVal = getProjectName(a.projectId) || ''
-        bVal = getProjectName(b.projectId) || ''
-        break
+        aVal = getProjectName(a.project_id) || '';
+        bVal = getProjectName(b.project_id) || '';
+        break;
       case 'category':
-        aVal = a.category || ''
-        bVal = b.category || ''
-        break
+        aVal = a.category || '';
+        bVal = b.category || '';
+        break;
       case 'status':
-        aVal = a.status || ''
-        bVal = b.status || ''
-        break
+        aVal = a.status || '';
+        bVal = b.status || '';
+        break;
       default:
-        return 0
+        return 0;
     }
 
-    if (aVal < bVal) return direction === 'asc' ? -1 : 1
-    if (aVal > bVal) return direction === 'asc' ? 1 : -1
-    return 0
-  })
+    if (aVal < bVal) return direction === 'asc' ? -1 : 1;
+    if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+    return 0;
+  });
 
-  return docs
-})
+  return docs;
+});
 
 // Helper functions
-const getProjectName = (projectId) => {
-  if (!props.showProject) return ''
+const getProjectName = (project_id) => {
+  if (!props.showProject) return '';
 
-  const project = props.projects.find(p => p.id === projectId)
-  return project ? `${project.jobNumber} - ${project.name}` : 'Unknown Project'
-}
+  const project = props.projects.find((p) => p.id === project_id);
+  return project ? `${project.job_number} - ${project.name}` : 'Unknown Project';
+};
 
 // Event handlers
 const handleDocumentClick = (document) => {
-  emit('document-click', document)
-}
+  emit('document-click', document);
+};
 
 const handleDocumentAction = (payload) => {
-  emit('document-action', payload)
-}
+  emit('document-action', payload);
+};
 
 const handleDocumentSelect = (document) => {
-  emit('document-select', document)
-}
+  emit('document-select', document);
+};
 
 const handleSelectAll = (selectAll) => {
-  emit('select-all', selectAll)
-}
+  emit('select-all', selectAll);
+};
 
 const handleSortChange = () => {
   // Sort change is handled through reactivity
-}
+};
 
 const handleTableSort = ({ field, order }) => {
-  currentSort.value = `${field}-${order}`
-}
+  currentSort.value = `${field}-${order}`;
+};
 
 // Watch for view mode changes
 watch(viewMode, (newMode) => {
-  emit('view-mode-change', newMode)
-})
+  emit('view-mode-change', newMode);
+});
 </script>
 
 <style scoped>

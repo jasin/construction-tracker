@@ -19,36 +19,22 @@
           v-for="rfi in rfis"
           :key="rfi.id"
           class="task-accordion-panel"
-          :class="[{ 'is-expanded': expandedRfiId === rfi.id }, getDueDateClass(rfi.dueDate)]"
-          @click="toggleExpanded(rfi.id)"
+          :class="[
+            { 'is-expanded': expandedRfiId === rfi.id },
+            { 'is-unread': isItemUnread(rfi) },
+            getDueDateClass(rfi.dueDate),
+          ]"
+          @click="toggleExpanded(rfi.id, rfi)"
         >
           <div class="task-accordion-header">
             <div class="task-row">
               <div class="task-title-area">
-                <span class="task-title">
-                  {{ rfi.title }}
-                </span>
-              </div>
-
-              <div class="task-actions" @click.stop>
-                <Button
-                  icon="pi pi-pencil"
-                  severity="secondary"
-                  text
-                  rounded
-                  size="small"
-                  @click="$emit('edit-rfi', rfi)"
-                  v-tooltip.top="'Edit RFI'"
-                />
-                <Button
-                  icon="pi pi-trash"
-                  severity="danger"
-                  text
-                  rounded
-                  size="small"
-                  @click="$emit('delete-rfi', rfi)"
-                  v-tooltip.top="'Delete RFI'"
-                />
+                <div class="flex items-center gap-2">
+                  <div v-if="isItemUnread(rfi)" class="unread-indicator" title="New"></div>
+                  <span class="task-title">
+                    {{ rfi.title }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -85,27 +71,6 @@
             <div class="task-description">
               {{ rfi.description }}
             </div>
-
-            <div class="task-expanded-actions">
-              <Button
-                icon="pi pi-pencil"
-                severity="secondary"
-                text
-                rounded
-                size="small"
-                @click.stop="$emit('edit-rfi', rfi)"
-                v-tooltip.top="'Edit RFI'"
-              />
-              <Button
-                icon="pi pi-trash"
-                severity="danger"
-                text
-                rounded
-                size="small"
-                @click.stop="$emit('delete-rfi', rfi)"
-                v-tooltip.top="'Delete RFI'"
-              />
-            </div>
           </div>
         </div>
       </div>
@@ -119,7 +84,7 @@ import Button from 'primevue/button';
 import Tag from 'primevue/tag';
 import ProgressSpinner from 'primevue/progressspinner';
 
-defineProps({
+const props = defineProps({
   rfis: {
     type: Array,
     default: () => [],
@@ -132,14 +97,34 @@ defineProps({
     type: String,
     default: 'RFIs',
   },
+  projectId: {
+    type: String,
+    required: false,
+  },
+  // Function to check if item is unread (passed from parent)
+  isItemUnread: {
+    type: Function,
+    default: () => false,
+  },
+  // Function to mark item as read (passed from parent)
+  onItemExpanded: {
+    type: Function,
+    default: () => {},
+  },
 });
 
-defineEmits(['create-rfi', 'rfi-click', 'edit-rfi', 'delete-rfi']);
+const emit = defineEmits(['create-rfi', 'rfi-click', 'edit-rfi', 'delete-rfi']);
 
 const expandedRfiId = ref(null);
 
-const toggleExpanded = (id) => {
-  expandedRfiId.value = expandedRfiId.value === id ? null : id;
+const toggleExpanded = (id, rfi) => {
+  const wasExpanded = expandedRfiId.value === id;
+  expandedRfiId.value = wasExpanded ? null : id;
+
+  // Mark as read when expanding for the first time
+  if (!wasExpanded && props.projectId && props.onItemExpanded) {
+    props.onItemExpanded(rfi);
+  }
 };
 
 const getPrioritySeverity = (priority) => {
@@ -252,6 +237,35 @@ const getDueDateClass = (dueDate) => {
   color: var(--p-surface-900);
   margin-bottom: 0.75rem;
   display: none; /* Hidden by default on desktop */
+}
+
+/* Unread indicator */
+.unread-indicator {
+  width: 8px;
+  height: 8px;
+  background: var(--p-blue-500);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Unread panel styling */
+.task-accordion-panel.is-unread {
+  background: var(--p-blue-50);
+}
+
+.task-accordion-panel.is-unread .task-title {
+  font-weight: 600;
 }
 
 /* Due date-based left border colors */

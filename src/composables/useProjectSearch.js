@@ -1,16 +1,6 @@
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { debounce } from 'lodash-es';
 import { useProjectStore } from '@/stores/project';
-import { database } from '@/configs/firebase'; // RTDB ref
-import {
-  query as dbQuery,
-  ref as dbRef,
-  orderByChild,
-  startAt,
-  endAt,
-  limitToFirst,
-  onValue,
-} from 'firebase/database';
 
 export function useProjectSearch({ groupByPhase = false, limit = 20 } = {}) {
   const store = useProjectStore();
@@ -18,7 +8,6 @@ export function useProjectSearch({ groupByPhase = false, limit = 20 } = {}) {
   const suggestions = ref([]);
   const loading = ref(false);
   const selected = ref(null);
-  let searchUnsubscribe = null;
 
   // Inline group by phase logic (if needed)
   const phaseToGroup = {
@@ -36,7 +25,7 @@ export function useProjectSearch({ groupByPhase = false, limit = 20 } = {}) {
       ? projectsList.filter(
           (p) =>
             p.name.toLowerCase().includes(lowerQuery) ||
-            (p.jobNumber || '').toLowerCase().includes(lowerQuery)
+            (p.job_number || '').toLowerCase().includes(lowerQuery)
         )
       : projectsList;
 
@@ -59,7 +48,7 @@ export function useProjectSearch({ groupByPhase = false, limit = 20 } = {}) {
     return groups;
   };
 
-  // Debounced search function using RTDB for real-time query
+  // Debounced search function using store's projects
   const debouncedSearch = debounce(async (q) => {
     if (!q || typeof q !== 'string') {
       console.log('Search guard: q not string, skipping', q);
@@ -68,9 +57,6 @@ export function useProjectSearch({ groupByPhase = false, limit = 20 } = {}) {
     }
     loading.value = true;
     try {
-      if (searchUnsubscribe) {
-        searchUnsubscribe();
-      }
       if (!q.trim()) {
         // Fallback to cached full list for empty query
         suggestions.value = store.projects.slice(0, limit);
@@ -81,30 +67,20 @@ export function useProjectSearch({ groupByPhase = false, limit = 20 } = {}) {
         return;
       }
 
-      const projectsRef = dbRef(database, 'projects');
-      const searchQuery = q.trim();
-      const start = searchQuery;
-      const end = searchQuery + '\uf8ff'; // For startsWith in RTDB
-      searchUnsubscribe = onValue(
-        dbQuery(projectsRef, orderByChild('name'), startAt(start), endAt(end), limitToFirst(limit)),
-        (snapshot) => {
-          const data = snapshot.val();
-          if (data) {
-            suggestions.value = Object.entries(data).map(([id, p]) => ({ id, ...p }));
-            if (groupByPhase) {
-              suggestions.value = groupProjectsByPhase(suggestions.value, q);
-            }
-          } else {
-            suggestions.value = [];
-          }
-          loading.value = false;
-        },
-        (err) => {
-          console.error('RTDB search failed:', err);
-          suggestions.value = [];
-          loading.value = false;
-        }
+      // Filter projects from store based on search query
+      const searchQuery = q.trim().toLowerCase();
+      const filtered = store.projects.filter(
+        (p) =>
+          p.name.toLowerCase().includes(searchQuery) ||
+          (p.job_number || '').toLowerCase().includes(searchQuery) ||
+          (p.client_name || '').toLowerCase().includes(searchQuery)
       );
+
+      suggestions.value = filtered.slice(0, limit);
+      if (groupByPhase) {
+        suggestions.value = groupProjectsByPhase(suggestions.value, q);
+      }
+      loading.value = false;
     } catch (err) {
       console.error('Search failed:', err);
       suggestions.value = [];
@@ -114,10 +90,6 @@ export function useProjectSearch({ groupByPhase = false, limit = 20 } = {}) {
   }, 300); // 300ms debounce
 
   const handleEmptyQuery = () => {
-    if (searchUnsubscribe) {
-      searchUnsubscribe();
-      searchUnsubscribe = null;
-    }
     loading.value = true;
     suggestions.value = store.projects.slice(0, limit);
     if (groupByPhase) {
@@ -146,18 +118,6 @@ export function useProjectSearch({ groupByPhase = false, limit = 20 } = {}) {
       debouncedSearch(newQuery);
     }
   });
-
-  // Cleanup on unmount or query clear
-  watch(
-    () => query.value,
-    (newQ) => {
-      if (!newQ && searchUnsubscribe) {
-        searchUnsubscribe();
-        searchUnsubscribe = null;
-      }
-    },
-    { immediate: true }
-  );
 
   // Select project function
   const selectProject = async (project) => {

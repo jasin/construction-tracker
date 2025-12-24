@@ -259,9 +259,10 @@ import {
   ProgressBar,
   ProgressSpinner,
 } from 'primevue';
-import firebaseService from '@/services/firebase/firebaseService';
-import googleDriveService from '@/services/api/googleDriveService';
+import { uploadDocument, updateDocument } from '@/services/api/documentsApi';
+import googleDriveService from '@/services/api/googleDriveService.js';
 import { DOCUMENT_CATEGORIES } from '@/constants/documentCategories';
+import { handleError } from '@/utils/errorHandler';
 
 // Props
 const props = defineProps({
@@ -515,44 +516,41 @@ const uploadFiles = async () => {
 
         uploadProgress.value[i] = 50;
 
-        // Create document record in Firebase
-        const documentData = {
-          name: file.name,
-          description: description.value,
-          category: selectedCategory.value,
-          subfolder: selectedSubfolder.value,
-          tags: tags.value,
-          projectId: props.projectId,
-
-          // Google Drive data
-          googleDriveFileId: driveFile.id,
-          googleDriveLink: googleDriveService.getShareableLink(driveFile.id),
-          mimeType: file.type,
-          fileSize: file.size,
-
-          // Status
-          status: selectedCategoryConfig.value?.requiresApproval ? 'pending' : 'approved',
-        };
-
         // Handle version updates
         if (isUpdate.value) {
-          const updatedDoc = await firebaseService.updateDocumentVersion(
-            props.existingDocument.id,
-            {
-              googleDriveFileId: driveFile.id,
-              googleDriveLink: googleDriveService.getShareableLink(driveFile.id),
-              fileSize: file.size,
-              mimeType: file.type,
-            },
-            {
-              description: description.value,
-              versionNotes: versionNotes.value,
-              tags: tags.value,
-            }
-          );
+          const updatedDoc = await updateDocument(props.existingDocument.id, {
+            googleDriveFileId: driveFile.id,
+            googleDriveLink: googleDriveService.getShareableLink(driveFile.id),
+            fileSize: file.size,
+            mimeType: file.type,
+            description: description.value,
+            versionNotes: versionNotes.value,
+            tags: tags.value,
+          });
           uploadedDocuments.push(updatedDoc);
         } else {
-          const newDoc = await firebaseService.createDocument(documentData);
+          // Create FormData for document upload
+          const formData = new FormData();
+          formData.append('name', file.name);
+          formData.append('description', description.value || '');
+          formData.append('category', selectedCategory.value);
+          formData.append('subfolder', selectedSubfolder.value || '');
+          formData.append('projectId', props.projectId);
+          formData.append('googleDriveFileId', driveFile.id);
+          formData.append('googleDriveLink', googleDriveService.getShareableLink(driveFile.id));
+          formData.append('mimeType', file.type);
+          formData.append('fileSize', file.size);
+          formData.append(
+            'status',
+            selectedCategoryConfig.value?.requiresApproval ? 'pending' : 'approved'
+          );
+
+          // Add tags as JSON array
+          if (tags.value && tags.value.length > 0) {
+            formData.append('tags', JSON.stringify(tags.value));
+          }
+
+          const newDoc = await uploadDocument(formData);
           uploadedDocuments.push(newDoc);
         }
 
@@ -560,6 +558,7 @@ const uploadFiles = async () => {
         uploadedCount.value++;
       } catch (fileError) {
         console.error(`Error uploading ${file.name}:`, fileError);
+        handleError(fileError, `Upload ${file.name}`);
         uploadProgress.value[i] = -1; // Error state
         throw new Error(`Failed to upload ${file.name}: ${fileError.message}`);
       }
@@ -581,6 +580,7 @@ const uploadFiles = async () => {
     }, 2000);
   } catch (err) {
     console.error('Upload error:', err);
+    handleError(err, 'Upload documents');
     error.value = err.message || 'Failed to upload documents';
   } finally {
     uploading.value = false;

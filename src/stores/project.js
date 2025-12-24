@@ -1,11 +1,15 @@
 // stores/project.js
 import { defineStore } from 'pinia';
 import { ref, computed, nextTick } from 'vue';
-import ProjectRepository from '@/services/firebase/Repositories/ProjectRepository';
+import {
+  getAllProjects,
+  getProjectById as getProjectByIdApi,
+  createProject as createProjectApi,
+  updateProject as updateProjectApi,
+  deleteProject as deleteProjectApi,
+} from '@/services/api/projectsApi';
 import { handleError } from '../utils/errorHandler';
-import { ref as dbRef, onValue, get } from 'firebase/database';
-import firebaseCore from '@/services/firebase/core/FirebaseCore';
-import ActivityService from '@/services/logging/ActivityService.js';
+import { supabase } from '@/configs/supabase';
 import router from '@/router';
 import { useUIStore } from '@/stores/ui';
 
@@ -30,8 +34,8 @@ export const useProjectStore = defineStore('project', () => {
   // Getters - Single Project (existing)
   const projectTeam = computed(() => {
     return [
-      currentProject.value.projectManager && {
-        name: currentProject.value.projectManager,
+      currentProject.value.project_manager && {
+        name: currentProject.value.project_manager,
         role: 'Project Manager',
         icon: 'pi-user',
         color: 'blue',
@@ -54,10 +58,10 @@ export const useProjectStore = defineStore('project', () => {
   const projectStatus = computed(() => {
     return {
       phase: currentProject.value.phase,
-      contractSigned: currentProject.value.contractSigned,
+      contract_signed: currentProject.value.contract_signed,
       cost: currentProject.value.cost,
-      startDate: currentProject.value.startDate,
-      endDate: currentProject.value.endDate,
+      start_date: currentProject.value.start_date,
+      end_date: currentProject.value.end_date,
     };
   });
 
@@ -100,8 +104,8 @@ export const useProjectStore = defineStore('project', () => {
 
     let projectData;
     try {
-      projectData = await ProjectRepository.getProject(projectId);
-      console.log('Repository getProject result for', projectId, ':', projectData);
+      projectData = await getProjectByIdApi(projectId);
+      console.log('API getProjectById result for', projectId, ':', projectData);
       if (projectData) {
         currentProject.value = projectData;
         currentProject.value.loadedFully = true;
@@ -128,16 +132,32 @@ export const useProjectStore = defineStore('project', () => {
   }
 
   function subscribeToProject(projectId) {
-    const unsubscribe = ProjectRepository.subscribeToProject(projectId, (projectData) => {
-      if (projectData) {
-        projectData.loadedFully = true;
-        currentProject.value = projectData;
-        console.log(
-          'Subscription updated currentProject, loadedFully:',
-          currentProject.value.loadedFully
-        );
-      }
-    });
+    // Subscribe to single project changes via Supabase
+    const channel = supabase
+      .channel(`project-${projectId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'projects',
+          filter: `id=eq.${projectId}`,
+        },
+        (payload) => {
+          console.log('📡 Project update received:', payload);
+          if (payload.new) {
+            payload.new.loadedFully = true;
+            currentProject.value = payload.new;
+            console.log('Subscription updated currentProject');
+          }
+        }
+      )
+      .subscribe();
+
+    const unsubscribe = () => {
+      supabase.removeChannel(channel);
+    };
+
     subscriptions.value.push(unsubscribe);
     return unsubscribe;
   }
@@ -285,17 +305,8 @@ export const useProjectStore = defineStore('project', () => {
         await router.push(targetPath);
       }
 
-      // Log the selection event via ActivityService.logActivity (direct call, non-blocking)
-      const description = `Selected project: ${active.name}`;
-      await ActivityService.logActivity(
-        active.id, // projectId
-        'project_selected', // action
-        'project', // entityType
-        active.id, // entityId
-        description, // description
-        { projectName: active.name } // additionalData
-      );
-      console.log('📋 Logged project selection:', active.name);
+      // Activity logging is now handled by backend automatically
+      console.log('📋 Project selected:', active.name);
 
       return true; // Success
     } catch (err) {
@@ -348,15 +359,8 @@ export const useProjectStore = defineStore('project', () => {
         await router.push('/');
       }
 
-      // Log the deselection
-      await ActivityService.logActivity(
-        null,
-        'project_deselected',
-        'project',
-        null,
-        'Returned to dashboard',
-        {}
-      );
+      // Activity logging is now handled by backend automatically
+      console.log('📋 Project deselected - returned to dashboard');
 
       // Clear justReset flag after a short delay to allow router to process
       setTimeout(() => {
@@ -377,41 +381,68 @@ export const useProjectStore = defineStore('project', () => {
   }
 
   // Actions - All Projects (existing) - unchanged from previous
-  function initializeProjectsSubscription() {
+  async function initializeProjectsSubscription() {
     if (allProjectsUnsubscribe) {
       console.log('⚠️ Projects subscription already active');
       return;
     }
 
-    console.log('🔥 Initializing all projects subscription in store');
+    console.log('🔥 Initializing projects from API with Supabase real-time');
 
-    const projectsRef = dbRef(firebaseCore.database, 'projects');
-    allProjectsUnsubscribe = onValue(
-      projectsRef,
-      (snap) => {
-        console.log(
-          '📦 Store received projects update from RTDB:',
-          snap.exists() ? Object.keys(snap.val() || {}).length : 0
-        );
-        if (snap.exists()) {
-          const updatedProjects = Object.entries(snap.val()).map(([id, p]) => ({ id, ...p }));
-          projects.value = updatedProjects;
-          console.log('📦 Store projects updated:', projects.value.length, 'projects');
-        } else {
-          projects.value = [];
-        }
-        projectsLoading.value = false;
-        projectsInitialized.value = true;
-      },
-      (error) => {
-        console.error('🚨 Store subscription error:', error);
-        projectsLoading.value = false;
-        handleError(error, 'Projects subscription error');
-        setTimeout(initializeProjectsSubscription, 5000);
-      }
-    );
+    try {
+      // Initial load from API
+      projectsLoading.value = true;
+      const projectsData = await getAllProjects();
+      projects.value = projectsData;
+      console.log('📦 Initial projects loaded:', projects.value.length, 'projects');
+      projectsLoading.value = false;
+      projectsInitialized.value = true;
 
-    console.log('✅ RTDB subscription started - unsubscribe:', typeof allProjectsUnsubscribe);
+      // Subscribe to real-time changes via Supabase
+      const channel = supabase
+        .channel('projects-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'projects',
+          },
+          async (payload) => {
+            console.log('📡 Supabase project change:', payload.eventType, payload);
+
+            if (payload.eventType === 'INSERT') {
+              // Add new project
+              projects.value.push(payload.new);
+            } else if (payload.eventType === 'UPDATE') {
+              // Update existing project
+              const index = projects.value.findIndex((p) => p.id === payload.new.id);
+              if (index !== -1) {
+                projects.value[index] = payload.new;
+              }
+            } else if (payload.eventType === 'DELETE') {
+              // Remove deleted project
+              projects.value = projects.value.filter((p) => p.id !== payload.old.id);
+            }
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Subscribed to projects real-time updates');
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('❌ Error subscribing to projects');
+          }
+        });
+
+      // Store unsubscribe function
+      allProjectsUnsubscribe = () => {
+        supabase.removeChannel(channel);
+      };
+    } catch (error) {
+      console.error('🚨 Error initializing projects:', error);
+      projectsLoading.value = false;
+      handleError(error, 'Projects initialization error');
+    }
   }
 
   function cleanupProjectsSubscription() {
@@ -434,33 +465,23 @@ export const useProjectStore = defineStore('project', () => {
     return projects.value.filter(
       (p) =>
         p.name.toLowerCase().includes(lowerQuery) ||
-        (p.jobNumber || '').toLowerCase().includes(lowerQuery) ||
-        (p.clientName || '').toLowerCase().includes(lowerQuery)
+        (p.job_number || '').toLowerCase().includes(lowerQuery) ||
+        (p.client_name || '').toLowerCase().includes(lowerQuery)
     );
   }
 
   async function createAndLogProject(projectData) {
     try {
-      const result = await ProjectRepository.createProject(projectData);
+      const result = await createProjectApi(projectData);
       if (result && result.id) {
-        await ActivityService.logEntityCreated(result.id, 'project', result.id, result.name);
-        console.log('Project created and logged:', result.id);
+        // Backend automatically logs entity creation
+        console.log('Project created:', result.id);
 
+        // Real-time subscription will automatically add the new project
+        // No need for manual refresh
         if (!projectsInitialized.value) {
           console.log('🆕 Projects not initialized post-creation - forcing init');
-          initializeProjectsSubscription();
-        } else {
-          // ADD: Manual trigger to force subscription snapshot (safe no-op if up-to-date)
-          const projectsRef = dbRef(firebaseCore.database, 'projects');
-          get(projectsRef)
-            .then((snap) => {
-              console.log('🔄 Manual post-creation refresh triggered');
-              if (snap.exists()) {
-                const updatedProjects = Object.entries(snap.val()).map(([id, p]) => ({ id, ...p }));
-                projects.value = updatedProjects;
-              }
-            })
-            .catch((error) => console.error('Manula refresh failed:', error));
+          await initializeProjectsSubscription();
         }
 
         return result;
@@ -482,9 +503,7 @@ export const useProjectStore = defineStore('project', () => {
     }
 
     try {
-      await ProjectRepository.updateProject(id, updates);
-
-      const updatedProject = await ProjectRepository.getProject(id);
+      const updatedProject = await updateProjectApi(id, updates);
       if (!updatedProject) {
         console.warn('Update succeeded but project not retrievable');
         return null;
@@ -493,35 +512,13 @@ export const useProjectStore = defineStore('project', () => {
       const changeKeys = Object.keys(updates);
       const changes = changeKeys.length > 0 ? changeKeys.join(', ') : 'General update';
 
-      await ActivityService.logEntityUpdated(
-        id,
-        'project',
-        id,
-        updatedProject.name,
-        { changedFields: changes },
-        { oldValues: {} }
-      );
+      // Backend automatically logs entity updates
+      console.log('Project updated:', id, 'Changes:', changes);
 
-      console.log('Project updated and logged:', id, 'Changes:', changes);
-
+      // Real-time subscription will automatically update the project
       if (!projectsInitialized.value) {
         console.log('🆕 Projects not initialized post-update - forcing init');
-        initializeProjectsSubscription();
-      } else {
-        // ADD: Manual trigger to force subscription snapshot (safe, no-op if up-to-date)
-        const projectsRef = dbRef(firebaseCore.database, 'projects');
-        get(projectsRef)
-          .then((snap) => {
-            console.log('🔄 Manual post-update refresh triggered');
-            if (snap.exists()) {
-              const updatedProjects = Object.entries(snap.val()).map(([pid, p]) => ({
-                id: pid,
-                ...p,
-              }));
-              projects.value = updatedProjects; // Direct set for immediate reactivity
-            }
-          })
-          .catch((err) => console.error('Manual refresh failed:', err));
+        await initializeProjectsSubscription();
       }
 
       return updatedProject;

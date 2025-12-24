@@ -117,20 +117,11 @@ export function requirePermission(permission) {
  * @param {Object} from - Current route.
  * @param {Function} next - Next function to proceed or redirect.
  */
-export function redirectIfAuthenticated(to, from, next) {
+export async function redirectIfAuthenticated(to, from, next) {
   const authStore = useAuthStore();
 
-  // Optional quick wait (non-blocking for /login during init)
-  if (authStore.loading) {
-    authStore.initAuth().finally(() => {
-      if (authStore.isAuthenticated) {
-        next('/');
-      } else {
-        next();
-      }
-    });
-    return; // Don't block; async resolve
-  }
+  // Wait for auth to be ready
+  await waitForAuth(authStore);
 
   if (authStore.isAuthenticated) {
     console.log('Guard: Authenticated on public route, redirecting to dashboard'); // Debug

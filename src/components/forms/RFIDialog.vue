@@ -137,8 +137,9 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useToast } from 'primevue/usetoast';
 import { useProjectStore } from '@/stores/project';
 import { storeToRefs } from 'pinia';
-import RFIRepository from '@/services/firebase/Repositories/RFIRepository';
-import UserRepository from '@/services/firebase/Repositories/UserRepository';
+import { createRFI, updateRFI } from '@/services/api/rfisApi';
+import { getActiveUsers } from '@/services/api/usersApi';
+import { handleError } from '@/utils/errorHandler';
 import { RFI_STATUS_OPTIONS } from '@/constants/rfiConstants';
 
 import Dialog from 'primevue/dialog';
@@ -226,8 +227,7 @@ const form = ref({
 // Load users
 async function loadUsers() {
   try {
-    const allUsers = await UserRepository.getAll();
-    users.value = allUsers.filter((user) => user.active !== false);
+    users.value = await getActiveUsers();
   } catch (error) {
     console.error('Error loading users:', error);
   }
@@ -305,7 +305,7 @@ async function handleSubmit() {
     let result;
     if (props.rfi?.id) {
       // Update existing RFI
-      result = await RFIRepository.updateRFI(props.rfi.id, rfiData);
+      result = await updateRFI(props.rfi.id, rfiData);
       toast.add({
         severity: 'success',
         summary: 'Success',
@@ -314,7 +314,7 @@ async function handleSubmit() {
       });
     } else {
       // Create new RFI
-      result = await RFIRepository.createRFI(rfiData);
+      result = await createRFI(rfiData);
       toast.add({
         severity: 'success',
         summary: 'Success',
@@ -327,6 +327,7 @@ async function handleSubmit() {
     closeModal();
   } catch (error) {
     console.error('Error saving RFI:', error);
+    handleError(error, 'Save RFI');
     toast.add({
       severity: 'error',
       summary: 'Error',

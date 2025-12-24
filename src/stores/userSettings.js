@@ -2,8 +2,9 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { useAuthStore } from './auth';
-import { database } from '@/configs/firebase';
-import { ref as dbRef, set, get } from 'firebase/database';
+// TEMP: Disabled Firebase - will use localStorage instead
+// import { database } from '@/configs/firebase';
+// import { ref as dbRef, set, get } from 'firebase/database';
 
 /**
  * User Settings Store
@@ -44,7 +45,7 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
   // Actions
 
   /**
-   * Load user settings from Firebase RTDB
+   * Load user settings from localStorage (TEMP: was Firebase RTDB)
    */
   const loadSettings = async () => {
     try {
@@ -57,11 +58,11 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
         return;
       }
 
-      const userRef = dbRef(database, `users/${userId}/settings`);
-      const snapshot = await get(userRef);
+      // Load from localStorage instead of Firebase
+      const stored = localStorage.getItem(`user_settings_${userId}`);
 
-      if (snapshot.exists()) {
-        const loaded = snapshot.val();
+      if (stored) {
+        const loaded = JSON.parse(stored);
 
         // Merge with defaults to ensure all properties exist
         settings.value = {
@@ -74,7 +75,7 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
         };
       } else {
         settings.value = { ...defaultSettings };
-        // Save defaults to Firebase
+        // Save defaults
         saveSettings();
       }
     } catch (err) {
@@ -87,7 +88,7 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
   };
 
   /**
-   * Save user settings to Firebase RTDB
+   * Save user settings to localStorage (TEMP: was Firebase RTDB)
    */
   const saveSettings = async () => {
     try {
@@ -96,8 +97,8 @@ export const useUserSettingsStore = defineStore('userSettings', () => {
         throw new Error('User not authenticated');
       }
 
-      const userRef = dbRef(database, `users/${userId}/settings`);
-      await set(userRef, settings.value);
+      // Save to localStorage instead of Firebase
+      localStorage.setItem(`user_settings_${userId}`, JSON.stringify(settings.value));
     } catch (err) {
       console.error('Error saving user settings:', err);
       error.value = 'Failed to save settings';

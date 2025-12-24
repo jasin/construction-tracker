@@ -22,6 +22,9 @@ export const useUIStore = defineStore('ui', () => {
   // Track project dialog mode: 'create' or 'edit'
   const projectDialogMode = ref('create');
 
+  // Track selected task for task dialog
+  const selectedTask = ref(null);
+
   // Dashboard preferences
   const dashboardColumns = ref(parseInt(localStorage.getItem('dashboardColumns')) || 4); // Desktop: 1, 2, 3, or 4 columns
   const taskListColumns = ref(parseInt(localStorage.getItem('taskListColumns')) || 1); // Desktop: 1, 2, 3, or 4 columns for TaskList
@@ -73,6 +76,11 @@ export const useUIStore = defineStore('ui', () => {
       if (modalName === 'projectDialog') {
         projectDialogMode.value = options.mode || 'create';
       }
+
+      // Handle task dialog options
+      if (modalName === 'taskDialog') {
+        selectedTask.value = options.task || null;
+      }
     } else {
       console.warn('uiStore: Unknown modal type:', modalName);
     }
@@ -85,6 +93,11 @@ export const useUIStore = defineStore('ui', () => {
       // Reset project dialog mode when closing
       if (modalName === 'projectDialog') {
         projectDialogMode.value = 'create';
+      }
+
+      // Reset selected task when closing
+      if (modalName === 'taskDialog') {
+        selectedTask.value = null;
       }
     }
   }
@@ -124,6 +137,7 @@ export const useUIStore = defineStore('ui', () => {
     sidebarOpen,
     modals,
     projectDialogMode,
+    selectedTask,
     dashboardColumns,
     taskListColumns,
     mobileActiveSection,

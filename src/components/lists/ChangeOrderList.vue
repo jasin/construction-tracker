@@ -24,7 +24,7 @@
             { 'is-expanded': expandedChangeOrderId === changeOrder.id },
             getStatusClass(changeOrder.status),
           ]"
-          @click="toggleExpanded(changeOrder.id)"
+          @click="toggleExpanded(changeOrder.id, changeOrder)"
         >
           <div class="task-accordion-header">
             <div class="task-row">
@@ -32,27 +32,6 @@
                 <span class="task-title">
                   {{ changeOrder.title }}
                 </span>
-              </div>
-
-              <div class="task-actions" @click.stop>
-                <Button
-                  icon="pi pi-pencil"
-                  severity="secondary"
-                  text
-                  rounded
-                  size="small"
-                  @click="$emit('edit-change-order', changeOrder)"
-                  v-tooltip.top="'Edit Change Order'"
-                />
-                <Button
-                  icon="pi pi-trash"
-                  severity="danger"
-                  text
-                  rounded
-                  size="small"
-                  @click="$emit('delete-change-order', changeOrder)"
-                  v-tooltip.top="'Delete Change Order'"
-                />
               </div>
             </div>
           </div>
@@ -112,27 +91,6 @@
             <div v-if="changeOrder.description" class="task-description">
               {{ changeOrder.description }}
             </div>
-
-            <div class="task-expanded-actions">
-              <Button
-                icon="pi pi-pencil"
-                severity="secondary"
-                text
-                rounded
-                size="small"
-                @click.stop="$emit('edit-change-order', changeOrder)"
-                v-tooltip.top="'Edit Change Order'"
-              />
-              <Button
-                icon="pi pi-trash"
-                severity="danger"
-                text
-                rounded
-                size="small"
-                @click.stop="$emit('delete-change-order', changeOrder)"
-                v-tooltip.top="'Delete Change Order'"
-              />
-            </div>
           </div>
         </div>
       </div>
@@ -159,6 +117,14 @@ const props = defineProps({
     type: String,
     default: 'Change Orders',
   },
+  projectId: {
+    type: String,
+    required: false,
+  },
+  onItemExpanded: {
+    type: Function,
+    default: () => {},
+  },
 });
 
 defineEmits([
@@ -170,8 +136,14 @@ defineEmits([
 
 const expandedChangeOrderId = ref(null);
 
-const toggleExpanded = (id) => {
-  expandedChangeOrderId.value = expandedChangeOrderId.value === id ? null : id;
+const toggleExpanded = (id, changeOrder) => {
+  const wasExpanded = expandedChangeOrderId.value === id;
+  expandedChangeOrderId.value = wasExpanded ? null : id;
+
+  // Call handler when expanding (not collapsing)
+  if (!wasExpanded && props.projectId && props.onItemExpanded) {
+    props.onItemExpanded(changeOrder);
+  }
 };
 
 const getStatusSeverity = (status) => {

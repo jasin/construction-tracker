@@ -98,7 +98,8 @@ import Dialog from 'primevue/dialog';
 import InputText from 'primevue/inputtext';
 import Textarea from 'primevue/textarea';
 import Button from 'primevue/button';
-import ClientRepository from '@/services/firebase/Repositories/ClientRepository';
+import { createClient, updateClient } from '@/services/api/clientsApi';
+import { handleError } from '@/utils/errorHandler';
 
 // Props
 const props = defineProps({
@@ -228,17 +229,16 @@ const handleSubmit = async () => {
       updatedAt: new Date().toISOString(),
     };
 
-    let updatedClient;
+    let savedClient;
 
     if (props.client?.id) {
-      await ClientRepository.updateClient(props.client.id, clientData);
+      savedClient = await updateClient(props.client.id, clientData);
       success.value = 'Client updated successfully';
-      updatedClient = { id: props.client.id, ...clientData };
-      emit('client-updated', updatedClient);
+      emit('client-updated', savedClient);
     } else {
-      updatedClient = await ClientRepository.createClient(clientData);
+      savedClient = await createClient(clientData);
       success.value = 'Client created successfully';
-      emit('client-created', updatedClient);
+      emit('client-created', savedClient);
     }
 
     // Close modal after a brief delay
@@ -248,6 +248,7 @@ const handleSubmit = async () => {
   } catch (err) {
     console.error('Error saving client:', err);
     error.value = err.message || 'Failed to save client';
+    handleError(err, 'Save client');
   } finally {
     loading.value = false;
   }
